@@ -1,0 +1,21 @@
+/* src/style.css */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #34444e;
+  font-family: 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
+  min-height: 100vh;
+  width: 100%;
+}
+
+#app {
+  width: 100%;
+  min-height: 100vh;
+  background-color: #34444e;
+}
