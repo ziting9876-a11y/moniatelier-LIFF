@@ -16,8 +16,26 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 允許跨域呼叫
-app.use(cors());
+// 🎯【修正 1】設定 CORS 允許前端 Vercel 網址與本地測試呼叫
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://moniatelier-liff-8pop.vercel.app', // 你的 Vercel 正式網址
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // 允許無 origin 的請求 (例如 Postman 或某些移動端 LIFF 瀏覽器)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
+      return callback(null, true);
+    } else {
+      return callback(null, true); // 正式上線測試時，亦可先保持開放放行
+    }
+  },
+  credentials: true
+}));
 
 // 連接 MongoDB 資料庫
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/moni_atelier';
@@ -25,8 +43,10 @@ mongoose.connect(MONGODB_URI)
   .then(() => console.log('🍃 MongoDB 資料庫連線成功'))
   .catch(err => console.error('❌ MongoDB 資料庫連線失敗:', err));
 
-// 🎯 網址與金流環境變數設定 (優先使用 .env 中的 BASE_URL)
-const BASE_URL = process.env.BASE_URL || process.env.FRONTEND_URL || 'https://cathedral-recycling-reaction.ngrok-free.dev';
+// 🎯【修正 2】網址設定：優先抓取的 FRONTEND_URL 設為 Vercel 網址
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://moniatelier-liff-8pop.vercel.app';
+const BASE_URL = process.env.BASE_URL || process.env.RENDER_EXTERNAL_URL || 'https://moni-atelier-backend.onrender.com';
+
 const NEWEBPAY_MERCHANT_ID = process.env.NEWEB_MERCHANT_ID || process.env.NEWEBPAY_MERCHANT_ID;
 const NEWEBPAY_HASH_KEY = process.env.NEWEB_HASH_KEY || process.env.NEWEBPAY_HASH_KEY;
 const NEWEBPAY_HASH_IV = process.env.NEWEB_HASH_IV || process.env.NEWEBPAY_HASH_IV;
@@ -65,6 +85,11 @@ function decryptAes(encryptedHex) {
 
   return JSON.parse(decrypted);
 }
+
+// 測試根路由 (讓你看 Render 是否活著)
+app.get('/', (req, res) => {
+  res.send('🌸 墨凝花室 (MONI Atelier) 後端伺服器運作中！');
+});
 
 // --- API 路由：建立藍新交易訂單 ---
 app.post(['/api/payment/create', '/api/checkout', '/api/orders'], async (req, res) => {
@@ -107,7 +132,7 @@ app.post(['/api/payment/create', '/api/checkout', '/api/orders'], async (req, re
     await newOrder.save();
     console.log(`📝 訂單已建立 (PENDING)：${orderId}`);
 
-    // 🎯 2. 組裝藍新加密參數 (使用 BASE_URL 替換 localhost)
+    // 🎯 2. 組裝藍新加密參數
     const returnUrl = `${BASE_URL}/api/payment/return`;
     const notifyUrl = `${BASE_URL}/api/payment/notify`;
     console.log(`👉 [設定檢查] ReturnURL 設為: ${returnUrl}`);
@@ -123,7 +148,7 @@ app.post(['/api/payment/create', '/api/checkout', '/api/orders'], async (req, re
       Email: email || payer?.email || '',
       LoginType: 0,
       ReturnURL: returnUrl, 
-      ClientBackURL: returnUrl, 
+      ClientBackURL: FRONTEND_URL, 
       NotifyURL: notifyUrl,
       OrderComment: `希望送達日期：${deliveryDate} | 取件方式：${deliveryMethod}`
     };
@@ -147,7 +172,7 @@ app.post(['/api/payment/create', '/api/checkout', '/api/orders'], async (req, re
   }
 });
 
-// --- API 路由：接收藍新前端 ReturnURL 轉址並導回 Vue ---
+// --- API 路由：接收藍新前端 ReturnURL 轉址並導回 Vue 前端 ---
 app.post('/api/payment/return', async (req, res) => {
   console.log('🔔 收到藍新 ReturnURL 轉址觸發！');
   try {
@@ -175,7 +200,7 @@ app.post('/api/payment/return', async (req, res) => {
           sendOrderConfirmation(updatedOrder);
         }
 
-        const targetUrl = `${BASE_URL}/payment-result?orderNo=${merchantOrderNo}&status=success`;
+        const targetUrl = `${FRONTEND_URL}/payment-result?orderNo=${merchantOrderNo}&status=success`;
         console.log(`🚀 重定向至前端結果頁面: ${targetUrl}`);
         return res.redirect(targetUrl);
       } else {
@@ -187,10 +212,10 @@ app.post('/api/payment/return', async (req, res) => {
         }
       }
     }
-    return res.redirect(`${BASE_URL}/payment-result?status=failed`);
+    return res.redirect(`${FRONTEND_URL}/payment-result?status=failed`);
   } catch (error) {
     console.error('ReturnURL 轉址處理失敗:', error);
-    return res.redirect(`${BASE_URL}/payment-result?status=error`);
+    return res.redirect(`${FRONTEND_URL}/payment-result?status=error`);
   }
 });
 
@@ -229,7 +254,7 @@ app.post('/api/payment/notify', async (req, res) => {
         sendOrderConfirmation(updatedOrder);
       }
 
-      console.log(`✅ [背景通知] 訂單 ${orderData.MerchantOrderNo} 付款成功！金流單號：${orderData.TradeNo}`);
+        console.log(`✅ [背景通知] 訂單 ${orderData.MerchantOrderNo} 付款成功！金流單號：${orderData.TradeNo}`);
     } else {
       if (result.Result && result.Result.MerchantOrderNo) {
         await Order.findOneAndUpdate(
