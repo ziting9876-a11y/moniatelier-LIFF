@@ -1,6 +1,36 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 // 引入品牌 Logo
 import logoImg from './assets/logo.png'
+
+const router = useRouter()
+const route = useRoute()
+
+onMounted(() => {
+  // 取得網址上的 query 參數
+  const urlParams = new URLSearchParams(window.location.search)
+  const status = urlParams.get('status')
+  const orderNo = urlParams.get('orderNo')
+
+  if (status === 'success') {
+    // 1. 清空前端購物車 (若有使用 localStorage 或依專案邏輯調整)
+    localStorage.removeItem('cart')
+    localStorage.removeItem('moni_cart')
+    
+    // 2. 觸發自訂事件或全域通知 (讓其他元件收到購物車已清空的通知)
+    window.dispatchEvent(new Event('cart-updated'))
+
+    // 3. 提示使用者付款成功
+    alert(`🌸 感謝您的訂購！付款已成功完成。\n訂單編號：${orderNo || ''}`)
+
+    // 4. 清除 URL 上的 status 與 orderNo 參數，保持網址乾淨
+    router.replace({ path: route.path, query: {} })
+  } else if (status === 'failed' || status === 'error') {
+    alert('❌ 付款流程未完成或發生錯誤，請重新嘗試。')
+    router.replace({ path: route.path, query: {} })
+  }
+})
 </script>
 
 <template>

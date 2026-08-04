@@ -1,22 +1,21 @@
 import nodemailer from 'nodemailer'
+import dns from 'dns'
 
-// 🎯 解析 Port，若環境變數為 465 則強制修正為 587 (避免 Render 的 465 SSL 被封鎖/連線逾時)
-const envPort = Number(process.env.SMTP_PORT)
-const targetPort = (envPort && envPort !== 465) ? envPort : 587
+// 🎯 設定全局 DNS 解析優先使用 IPv4 (解決 Render 主機對外連線 ENETUNREACH 的關鍵)
+dns.setDefaultResultOrder('ipv4first')
 
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: targetPort,
-  secure: false, // Port 587 搭配 secure: false + STARTTLS 最佳化連線
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false, // 587 搭配 STARTTLS
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS
   },
-  family: 4, // ⭕ 強制使用 IPv4，解決 Render 伺服器走 IPv6 時發生的 ENETUNREACH 錯誤
+  family: 4, // 強制使用 IPv4
   tls: {
     rejectUnauthorized: false
   },
-  // 🎯 設定 10 秒連線超時，避免背景發信卡死 Render 流程
   connectionTimeout: 10000,
   greetingTimeout: 10000
 })
@@ -59,5 +58,4 @@ async function sendOrderConfirmation(order) {
   }
 }
 
-// 🎯 具名匯出語法
 export { sendOrderConfirmation }
