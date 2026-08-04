@@ -1,17 +1,24 @@
 import nodemailer from 'nodemailer'
 
+// 🎯 解析 Port，若環境變數為 465 則強制修正為 587 (避免 Render 的 465 SSL 被封鎖/連線逾時)
+const envPort = Number(process.env.SMTP_PORT)
+const targetPort = (envPort && envPort !== 465) ? envPort : 587
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: false, // 587 埠號搭配 STARTTLS，避免 Render 連線被封鎖
+  port: targetPort,
+  secure: false, // Port 587 搭配 secure: false + STARTTLS 最佳化連線
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS
   },
-  family: 4, // ⭕ 強制使用 IPv4，解決 Render 環境 IPv6 ENETUNREACH 錯誤
+  family: 4, // ⭕ 強制使用 IPv4，解決 Render 伺服器走 IPv6 時發生的 ENETUNREACH 錯誤
   tls: {
     rejectUnauthorized: false
-  }
+  },
+  // 🎯 設定 10 秒連線超時，避免背景發信卡死 Render 流程
+  connectionTimeout: 10000,
+  greetingTimeout: 10000
 })
 
 /**
@@ -32,9 +39,9 @@ async function sendOrderConfirmation(order) {
           
           <div style="background-color: #f8fafc; padding: 15px; border-radius: 6px; margin: 20px 0;">
             <p style="margin: 5px 0;"><strong>訂單編號：</strong> ${order.merchantOrderNo}</p>
-            <p style="margin: 5px 0;"><strong>訂購總金額：</strong> NT$ ${order.totalAmount.toLocaleString()}</p>
-            <p style="margin: 5px 0;"><strong>預計送達日期：</strong> ${order.deliveryDate}</p>
-            <p style="margin: 5px 0;"><strong>取件方式：</strong> ${order.deliveryMethod}</p>
+            <p style="margin: 5px 0;"><strong>訂購總金額：</strong> NT$ ${(order.totalAmount || 0).toLocaleString()}</p>
+            <p style="margin: 5px 0;"><strong>預計送達日期：</strong> ${order.deliveryDate || '未指定'}</p>
+            <p style="margin: 5px 0;"><strong>取件方式：</strong> ${order.deliveryMethod || '自取/宅配'}</p>
           </div>
 
           <p>我們將儘速為您準備花藝商品，若有任何需求歡迎隨時回覆此信件與我們聯繫。</p>
