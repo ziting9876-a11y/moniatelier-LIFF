@@ -2,11 +2,15 @@ import nodemailer from 'nodemailer'
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: Number(process.env.SMTP_PORT) || 465,
-  secure: true,
+  port: Number(process.env.SMTP_PORT) || 587,
+  secure: false, // 587 埠號搭配 STARTTLS，避免 Render 連線被封鎖
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS
+  },
+  family: 4, // ⭕ 強制使用 IPv4，解決 Render 環境 IPv6 ENETUNREACH 錯誤
+  tls: {
+    rejectUnauthorized: false
   }
 })
 
@@ -48,5 +52,5 @@ async function sendOrderConfirmation(order) {
   }
 }
 
-// 🎯 改為具名匯出語法
+// 🎯 具名匯出語法
 export { sendOrderConfirmation }
