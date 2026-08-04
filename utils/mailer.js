@@ -1,33 +1,18 @@
-import nodemailer from 'nodemailer'
-import dns from 'dns'
+import { Resend } from 'resend';
 
-// 🎯 強制設定 Node.js 的全局 DNS 解析順序為 IPv4 優先
-try {
-  dns.setDefaultResultOrder('ipv4first')
-} catch (e) {
-  // 忽略相容性錯誤
-}
-
-// 🎯 改用 Nodemailer 的內建 Gmail 服務設定 (不手動指定 host 與 port)
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS // 請確保這是 Google 帳號的「應用程式密碼」
-  },
-  tls: {
-    rejectUnauthorized: false
-  }
-})
+// 初始化 Resend（會自動讀取步驟 1 設定的 RESEND_API_KEY）
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
  * 寄送付款成功通知信
  */
 async function sendOrderConfirmation(order) {
   try {
-    const mailOptions = {
-      from: `"墨凝花室 Moni Atelier" <${process.env.SMTP_USER}>`,
-      to: order.customerEmail || process.env.SMTP_USER,
+    const data = await resend.emails.send({
+      // Resend 測試期固定使用此發件地址
+      from: '墨凝花室 Moni Atelier <onboarding@resend.dev>',
+      // 測試帳號階段，Resend 僅允許寄送到你註冊的信箱 (ziting9876@gmail.com)
+      to: order.customerEmail || 'ziting9876@gmail.com',
       subject: `【墨凝花室】訂單付款成功確認通知（訂單編號：${order.merchantOrderNo}）`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
@@ -49,14 +34,12 @@ async function sendOrderConfirmation(order) {
           </p>
         </div>
       `
-    }
+    });
 
-    const info = await transporter.sendMail(mailOptions)
-    console.log('✉️ 訂單確認信已成功寄出:', info.messageId)
+    console.log('✉️ 墨凝花室 confirmation 信件已順利透過 Resend 發送，ID:', data.id);
   } catch (error) {
-    console.error('❌ 信件寄送失敗:', error)
+    console.error('❌ Resend 發信失敗:', error);
   }
 }
 
-// 🎯 具名匯出語法
-export { sendOrderConfirmation }
+export { sendOrderConfirmation };
