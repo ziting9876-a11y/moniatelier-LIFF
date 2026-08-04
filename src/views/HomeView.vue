@@ -8,6 +8,9 @@ import liff from '@line/liff' // 👈 1. 引入 LIFF SDK
 const LIFF_ID = '2010913515-HfcsIAK0'
 const lineProfile = ref<{ userId: string; displayName: string; pictureUrl?: string } | null>(null)
 
+// --- 🎯 API 後端基礎網址設定 ---
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://moni-atelier-backend.onrender.com'
+
 // --- 🎯 初始化 Router 與 Pinia Store ---
 const route = useRoute()
 const router = useRouter()
@@ -219,8 +222,8 @@ const submitOrder = async () => {
         : `${orderForm.value.recipient.city}${orderForm.value.recipient.district}${orderForm.value.recipient.address}`
     }
 
-    // ✅ 已修復 API 相對路徑
-    const response = await fetch('/api/orders', {
+    // ✅ 修改為完整 Render 後端 API 網址
+    const response = await fetch(`${API_BASE}/api/orders`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -234,7 +237,7 @@ const submitOrder = async () => {
         deliveryMethod: orderForm.value.deliveryMethod,
         selectedStore: orderForm.value.selectedStore,
         email: orderForm.value.payer.email,
-        lineUserId: lineProfile.value?.userId || null, // 👈 攜帶 LINE 用戶 ID 給後端
+        lineUserId: lineProfile.value?.userId || null, // 攜帶 LINE 用戶 ID 給後端
         payer: orderForm.value.payer,
         recipient: recipientData
       })
