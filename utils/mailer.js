@@ -1,23 +1,23 @@
 import nodemailer from 'nodemailer'
 import dns from 'dns'
 
-// 🎯 設定全局 DNS 解析優先使用 IPv4 (解決 Render 主機對外連線 ENETUNREACH 的關鍵)
-dns.setDefaultResultOrder('ipv4first')
+// 🎯 強制設定 Node.js 的全局 DNS 解析順序為 IPv4 優先
+try {
+  dns.setDefaultResultOrder('ipv4first')
+} catch (e) {
+  // 忽略相容性錯誤
+}
 
+// 🎯 改用 Nodemailer 的內建 Gmail 服務設定 (不手動指定 host 與 port)
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // 587 搭配 STARTTLS
+  service: 'gmail',
   auth: {
     user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
+    pass: process.env.SMTP_PASS // 請確保這是 Google 帳號的「應用程式密碼」
   },
-  family: 4, // 強制使用 IPv4
   tls: {
     rejectUnauthorized: false
-  },
-  connectionTimeout: 10000,
-  greetingTimeout: 10000
+  }
 })
 
 /**
@@ -58,4 +58,5 @@ async function sendOrderConfirmation(order) {
   }
 }
 
+// 🎯 具名匯出語法
 export { sendOrderConfirmation }
