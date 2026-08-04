@@ -16,6 +16,18 @@ const route = useRoute()
 const router = useRouter()
 const cartStore = useCartStore()
 
+// 📅 動態計算最早可選送達日期（排除今、明、後 3 天，第 4 天起才可以選擇）
+const minDeliveryDate = computed(() => {
+  const date = new Date()
+  date.setDate(date.getDate() + 3) // +3 天（排除今、明、後）
+  
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  
+  return `${year}-${month}-${day}`
+})
+
 // --- 🎯 頁面載入時初始化 LIFF 與偵測付款狀態 ---
 onMounted(async () => {
   // 1. 偵測付款失敗或異常狀態
@@ -376,7 +388,8 @@ const submitOrder = async () => {
             
             <div class="form-group">
               <label>希望送達日期 *(一般商品於完成付款後 3 至 7 個工作天內不含例假日製作完成並出貨)</label>
-              <input type="date" v-model="orderForm.deliveryDate" required />
+              <!-- 👇 綁定 :min="minDeliveryDate" 限制最少隔 3 天 -->
+              <input type="date" v-model="orderForm.deliveryDate" :min="minDeliveryDate" required />
             </div>
 
             <!-- 🚚 配送方式 -->

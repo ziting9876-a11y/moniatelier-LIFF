@@ -2,8 +2,8 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
 export const useCartStore = defineStore('cart', () => {
-  // 🛒 購物車狀態：用 { [id]: quantity } 物件格式儲存，並從 LocalStorage 載入
-  const cart = ref(JSON.parse(localStorage.getItem('cart')) || { 1: 1 })
+  // 🛒 購物車狀態：用 { [id]: quantity } 物件格式儲存，並從 LocalStorage 載入（預設為空物件 {}）
+  const cart = ref(JSON.parse(localStorage.getItem('cart')) || {})
 
   // 商品價格對照表（與 HomeView 的商品價格一致）
   const productPrices = {
