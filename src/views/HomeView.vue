@@ -4,6 +4,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { useCartStore } from '../stores/cart'
 import liff from '@line/liff' // 👈 引入 LIFF SDK
 
+// 📅 引入 VueDatePicker 套件及其 CSS 樣式
+import VueDatePicker from '@vuepic/vue-datepicker'
+import '@vuepic/vue-datepicker/dist/main.css'
+
 // --- 🎯 LINE LIFF 設定 ---
 const LIFF_ID = '2010913515-HfcsIAK0'
 const lineProfile = ref<{ userId: string; displayName: string; pictureUrl?: string } | null>(null)
@@ -20,20 +24,27 @@ const cartStore = useCartStore()
 const minDeliveryDate = computed(() => {
   const date = new Date()
   date.setDate(date.getDate() + 3) // +3 天（排除今、明、後）
-  
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  
+  date.setHours(0, 0, 0, 0)
+  return date
+})
+
+// 📅 格式化 Date 物件為 YYYY-MM-DD 字串（提供給 API 傳輸及比對使用）
+const minDeliveryDateStr = computed(() => {
+  const d = minDeliveryDate.value
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 })
 
-// 🎯 即時監聽日期選擇：若選取早於 minDeliveryDate 的日期，自動跳警告並重置
-watch(() => orderForm.value.deliveryDate, (newVal) => {
-  if (newVal && newVal < minDeliveryDate.value) {
-    alert(`⚠️ 花禮製作與備貨需 3 個工作天，最早可選擇的送達日期為 ${minDeliveryDate.value}`)
-    orderForm.value.deliveryDate = minDeliveryDate.value
-  }
+// 📅 計算選定日期的 YYYY-MM-DD 格式
+const selectedDeliveryDateStr = computed(() => {
+  if (!orderForm.value.deliveryDate) return ''
+  const d = new Date(orderForm.value.deliveryDate)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 })
 
 // --- 🎯 頁面載入時初始化 LIFF 與偵測付款狀態 ---
@@ -74,8 +85,8 @@ onMounted(async () => {
     console.warn('LIFF 初始化失敗或非於 LINE App 內開啟:', err)
   }
 
-  // 3. 自動預設希望送達日期為最快可選日期（防止過期舊值殘留）
-  if (!orderForm.value.deliveryDate || orderForm.value.deliveryDate < minDeliveryDate.value) {
+  // 3. 自動預設希望送達日期為最快可選日期
+  if (!orderForm.value.deliveryDate) {
     orderForm.value.deliveryDate = minDeliveryDate.value
   }
 })
@@ -95,7 +106,7 @@ const taiwanDistricts: Record<string, string[]> = {
   '台北市': ['中正區', '大同區', '中山區', '松山區', '大安區', '萬華區', '信義區', '士林區', '北投區', '內湖區', '南港區', '文山區'],
   '新北市': ['板橋區', '三重區', '中和區', '永和區', '新莊區', '新店區', '樹林區', '鶯歌區', '三峽區', '淡水區', '汐止區', '瑞芳區', '土城區', '蘆洲區', '五股區', '泰山區', '林口區', '深坑區', '石碇區', '坪林區', '三芝區', '石門區', '八里區', '平溪區', '雙溪區', '貢寮區', '金山區', '萬里區', '烏來區'],
   '基隆市': ['仁愛區', '信義區', '中正區', '中山區', '安樂區', '暖暖區', '七堵區'],
-  '桃園市': ['桃園區', '中壢區', '平鎮區', '八德區', '楊梅區', '蘆竹區', '大溪區', '龍潭區', '龜山區', '大園區', '觀音區', '新屋區', '複興區'],
+  '桃園市': ['桃園區', '中壢區', '平鎮區', '八德區', '楊梅區', '蘆竹區', '大溪區', '龍潭區', '龜山區', '大園區', '觀音區', '新屋區', '復興區'],
   '新竹市': ['東區', '北區', '香山區'],
   '新竹縣': ['竹北市', '竹東鎮', '新埔鎮', '關西鎮', '湖口鄉', '新豐鄉', '芎林鄉', '橫山鄉', '北埔鄉', '寶山鄉', '峨眉鄉', '尖石鄉', '五峰鄉'],
   '苗栗縣': ['苗栗市', '頭份市', '竹南鎮', '後龍鎮', '通霄鎮', '苑裡鎮', '卓蘭鎮', '造橋鄉', '西湖鄉', '頭屋鄉', '公館鄉', '銅鑼鄉', '三義鄉', '大湖鄉', '獅潭鄉', '三灣鄉', '南庄鄉', '泰安鄉'],
@@ -150,7 +161,7 @@ const products = ref<Product[]>([
 const sameAsPayer = ref(false)
 
 const orderForm = ref({
-  deliveryDate: '',
+  deliveryDate: null as Date | string | null,
   deliveryMethod: 'black_cat',
   selectedStore: null as { id: string; name: string; address: string } | null,
   payer: {
@@ -236,8 +247,8 @@ const submitOrder = async () => {
   }
 
   // 🛡️ 送出前二次校驗日期
-  if (orderForm.value.deliveryDate < minDeliveryDate.value) {
-    alert(`⚠️ 送達日期不可小於 ${minDeliveryDate.value}，已自動調整為最早可預約日期！`)
+  if (selectedDeliveryDateStr.value < minDeliveryDateStr.value) {
+    alert(`⚠️ 送達日期不可小於 ${minDeliveryDateStr.value}，已自動調整為最早可預約日期！`)
     orderForm.value.deliveryDate = minDeliveryDate.value
     return
   }
@@ -268,7 +279,7 @@ const submitOrder = async () => {
         subtotal: cartStore.totalPrice,
         shippingFee: shippingFee.value,
         totalAmount: finalTotalPrice.value,
-        deliveryDate: orderForm.value.deliveryDate,
+        deliveryDate: selectedDeliveryDateStr.value, // 傳送標準 YYYY-MM-DD 給後端
         deliveryMethod: orderForm.value.deliveryMethod,
         selectedStore: orderForm.value.selectedStore,
         email: orderForm.value.payer.email,
@@ -411,8 +422,16 @@ const submitOrder = async () => {
             
             <div class="form-group">
               <label>希望送達日期 *(一般商品於完成付款後 3 至 7 個工作天內不含例假日製作完成並出貨)</label>
-              <!-- 綁定 :min="minDeliveryDate" 限制最少隔 3 天 -->
-              <input type="date" v-model="orderForm.deliveryDate" :min="minDeliveryDate" required />
+              <!-- 🌸 改用 VueDatePicker 限制最小可選日期，解決 iOS Webview 限制 -->
+              <VueDatePicker 
+                v-model="orderForm.deliveryDate" 
+                :min-date="minDeliveryDate" 
+                :enable-time-picker="false"
+                auto-apply
+                locale="zh-TW"
+                format="yyyy-MM-dd"
+                placeholder="請選擇希望送達日期"
+              />
             </div>
 
             <!-- 🚚 配送方式 -->
