@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCartStore } from '../stores/cart'
 import liff from '@line/liff'
@@ -8,7 +8,7 @@ import liff from '@line/liff'
 const LIFF_ID = '2010913515-HfcsIAK0'
 const lineProfile = ref<{ userId: string; displayName: string; pictureUrl?: string } | null>(null)
 
-// --- 🎯 API 後端基礎網址設定（優化：優先讀取環境變數） ---
+// --- 🎯 API 後端基礎網址設定 ---
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://moni-atelier-backend.onrender.com'
 
 // --- 🎯 初始化 Router 與 Pinia Store ---
@@ -42,7 +42,7 @@ const maxDeliveryDate = computed(() => {
 
 // 🗓️ 自訂月曆 Modal 控制邏輯
 const showDatePickerModal = ref(false)
-const calendarViewDate = ref(new Date()) // 目前月曆顯示的月份
+const calendarViewDate = ref(new Date())
 
 // 開啟月曆
 const openCalendar = () => {
@@ -57,7 +57,6 @@ const changeMonth = (offset: number) => {
   const newDate = new Date(calendarViewDate.value)
   newDate.setMonth(newDate.getMonth() + offset)
   
-  // 限制切換範圍在「當前月」至「6 個月後」
   const now = new Date()
   now.setDate(1)
   now.setHours(0, 0, 0, 0)
@@ -79,24 +78,21 @@ const calendarDays = computed(() => {
   const firstDayOfMonth = new Date(year, month, 1)
   const lastDayOfMonth = new Date(year, month + 1, 0)
   
-  const startingDayOfWeek = firstDayOfMonth.getDay() // 0 (日) ~ 6 (六)
+  const startingDayOfWeek = firstDayOfMonth.getDay()
   const totalDays = lastDayOfMonth.getDate()
 
   const days: { dateStr: string; dayNum: number; isDisabled: boolean; isSelected: boolean; isCurrentMonth: boolean }[] = []
 
-  // 補齊上個月的空白格
   for (let i = 0; i < startingDayOfWeek; i++) {
     days.push({ dateStr: '', dayNum: 0, isDisabled: true, isSelected: false, isCurrentMonth: false })
   }
 
-  // 填入本月日期
   for (let day = 1; day <= totalDays; day++) {
     const current = new Date(year, month, day)
     current.setHours(0, 0, 0, 0)
 
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     
-    // 嚴格判定是否停用：小於今天+3天 或 大於6個月後
     const isDisabled = current.getTime() < minDeliveryDate.value.getTime() || current.getTime() > maxDeliveryDate.value.getTime()
     const isSelected = orderForm.value.deliveryDate === dateStr
 
@@ -119,27 +115,8 @@ const selectDate = (dayItem: { dateStr: string; isDisabled: boolean }) => {
   showDatePickerModal.value = false
 }
 
-// 🏪 監聯來自藍新 Map Callback 的 postMessage 事件
-const handleStoreMessage = (event: MessageEvent) => {
-  if (event.data && (event.data.storeName || event.data.storeId)) {
-    console.log('🏪 成功接收選擇之門市資料:', event.data)
-    const storeObj = {
-      id: event.data.storeId || '',
-      name: event.data.storeName || '',
-      address: event.data.storeAddress || ''
-    }
-    orderForm.value.selectedStore = storeObj
-    if (cartStore.selectedStore !== undefined) {
-      cartStore.selectedStore = storeObj
-    }
-  }
-}
-
 // --- 🎯 頁面載入時初始化 LIFF 與偵測付款狀態 ---
 onMounted(async () => {
-  // 註冊跨視窗訊息監聽器 (用於接收超商地圖選取結果)
-  window.addEventListener('message', handleStoreMessage)
-
   if (route.query.status === 'success') {
     alert(`🌸 感謝您的訂購！訂單 (${route.query.orderNo || ''}) 已成功建立並完成付款，我們已發送確認信件至您的信箱。`)
     cartStore.clearCart?.()
@@ -172,14 +149,9 @@ onMounted(async () => {
     console.warn('LIFF 初始化失敗或非於 LINE App 內開啟:', err)
   }
 
-  // 預設送達日期為最早可選日期
   if (!orderForm.value.deliveryDate) {
     orderForm.value.deliveryDate = minDeliveryDateStr.value
   }
-})
-
-onUnmounted(() => {
-  window.removeEventListener('message', handleStoreMessage)
 })
 
 // --- 型別定義 ---
@@ -192,7 +164,6 @@ interface Product {
   image: string
 }
 
-// 台灣縣市與行政區資料結構
 const taiwanDistricts: Record<string, string[]> = {
   '台北市': ['中正區', '大同區', '中山區', '松山區', '大安區', '萬華區', '信義區', '士林區', '北投區', '內湖區', '南港區', '文山區'],
   '新北市': ['板橋區', '三重區', '中和區', '永和區', '新莊區', '新店區', '樹林區', '鶯歌區', '三峽區', '淡水區', '汐止區', '瑞芳區', '土城區', '蘆洲區', '五股區', '泰山區', '林口區', '深坑區', '石碇區', '坪林區', '三芝區', '石門區', '八里區', '平溪區', '雙溪區', '貢寮區', '金山區', '萬里區', '烏來區'],
@@ -249,6 +220,12 @@ const products = ref<Product[]>([
 
 const sameAsPayer = ref(false)
 
+// 🎯 方案 B 專用：超商門市手動輸入表單資料
+const storeInput = ref({
+  name: '',
+  address: ''
+})
+
 const orderForm = ref({
   deliveryDate: '',
   deliveryMethod: 'black_cat',
@@ -283,6 +260,7 @@ watch(() => orderForm.value.recipient.city, (newCity) => {
 })
 
 watch(() => orderForm.value.deliveryMethod, () => {
+  storeInput.value = { name: '', address: '' }
   orderForm.value.selectedStore = null
 })
 
@@ -300,20 +278,6 @@ watch(() => orderForm.value.payer, (newPayer) => {
   }
 }, { deep: true })
 
-// 🎯 開啟藍新超商地圖 (經由 Pinia openStoreMap 或後端中轉)
-const openStorePicker = () => {
-  const method = orderForm.value.deliveryMethod
-  const cvsType = method === 'seven_eleven' ? '711' : 'FAMI'
-
-  if (cartStore.openStoreMap) {
-    cartStore.openStoreMap(cvsType)
-  } else {
-    const cleanBaseUrl = API_BASE.replace(/\/$/, '')
-    const targetUrl = `${cleanBaseUrl}/api/logistics/map-url?type=${cvsType}`
-    window.open(targetUrl, 'storeSelectMap', 'width=800,height=600,scrollbars=yes,resizable=yes')
-  }
-}
-
 const isLoading = ref(false)
 
 const submitOrder = async () => {
@@ -327,19 +291,29 @@ const submitOrder = async () => {
     return
   }
 
-  if (['seven_eleven', 'familymart'].includes(orderForm.value.deliveryMethod) && !orderForm.value.selectedStore) {
-    alert('請點擊按鈕選擇取件超商門市！')
-    return
+  const isStoreDelivery = ['seven_eleven', 'familymart'].includes(orderForm.value.deliveryMethod)
+
+  // 🎯 方案 B 驗證：如果選擇超商取件，檢查是否填寫門市名稱與地址
+  if (isStoreDelivery) {
+    if (!storeInput.value.name.trim() || !storeInput.value.address.trim()) {
+      alert('請填寫完整取件超商門市名稱與門市地址！')
+      return
+    }
+    // 組合 selectedStore 供後端紀錄
+    orderForm.value.selectedStore = {
+      id: 'CUSTOM',
+      name: storeInput.value.name.trim(),
+      address: storeInput.value.address.trim()
+    }
   }
 
   try {
     isLoading.value = true
 
-    const isStoreDelivery = ['seven_eleven', 'familymart'].includes(orderForm.value.deliveryMethod)
     const recipientData = {
       ...orderForm.value.recipient,
       fullAddress: isStoreDelivery 
-        ? orderForm.value.selectedStore?.address || '' 
+        ? `${storeInput.value.name} (${storeInput.value.address})` 
         : `${orderForm.value.recipient.city}${orderForm.value.recipient.district}${orderForm.value.recipient.address}`
     }
 
@@ -514,19 +488,29 @@ const submitOrder = async () => {
               </select>
             </div>
 
-            <!-- 🏪 超商選擇門市區塊 -->
-            <div v-if="['seven_eleven', 'familymart'].includes(orderForm.deliveryMethod)" class="form-group store-picker-group">
-              <label>選擇取件門市 *</label>
-              <div v-if="orderForm.selectedStore" class="selected-store-box">
-                <div class="store-info">
-                  <strong>📍 {{ orderForm.selectedStore.name }}</strong>
-                  <span>{{ orderForm.selectedStore.address }}</span>
-                </div>
-                <button type="button" class="reselect-btn" @click="openStorePicker">重新選擇</button>
+            <!-- 🏪 方案 B：超商門市手動填寫區塊 -->
+            <div v-if="['seven_eleven', 'familymart'].includes(orderForm.deliveryMethod)" class="form-section store-input-section">
+              <h4 class="sub-section-title">🏪 填寫 {{ orderForm.deliveryMethod === 'seven_eleven' ? '7-11' : '全家' }} 取件門市</h4>
+              
+              <div class="form-group">
+                <label>門市名稱 *</label>
+                <input 
+                  type="text" 
+                  v-model="storeInput.name" 
+                  :placeholder="orderForm.deliveryMethod === 'seven_eleven' ? '例如：7-11 鑫南京門市' : '例如：全家 中山門市'" 
+                  required 
+                />
               </div>
-              <button v-else type="button" class="store-btn" @click="openStorePicker">
-                🗺️ 選擇 {{ orderForm.deliveryMethod === 'seven_eleven' ? '7-11' : '全家' }} 取件門市
-              </button>
+
+              <div class="form-group">
+                <label>門市地址或店號 *</label>
+                <input 
+                  type="text" 
+                  v-model="storeInput.address" 
+                  placeholder="例如：台北市中山區南京東路二段100號 (店號 991182)" 
+                  required 
+                />
+              </div>
             </div>
 
             <!-- 💳 1. 付款人資訊區塊 -->
@@ -568,6 +552,7 @@ const submitOrder = async () => {
                 <input type="tel" v-model="orderForm.recipient.phone" placeholder="0912345678" :disabled="sameAsPayer" required />
               </div>
 
+              <!-- 僅在宅配時顯示地址欄位 -->
               <div v-if="!['seven_eleven', 'familymart'].includes(orderForm.deliveryMethod)" class="form-group">
                 <label>聯絡地址 *</label>
                 <div class="address-group">
@@ -1095,6 +1080,11 @@ const submitOrder = async () => {
   margin-bottom: 1.2rem;
 }
 
+.store-input-section {
+  background: #F0F9FF;
+  border: 1px solid #BAE6FD;
+}
+
 .sub-section-title {
   font-size: 0.95rem;
   color: #34444E;
@@ -1166,56 +1156,6 @@ const submitOrder = async () => {
 
 .street-input {
   width: 100%;
-}
-
-.store-btn {
-  width: 100%;
-  padding: 0.65rem;
-  background-color: #E2E8F0;
-  color: #2D3748;
-  border: 1px dashed #4A5568;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 600;
-  transition: all 0.2s ease;
-}
-
-.store-btn:hover {
-  background-color: #CBD5E1;
-}
-
-.selected-store-box {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: #EBF8FF;
-  border: 1px solid #3182CE;
-  padding: 0.6rem 0.8rem;
-  border-radius: 4px;
-}
-
-.store-info {
-  display: flex;
-  flex-direction: column;
-  font-size: 0.85rem;
-  color: #2B6CB0;
-  text-align: left;
-}
-
-.reselect-btn {
-  background: none;
-  border: 1px solid #3182CE;
-  color: #3182CE;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.8rem;
-}
-
-.reselect-btn:hover {
-  background-color: #3182CE;
-  color: #FFFFFF;
 }
 
 .submit-btn {
