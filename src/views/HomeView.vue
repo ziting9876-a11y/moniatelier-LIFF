@@ -59,10 +59,10 @@ const openPolicyModal = () => {
   showPolicyModal.value = true
 }
 
-// 📅 動態計算最早可選送達日期（今天 + 3 天）
+// 📅 動態計算最早可選送達日期（今天 + 4 天，即禁止「今天以前」與「今天往後算 3 天」）
 const minDeliveryDate = computed(() => {
   const d = new Date()
-  d.setDate(d.getDate() + 3)
+  d.setDate(d.getDate() + 4)
   d.setHours(0, 0, 0, 0)
   return d
 })
@@ -111,6 +111,8 @@ const changeMonth = (offset: number) => {
   }
 }
 
+const daysOfWeek = ['一', '二', '三', '四', '五', '六', '日']
+
 const calendarDays = computed(() => {
   const year = calendarViewDate.value.getFullYear()
   const month = calendarViewDate.value.getMonth()
@@ -118,12 +120,16 @@ const calendarDays = computed(() => {
   const firstDayOfMonth = new Date(year, month, 1)
   const lastDayOfMonth = new Date(year, month + 1, 0)
   
-  const startingDayOfWeek = firstDayOfMonth.getDay()
+  // 調整以星期一為第一天 (0: 星期一, 6: 星期日)
+  let startDayIndex = firstDayOfMonth.getDay() - 1
+  if (startDayIndex === -1) startDayIndex = 6
+
   const totalDays = lastDayOfMonth.getDate()
 
   const days: { dateStr: string; dayNum: number; isDisabled: boolean; isSelected: boolean; isCurrentMonth: boolean }[] = []
 
-  for (let i = 0; i < startingDayOfWeek; i++) {
+  // 補齊第一天前的空白區塊
+  for (let i = 0; i < startDayIndex; i++) {
     days.push({ dateStr: '', dayNum: 0, isDisabled: true, isSelected: false, isCurrentMonth: false })
   }
 
@@ -132,6 +138,8 @@ const calendarDays = computed(() => {
     current.setHours(0, 0, 0, 0)
 
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    
+    // 今天以前 + 今天往後 3 天皆禁用
     const isDisabled = current.getTime() < minDeliveryDate.value.getTime() || current.getTime() > maxDeliveryDate.value.getTime()
     const isSelected = orderForm.value.deliveryDate === dateStr
 
@@ -644,39 +652,55 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 🗓️ 2. 自訂月曆 Modal -->
+    <!-- 🗓️ 2. 自訂月曆 Modal (已全面修復橫排網格與過去日期/未來3天鎖定) -->
     <div v-if="showDatePickerModal" class="modal-backdrop" @click.self="showDatePickerModal = false">
       <div class="calendar-modal">
-        <div class="calendar-header">
+        {/* 月曆頂部切換區 */}
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
           <button type="button" class="month-nav-btn" @click="changeMonth(-1)">‹</button>
-          <span class="month-title">
+          <span class="month-title" style="font-weight: bold; font-size: 16px;">
             {{ calendarViewDate.getFullYear() }} 年 {{ calendarViewDate.getMonth() + 1 }} 月
           </span>
           <button type="button" class="month-nav-btn" @click="changeMonth(1)">›</button>
         </div>
 
-        <div class="weekdays-grid">
-          <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
-        </div>
-
-        <div class="days-grid">
-          <div
-            v-for="(day, idx) in calendarDays"
-            :key="idx"
-            class="day-cell"
-            :class="{
-              'disabled': day.isDisabled,
-              'selected': day.isSelected,
-              'empty': !day.isCurrentMonth
-            }"
-            @click="selectDate(day)"
-          >
-            {{ day.dayNum || '' }}
+        {/* 星期一 ~ 星期日 標題列 (強制 7 欄) */}
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 8px; text-align: center;">
+          <div v-for="(day, idx) in daysOfWeek" :key="idx" style="font-weight: bold; font-size: 13px; color: #666;">
+            {{ day }}
           </div>
         </div>
 
-        <div class="calendar-footer">
-          <span class="tip-text">💡 可預約 3 天後至 6 個月內之日期</span>
+        {/* 日期網格 (強制 7 欄網格) */}
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;">
+          <button
+            v-for="(day, idx) in calendarDays"
+            :key="idx"
+            type="button"
+            :disabled="day.isDisabled || !day.isCurrentMonth"
+            @click="selectDate(day)"
+            :style="{
+              width: '100%',
+              height: '38px',
+              border: 'none',
+              borderRadius: '50%',
+              backgroundColor: day.isSelected ? '#34444E' : 'transparent',
+              color: day.isSelected ? '#FFFFFF' : (day.isDisabled ? '#CBD5E1' : '#2D3748'),
+              cursor: (day.isDisabled || !day.isCurrentMonth) ? 'not-allowed' : 'pointer',
+              fontWeight: day.isSelected ? 'bold' : 'normal',
+              opacity: (!day.isCurrentMonth) ? 0 : (day.isDisabled ? 0.35 : 1),
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '14px'
+            }"
+          >
+            {{ day.dayNum || '' }}
+          </button>
+        </div>
+
+        <div class="calendar-footer" style="margin-top: 16px; display: flex; flex-direction: column; gap: 8px; align-items: center;">
+          <span class="tip-text" style="font-size: 0.8rem; color: #64748B;">💡 僅可預約 4 天後至 6 個月內之配送日期</span>
           <button type="button" class="close-modal-btn" @click="showDatePickerModal = false">關閉</button>
         </div>
       </div>
@@ -979,7 +1003,6 @@ const executePayment = async () => {
   cursor: not-allowed;
 }
 
-/* 保留先前頁面核心樣式 */
 .custom-date-trigger {
   display: flex;
   justify-content: space-between;
@@ -1000,6 +1023,25 @@ const executePayment = async () => {
   max-width: 360px;
   border-radius: 12px;
   padding: 1.2rem;
+  box-sizing: border-box;
+}
+
+.month-nav-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 10px;
+}
+
+.close-modal-btn {
+  width: 100%;
+  padding: 8px;
+  background: #E2E8F0;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
 }
 
 .page-wrapper {
