@@ -8,7 +8,7 @@ import liff from '@line/liff'
 const LIFF_ID = '2010913515-HfcsIAK0'
 const lineProfile = ref<{ userId: string; displayName: string; pictureUrl?: string } | null>(null)
 
-// --- 🎯 API 後端基礎網址設定 ---
+// --- 🎯 API 後端基礎網址設定（優化：優先讀取環境變數） ---
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://moni-atelier-backend.onrender.com'
 
 // --- 🎯 初始化 Router 與 Pinia Store ---
@@ -296,50 +296,15 @@ watch(() => orderForm.value.payer, (newPayer) => {
   }
 }, { deep: true })
 
-// 🎯 呼叫後端 API 並打開藍新實體超商地圖
-const openStorePicker = async () => {
+// 🎯 開啟藍新超商地圖 (LIFF 與行動裝置相容性優化)
+const openStorePicker = () => {
   const method = orderForm.value.deliveryMethod
   const cvsType = method === 'seven_eleven' ? '711' : 'FAMI'
+  const targetUrl = `${API_BASE}/api/logistics/map-url?type=${cvsType}`
 
-  try {
-    const response = await fetch(`${API_BASE}/api/logistics/map-url?type=${cvsType}`)
-    const resData = await response.json()
-
-    if (resData.status === 'success' && resData.mapUrl && resData.formData) {
-      const { mapUrl, formData } = resData
-
-      // 建立 Form 表單 POST 送出給藍新
-      const form = document.createElement('form')
-      form.method = 'POST'
-      form.action = mapUrl
-      form.target = 'newebpayMapWindow'
-
-      for (const [key, value] of Object.entries(formData)) {
-        const input = document.createElement('input')
-        input.type = 'hidden'
-        input.name = key
-        input.value = value as string
-        form.appendChild(input)
-      }
-
-      document.body.appendChild(form)
-
-      // 計算開窗置中位置
-      const width = 800
-      const height = 600
-      const left = (window.screen.width - width) / 2
-      const top = (window.screen.height - height) / 2
-
-      window.open('', 'newebpayMapWindow', `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,resizable=yes`)
-      form.submit()
-      document.body.removeChild(form)
-    } else {
-      alert('無法取得超商地圖設定，請稍後再試。')
-    }
-  } catch (error) {
-    console.error('❌ 開啟超商地圖失敗:', error)
-    alert('無法連線至伺服器開啟門市地圖，請確認網路連線。')
-  }
+  // 直接使用 _blank 開啟後端 URL，由後端自動 POST 到藍新地圖
+  // 這種方式可避免 LIFF / 手機瀏覽器擋彈窗或 cross-origin 阻擋問題
+  window.open(targetUrl, 'newebpayMapWindow')
 }
 
 const isLoading = ref(false)
