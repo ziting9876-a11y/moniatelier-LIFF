@@ -119,14 +119,18 @@ const selectDate = (dayItem: { dateStr: string; isDisabled: boolean }) => {
   showDatePickerModal.value = false
 }
 
-// 🏪 監聽來自藍新 Map Callback 的 postMessage 事件
+// 🏪 監聯來自藍新 Map Callback 的 postMessage 事件
 const handleStoreMessage = (event: MessageEvent) => {
-  if (event.data && event.data.storeName) {
+  if (event.data && (event.data.storeName || event.data.storeId)) {
     console.log('🏪 成功接收選擇之門市資料:', event.data)
-    orderForm.value.selectedStore = {
+    const storeObj = {
       id: event.data.storeId || '',
       name: event.data.storeName || '',
       address: event.data.storeAddress || ''
+    }
+    orderForm.value.selectedStore = storeObj
+    if (cartStore.selectedStore !== undefined) {
+      cartStore.selectedStore = storeObj
     }
   }
 }
@@ -296,15 +300,18 @@ watch(() => orderForm.value.payer, (newPayer) => {
   }
 }, { deep: true })
 
-// 🎯 開啟藍新超商地圖 (LIFF 與行動裝置相容性優化)
+// 🎯 開啟藍新超商地圖 (經由 Pinia openStoreMap 或後端中轉)
 const openStorePicker = () => {
   const method = orderForm.value.deliveryMethod
   const cvsType = method === 'seven_eleven' ? '711' : 'FAMI'
-  const targetUrl = `${API_BASE}/api/logistics/map-url?type=${cvsType}`
 
-  // 直接使用 _blank 開啟後端 URL，由後端自動 POST 到藍新地圖
-  // 這種方式可避免 LIFF / 手機瀏覽器擋彈窗或 cross-origin 阻擋問題
-  window.open(targetUrl, 'newebpayMapWindow')
+  if (cartStore.openStoreMap) {
+    cartStore.openStoreMap(cvsType)
+  } else {
+    const cleanBaseUrl = API_BASE.replace(/\/$/, '')
+    const targetUrl = `${cleanBaseUrl}/api/logistics/map-url?type=${cvsType}`
+    window.open(targetUrl, 'storeSelectMap', 'width=800,height=600,scrollbars=yes,resizable=yes')
+  }
 }
 
 const isLoading = ref(false)
