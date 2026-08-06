@@ -20,7 +20,7 @@ const route = useRoute()
 const router = useRouter()
 const cartStore = useCartStore()
 
-// 📅 動態計算最早可選送達日期（今天 + 3 天，時間精準歸零至 00:00:00）
+// 📅 動態計算最早可選送達日期（今天 + 3 天，本地時間歸零至 00:00:00）
 const minDeliveryDate = computed(() => {
   const date = new Date()
   date.setDate(date.getDate() + 3) // +3 天（排除今、明、後）
@@ -47,7 +47,7 @@ const selectedDeliveryDateStr = computed(() => {
   return `${year}-${month}-${day}`
 })
 
-// 📅 日期合法性斷言函式：逐一檢查月曆日期，早於 minDeliveryDate 者強行禁選
+// 📅 日期合法性斷言函式：強制使用本地時間戳比較，小於 minDeliveryDate 者強行禁選
 const isDateAllowed = (date: Date) => {
   const target = new Date(date)
   target.setHours(0, 0, 0, 0)
@@ -55,7 +55,7 @@ const isDateAllowed = (date: Date) => {
   const minLimit = new Date(minDeliveryDate.value)
   minLimit.setHours(0, 0, 0, 0)
 
-  return target >= minLimit
+  return target.getTime() >= minLimit.getTime()
 }
 
 // 🎯 即時強制作廢任何小於 minDeliveryDate 的選取
@@ -63,7 +63,7 @@ watch(() => orderForm.value.deliveryDate, (newVal) => {
   if (newVal) {
     const selected = new Date(newVal)
     selected.setHours(0, 0, 0, 0)
-    if (selected < minDeliveryDate.value) {
+    if (selected.getTime() < minDeliveryDate.value.getTime()) {
       alert(`⚠️ 花禮製作與備貨需 3 個工作天，最早可選擇的送達日期為 ${minDeliveryDateStr.value}`)
       orderForm.value.deliveryDate = new Date(minDeliveryDate.value)
     }
@@ -445,20 +445,21 @@ const submitOrder = async () => {
             
             <div class="form-group">
               <label>希望送達日期 *(一般商品於完成付款後 3 至 7 個工作天內不含例假日製作完成並出貨)</label>
-              <!-- 🌸 VueDatePicker 掛載 :is-allowed-date 與雙重強制作廢機制 -->
+              <!-- 🌸 加上 :utc="false" 確保以本地時區計算 min-date 封鎖區域 -->
               <VueDatePicker 
-  v-model="orderForm.deliveryDate" 
-  :min-date="minDeliveryDate" 
-  :is-allowed-date="isDateAllowed"
-  :prevent-min-max-navigation="true"
-  :enable-time-picker="false"
-  :text-input="false"
-  auto-apply
-  locale="zh-TW"
-  format="yyyy-MM-dd"
-  model-type="date"
-  placeholder="請選擇希望送達日期"
-/>
+                v-model="orderForm.deliveryDate" 
+                :min-date="minDeliveryDate" 
+                :is-allowed-date="isDateAllowed"
+                :prevent-min-max-navigation="true"
+                :enable-time-picker="false"
+                :text-input="false"
+                :utc="false"
+                auto-apply
+                locale="zh-TW"
+                format="yyyy-MM-dd"
+                model-type="date"
+                placeholder="請選擇希望送達日期"
+              />
             </div>
 
             <!-- 🚚 配送方式 -->
