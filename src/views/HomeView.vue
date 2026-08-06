@@ -47,15 +47,15 @@ const selectedDeliveryDateStr = computed(() => {
   return `${year}-${month}-${day}`
 })
 
-// 📅 日期合法性斷言函式：強制使用本地時間戳比較，小於 minDeliveryDate 者強行禁選
-const isDateAllowed = (date: Date) => {
+// 📅 強制禁選過往日期的判斷函式（傳入 VueDatePicker 的 disabled-dates，回傳 true 為禁用）
+const disabledDates = (date: Date) => {
   const target = new Date(date)
   target.setHours(0, 0, 0, 0)
   
   const minLimit = new Date(minDeliveryDate.value)
   minLimit.setHours(0, 0, 0, 0)
 
-  return target.getTime() >= minLimit.getTime()
+  return target.getTime() < minLimit.getTime()
 }
 
 // 🎯 即時強制作廢任何小於 minDeliveryDate 的選取
@@ -445,15 +445,14 @@ const submitOrder = async () => {
             
             <div class="form-group">
               <label>希望送達日期 *(一般商品於完成付款後 3 至 7 個工作天內不含例假日製作完成並出貨)</label>
-              <!-- 🌸 VueDatePicker 掛載禁選與視覺防護 -->
+              <!-- 🌸 切換為 :disabled-dates 硬性禁選策略 -->
               <VueDatePicker 
                 v-model="orderForm.deliveryDate" 
                 :min-date="minDeliveryDate" 
-                :is-allowed-date="isDateAllowed"
+                :disabled-dates="disabledDates"
                 :prevent-min-max-navigation="true"
                 :enable-time-picker="false"
                 :text-input="false"
-                :utc="false"
                 auto-apply
                 locale="zh-TW"
                 format="yyyy-MM-dd"
