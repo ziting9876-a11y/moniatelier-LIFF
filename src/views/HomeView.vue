@@ -447,17 +447,18 @@ const submitOrder = async () => {
               <label>希望送達日期 *(一般商品於完成付款後 3 至 7 個工作天內不含例假日製作完成並出貨)</label>
               <!-- 🌸 VueDatePicker 掛載 :is-allowed-date 與雙重強制作廢機制 -->
               <VueDatePicker 
-                v-model="orderForm.deliveryDate" 
-                :min-date="minDeliveryDate" 
-                :is-allowed-date="isDateAllowed"
-                :prevent-min-max-navigation="true"
-                :enable-time-picker="false"
-                auto-apply
-                locale="zh-TW"
-                format="yyyy-MM-dd"
-                model-type="date"
-                placeholder="請選擇希望送達日期"
-              />
+  v-model="orderForm.deliveryDate" 
+  :min-date="minDeliveryDate" 
+  :is-allowed-date="isDateAllowed"
+  :prevent-min-max-navigation="true"
+  :enable-time-picker="false"
+  :text-input="false"
+  auto-apply
+  locale="zh-TW"
+  format="yyyy-MM-dd"
+  model-type="date"
+  placeholder="請選擇希望送達日期"
+/>
             </div>
 
             <!-- 🚚 配送方式 -->
