@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCartStore } from '../stores/cart'
-import liff from '@line/liff' // 👈 1. 引入 LIFF SDK
+import liff from '@line/liff' // 👈 引入 LIFF SDK
 
 // --- 🎯 LINE LIFF 設定 ---
 const LIFF_ID = '2010913515-HfcsIAK0'
@@ -30,8 +30,12 @@ const minDeliveryDate = computed(() => {
 
 // --- 🎯 頁面載入時初始化 LIFF 與偵測付款狀態 ---
 onMounted(async () => {
-  // 1. 偵測付款失敗或異常狀態
-  if (route.query.status === 'failed') {
+  // 1. 偵測付款結果狀態
+  if (route.query.status === 'success') {
+    alert(`🌸 感謝您的訂購！訂單 (${route.query.orderNo || ''}) 已成功建立並完成付款，我們已發送確認信件至您的信箱。`)
+    cartStore.clearCart?.() // 清空 Pinia 購物車 (若 store 有定義)
+    router.replace({ query: {} })
+  } else if (route.query.status === 'failed') {
     const errorMsg = (route.query.message as string) || '付款未完成或已取消交易'
     alert(`⚠️ 交易未成功：${errorMsg}\n請確認卡號資訊或重新嘗試結帳。`)
     router.replace({ query: {} })
@@ -60,6 +64,11 @@ onMounted(async () => {
     }
   } catch (err) {
     console.warn('LIFF 初始化失敗或非於 LINE App 內開啟:', err)
+  }
+
+  // 3. 自動預設希望送達日期為最快可選日期
+  if (!orderForm.value.deliveryDate) {
+    orderForm.value.deliveryDate = minDeliveryDate.value
   }
 })
 
@@ -234,7 +243,6 @@ const submitOrder = async () => {
         : `${orderForm.value.recipient.city}${orderForm.value.recipient.district}${orderForm.value.recipient.address}`
     }
 
-    // ✅ 修改為完整 Render 後端 API 網址
     const response = await fetch(`${API_BASE}/api/orders`, {
       method: 'POST',
       headers: {
@@ -249,7 +257,7 @@ const submitOrder = async () => {
         deliveryMethod: orderForm.value.deliveryMethod,
         selectedStore: orderForm.value.selectedStore,
         email: orderForm.value.payer.email,
-        lineUserId: lineProfile.value?.userId || null, // 攜帶 LINE 用戶 ID 給後端
+        lineUserId: lineProfile.value?.userId || null,
         payer: orderForm.value.payer,
         recipient: recipientData
       })
@@ -388,7 +396,7 @@ const submitOrder = async () => {
             
             <div class="form-group">
               <label>希望送達日期 *(一般商品於完成付款後 3 至 7 個工作天內不含例假日製作完成並出貨)</label>
-              <!-- 👇 綁定 :min="minDeliveryDate" 限制最少隔 3 天 -->
+              <!-- 綁定 :min="minDeliveryDate" 限制最少隔 3 天 -->
               <input type="date" v-model="orderForm.deliveryDate" :min="minDeliveryDate" required />
             </div>
 
