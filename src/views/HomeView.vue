@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCartStore } from '../stores/cart'
 import liff from '@line/liff'
@@ -119,8 +119,23 @@ const selectDate = (dayItem: { dateStr: string; isDisabled: boolean }) => {
   showDatePickerModal.value = false
 }
 
+// 🏪 監聽來自藍新 Map Callback 的 postMessage 事件
+const handleStoreMessage = (event: MessageEvent) => {
+  if (event.data && event.data.storeName) {
+    console.log('🏪 成功接收選擇之門市資料:', event.data)
+    orderForm.value.selectedStore = {
+      id: event.data.storeId || '',
+      name: event.data.storeName || '',
+      address: event.data.storeAddress || ''
+    }
+  }
+}
+
 // --- 🎯 頁面載入時初始化 LIFF 與偵測付款狀態 ---
 onMounted(async () => {
+  // 註冊跨視窗訊息監聽器 (用於接收超商地圖選取結果)
+  window.addEventListener('message', handleStoreMessage)
+
   if (route.query.status === 'success') {
     alert(`🌸 感謝您的訂購！訂單 (${route.query.orderNo || ''}) 已成功建立並完成付款，我們已發送確認信件至您的信箱。`)
     cartStore.clearCart?.()
@@ -157,6 +172,10 @@ onMounted(async () => {
   if (!orderForm.value.deliveryDate) {
     orderForm.value.deliveryDate = minDeliveryDateStr.value
   }
+})
+
+onUnmounted(() => {
+  window.removeEventListener('message', handleStoreMessage)
 })
 
 // --- 型別定義 ---
@@ -277,17 +296,49 @@ watch(() => orderForm.value.payer, (newPayer) => {
   }
 }, { deep: true })
 
-const openStorePicker = () => {
+// 🎯 呼叫後端 API 並打開藍新實體超商地圖
+const openStorePicker = async () => {
   const method = orderForm.value.deliveryMethod
-  const storeInfo = prompt(`[模擬${method === 'seven_eleven' ? '7-11' : '全家'}地圖選擇]\n請輸入門市名稱與店號：`, method === 'seven_eleven' ? '湖興門市 987654' : '瑞光店 123456')
-  if (!storeInfo) return
+  const cvsType = method === 'seven_eleven' ? '711' : 'FAMI'
 
-  const storeAddr = prompt('請輸入門市地址：', '台北市內湖區瑞光路100號') || '門市地址未填寫'
+  try {
+    const response = await fetch(`${API_BASE}/api/logistics/map-url?type=${cvsType}`)
+    const resData = await response.json()
 
-  orderForm.value.selectedStore = {
-    id: String(Math.floor(Math.random() * 900000) + 100000),
-    name: storeInfo,
-    address: storeAddr
+    if (resData.status === 'success' && resData.mapUrl && resData.formData) {
+      const { mapUrl, formData } = resData
+
+      // 建立 Form 表單 POST 送出給藍新
+      const form = document.createElement('form')
+      form.method = 'POST'
+      form.action = mapUrl
+      form.target = 'newebpayMapWindow'
+
+      for (const [key, value] of Object.entries(formData)) {
+        const input = document.createElement('input')
+        input.type = 'hidden'
+        input.name = key
+        input.value = value as string
+        form.appendChild(input)
+      }
+
+      document.body.appendChild(form)
+
+      // 計算開窗置中位置
+      const width = 800
+      const height = 600
+      const left = (window.screen.width - width) / 2
+      const top = (window.screen.height - height) / 2
+
+      window.open('', 'newebpayMapWindow', `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,resizable=yes`)
+      form.submit()
+      document.body.removeChild(form)
+    } else {
+      alert('無法取得超商地圖設定，請稍後再試。')
+    }
+  } catch (error) {
+    console.error('❌ 開啟超商地圖失敗:', error)
+    alert('無法連線至伺服器開啟門市地圖，請確認網路連線。')
   }
 }
 
