@@ -4,10 +4,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useCartStore } from '../stores/cart'
 import liff from '@line/liff'
 
-// 📅 引入 VueDatePicker 套件及其 CSS 樣式
-import VueDatePicker from '@vuepic/vue-datepicker'
-import '@vuepic/vue-datepicker/dist/main.css'
-
 // --- 🎯 LINE LIFF 設定 ---
 const LIFF_ID = '2010913515-HfcsIAK0'
 const lineProfile = ref<{ userId: string; displayName: string; pictureUrl?: string } | null>(null)
@@ -20,58 +16,21 @@ const route = useRoute()
 const router = useRouter()
 const cartStore = useCartStore()
 
-// 📅 動態計算最早可選送達日期（今天 + 3 天，時間歸零）
-const minDeliveryDate = computed(() => {
+// 📅 動態計算最早可選送達日期（今天 + 3 天，精準格式化為 YYYY-MM-DD）
+const minDeliveryDateStr = computed(() => {
   const d = new Date()
   d.setDate(d.getDate() + 3)
-  d.setHours(0, 0, 0, 0)
-  return d
-})
-
-// 📅 格式化 Date 物件為 YYYY-MM-DD 字串
-const minDeliveryDateStr = computed(() => {
-  const d = minDeliveryDate.value
   const year = d.getFullYear()
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 })
 
-// 📅 字串層級的單日判定函式（iOS Safari 最穩定相容寫法）
-const isDateAllowed = (date: Date) => {
-  if (!date) return false
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  const currentStr = `${year}-${month}-${day}`
-  
-  // 字串直接比對 (例如 "2026-08-07" < "2026-08-10")
-  return currentStr >= minDeliveryDateStr.value
-}
-
-// 📅 計算選定日期的 YYYY-MM-DD 格式
-const selectedDeliveryDateStr = computed(() => {
-  if (!orderForm.value.deliveryDate) return ''
-  const d = new Date(orderForm.value.deliveryDate)
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-})
-
-// 🎯 即時強制作廢任何小於 minDeliveryDate 的選取
+// 🎯 即時強制作廢任何小於 minDeliveryDateStr 的選取
 watch(() => orderForm.value.deliveryDate, (newVal) => {
-  if (newVal) {
-    const d = new Date(newVal)
-    const year = d.getFullYear()
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    const currentStr = `${year}-${month}-${day}`
-
-    if (currentStr < minDeliveryDateStr.value) {
-      alert(`⚠️ 花禮製作與備貨需 3 個工作天，最早可選擇的送達日期為 ${minDeliveryDateStr.value}`)
-      orderForm.value.deliveryDate = new Date(minDeliveryDate.value)
-    }
+  if (newVal && newVal < minDeliveryDateStr.value) {
+    alert(`⚠️ 花禮製作與備貨需 3 個工作天，最早可選擇的送達日期為 ${minDeliveryDateStr.value}`)
+    orderForm.value.deliveryDate = minDeliveryDateStr.value
   }
 })
 
@@ -109,8 +68,9 @@ onMounted(async () => {
     console.warn('LIFF 初始化失敗或非於 LINE App 內開啟:', err)
   }
 
+  // 預設送達日期為最早可選日期
   if (!orderForm.value.deliveryDate) {
-    orderForm.value.deliveryDate = new Date(minDeliveryDate.value)
+    orderForm.value.deliveryDate = minDeliveryDateStr.value
   }
 })
 
@@ -182,7 +142,7 @@ const products = ref<Product[]>([
 const sameAsPayer = ref(false)
 
 const orderForm = ref({
-  deliveryDate: null as Date | string | null,
+  deliveryDate: '',
   deliveryMethod: 'black_cat',
   selectedStore: null as { id: string; name: string; address: string } | null,
   payer: {
@@ -259,9 +219,9 @@ const submitOrder = async () => {
     return
   }
 
-  if (selectedDeliveryDateStr.value < minDeliveryDateStr.value) {
+  if (orderForm.value.deliveryDate < minDeliveryDateStr.value) {
     alert(`⚠️ 送達日期不可小於 ${minDeliveryDateStr.value}，已自動調整為最早可預約日期！`)
-    orderForm.value.deliveryDate = new Date(minDeliveryDate.value)
+    orderForm.value.deliveryDate = minDeliveryDateStr.value
     return
   }
 
@@ -291,7 +251,7 @@ const submitOrder = async () => {
         subtotal: cartStore.totalPrice,
         shippingFee: shippingFee.value,
         totalAmount: finalTotalPrice.value,
-        deliveryDate: selectedDeliveryDateStr.value,
+        deliveryDate: orderForm.value.deliveryDate,
         deliveryMethod: orderForm.value.deliveryMethod,
         selectedStore: orderForm.value.selectedStore,
         email: orderForm.value.payer.email,
@@ -434,18 +394,13 @@ const submitOrder = async () => {
             
             <div class="form-group">
               <label>希望送達日期 *(一般商品於完成付款後 3 至 7 個工作天內不含例假日製作完成並出貨)</label>
-              <!-- 🌸 透過 :is-allowed-date 與 :min-date 雙重字串鎖定機制 -->
-              <VueDatePicker 
+              <!-- 🌸 改用 HTML5 原生 Date Input + min 屬性（在行動裝置極度穩定） -->
+              <input 
+                type="date" 
                 v-model="orderForm.deliveryDate" 
-                :min-date="minDeliveryDate" 
-                :is-allowed-date="isDateAllowed"
-                :prevent-min-max-navigation="true"
-                :enable-time-picker="false"
-                :text-input="false"
-                auto-apply
-                locale="zh-TW"
-                format="yyyy-MM-dd"
-                placeholder="請選擇希望送達日期"
+                :min="minDeliveryDateStr" 
+                class="native-date-picker"
+                required 
               />
             </div>
 
@@ -620,18 +575,17 @@ const submitOrder = async () => {
 </template>
 
 <style scoped>
-/* 🌸 強制修正 VueDatePicker 禁選日期的視覺與點擊行為 */
-:deep(.dp__disabled) {
-  background-color: #f1f5f9 !important;
-  color: #cbd5e1 !important;
-  cursor: not-allowed !important;
-  pointer-events: none !important;
-  opacity: 0.3 !important;
-}
-
-:deep(.dp__cell_disabled) {
-  pointer-events: none !important;
-  cursor: not-allowed !important;
+/* 🌸 原生 Date Picker 美化樣式 */
+.native-date-picker {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #CBD5E1;
+  border-radius: 4px;
+  box-sizing: border-box;
+  font-size: 0.95rem;
+  background-color: #FFFFFF;
+  color: #2D3748;
+  font-family: inherit;
 }
 
 .page-wrapper {
@@ -811,7 +765,6 @@ const submitOrder = async () => {
   font-weight: bold;
 }
 
-/* 運費與小計區塊樣式 */
 .summary-box {
   margin-top: 1rem;
   padding-top: 0.8rem;
@@ -1028,7 +981,6 @@ const submitOrder = async () => {
   text-decoration: underline;
 }
 
-/* 📜 購物須知與條款專用樣式 */
 .policy-section {
   background: #FFFFFF;
   padding: 2.5rem;
