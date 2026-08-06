@@ -688,10 +688,10 @@ const executePayment = async () => {
               color: day.isSelected ? '#FFFFFF' : (day.isDisabled ? '#CBD5E1' : '#2D3748'),
               cursor: (day.isDisabled || !day.isCurrentMonth) ? 'not-allowed' : 'pointer',
               fontWeight: day.isSelected ? 'bold' : 'normal',
-              opacity: (!day.isCurrentMonth) ? 0 : (day.isDisabled ? 0.35 : 1),
+              opacity: !day.isCurrentMonth ? 0 : (day.isDisabled ? 0.35 : 1),
               display: 'flex',
               alignItems: 'center',
-              justify-content: 'center',
+              justifyContent: 'center',
               fontSize: '14px'
             }"
           >
