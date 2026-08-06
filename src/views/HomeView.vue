@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCartStore } from '../stores/cart'
-import liff from '@line/liff' // 👈 引入 LIFF SDK
+import liff from '@line/liff'
 
 // 📅 引入 VueDatePicker 套件及其 CSS 樣式
 import VueDatePicker from '@vuepic/vue-datepicker'
@@ -20,21 +20,36 @@ const route = useRoute()
 const router = useRouter()
 const cartStore = useCartStore()
 
-// 📅 動態計算最早可選送達日期（今天 + 3 天，本地時間歸零至 00:00:00）
+// 📅 動態計算最早可選送達日期（今天 + 3 天，時間歸零）
 const minDeliveryDate = computed(() => {
-  const date = new Date()
-  date.setDate(date.getDate() + 3) // +3 天（排除今、明、後）
-  date.setHours(0, 0, 0, 0)
-  return date
+  const d = new Date()
+  d.setDate(d.getDate() + 3)
+  d.setHours(0, 0, 0, 0)
+  return d
 })
 
-// 📅 格式化 Date 物件為 YYYY-MM-DD 字串（提供給 API 傳輸及比對使用）
+// 📅 格式化 Date 物件為 YYYY-MM-DD 字串
 const minDeliveryDateStr = computed(() => {
   const d = minDeliveryDate.value
   const year = d.getFullYear()
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+})
+
+// 📅 精準算出過去「今天、明天、後天」以及所有過往日期的禁選陣列與比較時間點
+const disabledDates = computed(() => {
+  const dates: Date[] = []
+  const today = new Date()
+  
+  // 生成過往 30 天到今天+2 天的禁選清單
+  for (let i = -60; i < 3; i++) {
+    const d = new Date(today)
+    d.setDate(d.getDate() + i)
+    d.setHours(0, 0, 0, 0)
+    dates.push(d)
+  }
+  return dates
 })
 
 // 📅 計算選定日期的 YYYY-MM-DD 格式
@@ -47,23 +62,15 @@ const selectedDeliveryDateStr = computed(() => {
   return `${year}-${month}-${day}`
 })
 
-// 📅 強制禁選過往日期的判斷函式（傳入 VueDatePicker 的 disabled-dates，回傳 true 為禁用）
-const disabledDates = (date: Date) => {
-  const target = new Date(date)
-  target.setHours(0, 0, 0, 0)
-  
-  const minLimit = new Date(minDeliveryDate.value)
-  minLimit.setHours(0, 0, 0, 0)
-
-  return target.getTime() < minLimit.getTime()
-}
-
 // 🎯 即時強制作廢任何小於 minDeliveryDate 的選取
 watch(() => orderForm.value.deliveryDate, (newVal) => {
   if (newVal) {
     const selected = new Date(newVal)
     selected.setHours(0, 0, 0, 0)
-    if (selected.getTime() < minDeliveryDate.value.getTime()) {
+    const minLimit = new Date(minDeliveryDate.value)
+    minLimit.setHours(0, 0, 0, 0)
+
+    if (selected.getTime() < minLimit.getTime()) {
       alert(`⚠️ 花禮製作與備貨需 3 個工作天，最早可選擇的送達日期為 ${minDeliveryDateStr.value}`)
       orderForm.value.deliveryDate = new Date(minDeliveryDate.value)
     }
@@ -72,10 +79,9 @@ watch(() => orderForm.value.deliveryDate, (newVal) => {
 
 // --- 🎯 頁面載入時初始化 LIFF 與偵測付款狀態 ---
 onMounted(async () => {
-  // 1. 偵測付款結果狀態
   if (route.query.status === 'success') {
     alert(`🌸 感謝您的訂購！訂單 (${route.query.orderNo || ''}) 已成功建立並完成付款，我們已發送確認信件至您的信箱。`)
-    cartStore.clearCart?.() // 清空 Pinia 購物車 (若 store 有定義)
+    cartStore.clearCart?.()
     router.replace({ query: {} })
   } else if (route.query.status === 'failed') {
     const errorMsg = (route.query.message as string) || '付款未完成或已取消交易'
@@ -86,19 +92,16 @@ onMounted(async () => {
     router.replace({ query: {} })
   }
 
-  // 2. 初始化 LIFF SDK 並取得 LINE User Profile
   try {
     await liff.init({ liffId: LIFF_ID })
     if (liff.isLoggedIn()) {
       const profile = await liff.getProfile()
       lineProfile.value = profile
 
-      // 自動帶入付款人姓名 (若欄位目前為空)
       if (!orderForm.value.payer.name && profile.displayName) {
         orderForm.value.payer.name = profile.displayName
       }
 
-      // 嘗試取得用戶 LINE 綁定的 Email (若有 openid 權限)
       const userEmail = liff.getDecodedIDToken()?.email
       if (!orderForm.value.payer.email && userEmail) {
         orderForm.value.payer.email = userEmail
@@ -108,7 +111,6 @@ onMounted(async () => {
     console.warn('LIFF 初始化失敗或非於 LINE App 內開啟:', err)
   }
 
-  // 3. 自動預設希望送達日期為最快可選日期 (強制作為 Date 物件)
   if (!orderForm.value.deliveryDate) {
     orderForm.value.deliveryDate = new Date(minDeliveryDate.value)
   }
@@ -152,7 +154,6 @@ const taiwanDistricts: Record<string, string[]> = {
 
 const taiwanCities = Object.keys(taiwanDistricts)
 
-// --- 墨凝花室精選商品清單 ---
 const products = ref<Product[]>([
   {
     id: 1,
@@ -180,7 +181,6 @@ const products = ref<Product[]>([
   }
 ])
 
-// --- 表單與加載狀態 ---
 const sameAsPayer = ref(false)
 
 const orderForm = ref({
@@ -201,30 +201,25 @@ const orderForm = ref({
   }
 })
 
-// 🚚 運費計算邏輯：滿 4500 元免運，未滿加收 300 元
 const shippingFee = computed(() => {
   if (cartStore.totalPrice === 0) return 0
   return cartStore.totalPrice >= 4500 ? 0 : 300
 })
 
-// 💰 包含運費的最終總金額
 const finalTotalPrice = computed(() => {
   return cartStore.totalPrice + shippingFee.value
 })
 
-// 🎯 縣市變更時，自動校正行政區為該縣市的第一個區域
 watch(() => orderForm.value.recipient.city, (newCity) => {
   if (!sameAsPayer.value && taiwanDistricts[newCity]) {
     orderForm.value.recipient.district = taiwanDistricts[newCity][0]
   }
 })
 
-// 🎯 配送方式切換時重置超商門市
 watch(() => orderForm.value.deliveryMethod, () => {
   orderForm.value.selectedStore = null
 })
 
-// 🎯 監聽「同付款人」勾選框，自動同步姓名與電話
 watch(sameAsPayer, (isSame) => {
   if (isSame) {
     orderForm.value.recipient.name = orderForm.value.payer.name
@@ -232,7 +227,6 @@ watch(sameAsPayer, (isSame) => {
   }
 })
 
-// 🎯 若勾選同付款人且修改付款人姓名電話時，同步更新收件人
 watch(() => orderForm.value.payer, (newPayer) => {
   if (sameAsPayer.value) {
     orderForm.value.recipient.name = newPayer.name
@@ -240,7 +234,6 @@ watch(() => orderForm.value.payer, (newPayer) => {
   }
 }, { deep: true })
 
-// 🏪 電子地圖選擇門市 Modal/模擬邏輯
 const openStorePicker = () => {
   const method = orderForm.value.deliveryMethod
   const storeInfo = prompt(`[模擬${method === 'seven_eleven' ? '7-11' : '全家'}地圖選擇]\n請輸入門市名稱與店號：`, method === 'seven_eleven' ? '湖興門市 987654' : '瑞光店 123456')
@@ -257,7 +250,6 @@ const openStorePicker = () => {
 
 const isLoading = ref(false)
 
-// --- 結帳與送出 API 邏輯 ---
 const submitOrder = async () => {
   if (cartStore.totalPrice === 0) {
     alert('請先選擇至少一項商品！')
@@ -269,7 +261,6 @@ const submitOrder = async () => {
     return
   }
 
-  // 🛡️ 送出前二次校驗日期
   if (selectedDeliveryDateStr.value < minDeliveryDateStr.value) {
     alert(`⚠️ 送達日期不可小於 ${minDeliveryDateStr.value}，已自動調整為最早可預約日期！`)
     orderForm.value.deliveryDate = new Date(minDeliveryDate.value)
@@ -302,7 +293,7 @@ const submitOrder = async () => {
         subtotal: cartStore.totalPrice,
         shippingFee: shippingFee.value,
         totalAmount: finalTotalPrice.value,
-        deliveryDate: selectedDeliveryDateStr.value, // 傳送標準 YYYY-MM-DD 給後端
+        deliveryDate: selectedDeliveryDateStr.value,
         deliveryMethod: orderForm.value.deliveryMethod,
         selectedStore: orderForm.value.selectedStore,
         email: orderForm.value.payer.email,
@@ -445,7 +436,7 @@ const submitOrder = async () => {
             
             <div class="form-group">
               <label>希望送達日期 *(一般商品於完成付款後 3 至 7 個工作天內不含例假日製作完成並出貨)</label>
-              <!-- 🌸 切換為 :disabled-dates 硬性禁選策略 -->
+              <!-- 🌸 VueDatePicker 強制傳入實體 Date 禁選陣列 + min-date -->
               <VueDatePicker 
                 v-model="orderForm.deliveryDate" 
                 :min-date="minDeliveryDate" 
@@ -456,7 +447,6 @@ const submitOrder = async () => {
                 auto-apply
                 locale="zh-TW"
                 format="yyyy-MM-dd"
-                model-type="date"
                 placeholder="請選擇希望送達日期"
               />
             </div>
@@ -638,7 +628,7 @@ const submitOrder = async () => {
   color: #cbd5e1 !important;
   cursor: not-allowed !important;
   pointer-events: none !important;
-  opacity: 0.5 !important;
+  opacity: 0.3 !important;
 }
 
 :deep(.dp__cell_disabled) {
