@@ -217,7 +217,7 @@ const taiwanDistricts: Record<string, string[]> = {
   '桃園市': ['桃園區', '中壢區', '平鎮區', '八德區', '楊梅區', '蘆竹區', '大溪區', '龍潭區', '龜山區', '大園區', '觀音區', '新屋區', '復興區'],
   '新竹市': ['東區', '北區', '香山區'],
   '新竹縣': ['竹北市', '竹東鎮', '新埔鎮', '關西鎮', '湖口鄉', '新豐鄉', '芎林鄉', '橫山鄉', '北埔鄉', '寶山鄉', '峨眉鄉', '尖石鄉', '五峰鄉'],
-  '苗栗縣': ['苗栗市', '頭份市', '竹南鎮', '後龍鎮', '通霄鎮', '苑裡鎮', '卓蘭鎮', '造橋鄉', '西湖鄉', '頭屋鄉', '公館鄉', '銅鑼鄉', '三義鄉', '大湖鄉', '獅潭鄉', '三灣鄉', '南庄鄉', '泰安鄉'],
+  '苗栗縣': ['苗栗市', '頭份市', '竹南鎮', '後龍鎮', '通霄鎮', '苑裡鎮', '卓欄鎮', '造橋鄉', '西湖鄉', '頭屋鄉', '公館鄉', '銅鑼鄉', '三義鄉', '大湖鄉', '獅潭鄉', '三灣鄉', '南庄鄉', '泰安鄉'],
   '台中市': ['中區', '東區', '南區', '西區', '北區', '北屯區', '西屯區', '南屯區', '太平區', '大里區', '霧峰區', '烏日區', '豐原區', '后里區', '石岡區', '東勢區', '和平區', '新社區', '潭子區', '大雅區', '神岡區', '大肚區', '沙鹿區', '龍井區', '梧棲區', '清水區', '大甲區', '外埔區', '大安區'],
   '彰化縣': ['彰化市', '員林市', '和美鎮', '鹿港鎮', '溪湖鎮', '二林鎮', '田中鎮', '北斗鎮', '花壇鄉', '芬園鄉', '大村鄉', '永靖鄉', '伸港鄉', '線西鄉', '福興鄉', '秀水鄉', '埔心鄉', '埔鹽鄉', '大城鄉', '芳苑鄉', '竹塘鄉', '社頭鄉', '二水鄉', '田尾鄉', '埤頭鄉', '溪州鄉'],
   '南投縣': ['南投市', '埔里鎮', '草屯鎮', '竹山鎮', '集集鎮', '名間鄉', '鹿谷鄉', '中寮鄉', '魚池鄉', '國姓鄉', '水里鄉', '信義鄉', '仁愛鄉'],
@@ -652,10 +652,10 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 🗓️ 2. 自訂月曆 Modal (已全面修復橫排網格與過去日期/未來3天鎖定) -->
+    <!-- 🗓️ 2. 自訂月曆 Modal -->
     <div v-if="showDatePickerModal" class="modal-backdrop" @click.self="showDatePickerModal = false">
       <div class="calendar-modal">
-        {/* 月曆頂部切換區 */}
+        <!-- 月曆頂部切換區 -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
           <button type="button" class="month-nav-btn" @click="changeMonth(-1)">‹</button>
           <span class="month-title" style="font-weight: bold; font-size: 16px;">
@@ -664,14 +664,14 @@ const executePayment = async () => {
           <button type="button" class="month-nav-btn" @click="changeMonth(1)">›</button>
         </div>
 
-        {/* 星期一 ~ 星期日 標題列 (強制 7 欄) */}
+        <!-- 星期一 ~ 星期日 標題列 (強制 7 欄) -->
         <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 8px; text-align: center;">
           <div v-for="(day, idx) in daysOfWeek" :key="idx" style="font-weight: bold; font-size: 13px; color: #666;">
             {{ day }}
           </div>
         </div>
 
-        {/* 日期網格 (強制 7 欄網格) */}
+        <!-- 日期網格 (強制 7 欄網格) -->
         <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;">
           <button
             v-for="(day, idx) in calendarDays"
