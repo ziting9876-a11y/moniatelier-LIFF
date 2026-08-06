@@ -20,7 +20,7 @@ const route = useRoute()
 const router = useRouter()
 const cartStore = useCartStore()
 
-// 📅 動態計算最早可選送達日期（排除今、明、後 3 天，第 4 天起才可以選擇）
+// 📅 動態計算最早可選送達日期（今天 + 3 天，時間精準歸零至 00:00:00）
 const minDeliveryDate = computed(() => {
   const date = new Date()
   date.setDate(date.getDate() + 3) // +3 天（排除今、明、後）
@@ -45,6 +45,18 @@ const selectedDeliveryDateStr = computed(() => {
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+})
+
+// 🎯 即時強制作廢任何小於 minDeliveryDate 的選取
+watch(() => orderForm.value.deliveryDate, (newVal) => {
+  if (newVal) {
+    const selected = new Date(newVal)
+    selected.setHours(0, 0, 0, 0)
+    if (selected < minDeliveryDate.value) {
+      alert(`⚠️ 花禮製作與備貨需 3 個工作天，最早可選擇的送達日期為 ${minDeliveryDateStr.value}`)
+      orderForm.value.deliveryDate = new Date(minDeliveryDate.value)
+    }
+  }
 })
 
 // --- 🎯 頁面載入時初始化 LIFF 與偵測付款狀態 ---
@@ -85,9 +97,9 @@ onMounted(async () => {
     console.warn('LIFF 初始化失敗或非於 LINE App 內開啟:', err)
   }
 
-  // 3. 自動預設希望送達日期為最快可選日期
+  // 3. 自動預設希望送達日期為最快可選日期 (強制作為 Date 物件)
   if (!orderForm.value.deliveryDate) {
-    orderForm.value.deliveryDate = minDeliveryDate.value
+    orderForm.value.deliveryDate = new Date(minDeliveryDate.value)
   }
 })
 
@@ -249,7 +261,7 @@ const submitOrder = async () => {
   // 🛡️ 送出前二次校驗日期
   if (selectedDeliveryDateStr.value < minDeliveryDateStr.value) {
     alert(`⚠️ 送達日期不可小於 ${minDeliveryDateStr.value}，已自動調整為最早可預約日期！`)
-    orderForm.value.deliveryDate = minDeliveryDate.value
+    orderForm.value.deliveryDate = new Date(minDeliveryDate.value)
     return
   }
 
@@ -422,14 +434,16 @@ const submitOrder = async () => {
             
             <div class="form-group">
               <label>希望送達日期 *(一般商品於完成付款後 3 至 7 個工作天內不含例假日製作完成並出貨)</label>
-              <!-- 🌸 改用 VueDatePicker 限制最小可選日期，解決 iOS Webview 限制 -->
+              <!-- 🌸 VueDatePicker 加上全方位鎖定屬性與 model-type -->
               <VueDatePicker 
                 v-model="orderForm.deliveryDate" 
                 :min-date="minDeliveryDate" 
+                :prevent-min-max-navigation="true"
                 :enable-time-picker="false"
                 auto-apply
                 locale="zh-TW"
                 format="yyyy-MM-dd"
+                model-type="date"
                 placeholder="請選擇希望送達日期"
               />
             </div>
