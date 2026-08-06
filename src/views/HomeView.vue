@@ -37,20 +37,17 @@ const minDeliveryDateStr = computed(() => {
   return `${year}-${month}-${day}`
 })
 
-// 📅 精準算出過去「今天、明天、後天」以及所有過往日期的禁選陣列與比較時間點
-const disabledDates = computed(() => {
-  const dates: Date[] = []
-  const today = new Date()
+// 📅 字串層級的單日判定函式（iOS Safari 最穩定相容寫法）
+const isDateAllowed = (date: Date) => {
+  if (!date) return false
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const currentStr = `${year}-${month}-${day}`
   
-  // 生成過往 30 天到今天+2 天的禁選清單
-  for (let i = -60; i < 3; i++) {
-    const d = new Date(today)
-    d.setDate(d.getDate() + i)
-    d.setHours(0, 0, 0, 0)
-    dates.push(d)
-  }
-  return dates
-})
+  // 字串直接比對 (例如 "2026-08-07" < "2026-08-10")
+  return currentStr >= minDeliveryDateStr.value
+}
 
 // 📅 計算選定日期的 YYYY-MM-DD 格式
 const selectedDeliveryDateStr = computed(() => {
@@ -65,12 +62,13 @@ const selectedDeliveryDateStr = computed(() => {
 // 🎯 即時強制作廢任何小於 minDeliveryDate 的選取
 watch(() => orderForm.value.deliveryDate, (newVal) => {
   if (newVal) {
-    const selected = new Date(newVal)
-    selected.setHours(0, 0, 0, 0)
-    const minLimit = new Date(minDeliveryDate.value)
-    minLimit.setHours(0, 0, 0, 0)
+    const d = new Date(newVal)
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    const currentStr = `${year}-${month}-${day}`
 
-    if (selected.getTime() < minLimit.getTime()) {
+    if (currentStr < minDeliveryDateStr.value) {
       alert(`⚠️ 花禮製作與備貨需 3 個工作天，最早可選擇的送達日期為 ${minDeliveryDateStr.value}`)
       orderForm.value.deliveryDate = new Date(minDeliveryDate.value)
     }
@@ -436,11 +434,11 @@ const submitOrder = async () => {
             
             <div class="form-group">
               <label>希望送達日期 *(一般商品於完成付款後 3 至 7 個工作天內不含例假日製作完成並出貨)</label>
-              <!-- 🌸 VueDatePicker 強制傳入實體 Date 禁選陣列 + min-date -->
+              <!-- 🌸 透過 :is-allowed-date 與 :min-date 雙重字串鎖定機制 -->
               <VueDatePicker 
                 v-model="orderForm.deliveryDate" 
                 :min-date="minDeliveryDate" 
-                :disabled-dates="disabledDates"
+                :is-allowed-date="isDateAllowed"
                 :prevent-min-max-navigation="true"
                 :enable-time-picker="false"
                 :text-input="false"
