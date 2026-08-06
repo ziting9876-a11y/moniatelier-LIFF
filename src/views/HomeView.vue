@@ -11,10 +11,53 @@ const lineProfile = ref<{ userId: string; displayName: string; pictureUrl?: stri
 // --- 🎯 API 後端基礎網址設定 ---
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://moni-atelier-backend.onrender.com'
 
-// --- 🎯 初始化 Router 與 Pinia Store ---
 const route = useRoute()
 const router = useRouter()
 const cartStore = useCartStore()
+
+// --- 🎯 步驟切換控制 (1: 瀏覽商品, 2: 填寫結帳資料) ---
+const currentStep = ref(1)
+
+// --- 🎯 商品詳情 Modal 控制 ---
+const selectedProductDetail = ref<Product | null>(null)
+const openProductDetail = (product: Product) => {
+  selectedProductDetail.value = product
+}
+const closeProductDetail = () => {
+  selectedProductDetail.value = null
+}
+
+// --- 🎯 購物須知與條款 Modal 控制 ---
+const showPolicyModal = ref(false)
+const hasAgreedPolicy = ref(false)
+
+const openPolicyModal = () => {
+  if (cartStore.totalPrice === 0) {
+    alert('請先選擇至少一項商品！')
+    return
+  }
+
+  if (!orderForm.value.deliveryDate) {
+    alert('請選擇希望送達日期！')
+    return
+  }
+
+  const isStoreDelivery = ['seven_eleven', 'familymart'].includes(orderForm.value.deliveryMethod)
+  if (isStoreDelivery) {
+    if (!storeInput.value.name.trim() || !storeInput.value.address.trim()) {
+      alert('請填寫完整取件超商門市名稱與門市地址！')
+      return
+    }
+  }
+
+  if (!orderForm.value.payer.name || !orderForm.value.payer.phone || !orderForm.value.payer.email) {
+    alert('請完整填寫付款人資訊！')
+    return
+  }
+
+  // 驗證通過，觸發條款彈窗
+  showPolicyModal.value = true
+}
 
 // 📅 動態計算最早可選送達日期（今天 + 3 天）
 const minDeliveryDate = computed(() => {
@@ -44,7 +87,6 @@ const maxDeliveryDate = computed(() => {
 const showDatePickerModal = ref(false)
 const calendarViewDate = ref(new Date())
 
-// 開啟月曆
 const openCalendar = () => {
   calendarViewDate.value = orderForm.value.deliveryDate 
     ? new Date(orderForm.value.deliveryDate) 
@@ -52,7 +94,6 @@ const openCalendar = () => {
   showDatePickerModal.value = true
 }
 
-// 切換月份
 const changeMonth = (offset: number) => {
   const newDate = new Date(calendarViewDate.value)
   newDate.setMonth(newDate.getMonth() + offset)
@@ -70,7 +111,6 @@ const changeMonth = (offset: number) => {
   }
 }
 
-// 動態計算月曆網格資料
 const calendarDays = computed(() => {
   const year = calendarViewDate.value.getFullYear()
   const month = calendarViewDate.value.getMonth()
@@ -92,7 +132,6 @@ const calendarDays = computed(() => {
     current.setHours(0, 0, 0, 0)
 
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-    
     const isDisabled = current.getTime() < minDeliveryDate.value.getTime() || current.getTime() > maxDeliveryDate.value.getTime()
     const isSelected = orderForm.value.deliveryDate === dateStr
 
@@ -108,7 +147,6 @@ const calendarDays = computed(() => {
   return days
 })
 
-// 點擊選擇日期
 const selectDate = (dayItem: { dateStr: string; isDisabled: boolean }) => {
   if (dayItem.isDisabled || !dayItem.dateStr) return
   orderForm.value.deliveryDate = dayItem.dateStr
@@ -154,7 +192,7 @@ onMounted(async () => {
   }
 })
 
-// --- 型別定義 ---
+// --- 型別與產品清單 ---
 interface Product {
   id: number
   name: string
@@ -197,7 +235,7 @@ const products = ref<Product[]>([
     name: '晨霧與詩｜永生花框',
     category: '不凋花 / 永生花',
     price: 2580,
-    description: '嚴選大地色系永生玫瑰，輕便乾燥花材，時尚時光之美。',
+    description: '嚴選大地色系永生玫瑰，搭配質感木框與輕便乾燥花材，紀錄時尚永恆之美。適用於生日祝賀、相框擺飾或告白禮物。',
     image: 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?auto=format&fit=crop&w=600&q=80'
   },
   {
@@ -205,7 +243,7 @@ const products = ref<Product[]>([
     name: '寂靜森林｜手綁鮮花束',
     category: '鮮花花束',
     price: 1880,
-    description: '深綠葉材襯托優雅白綠色系鮮花，呈現自然原始的靜謐氣息。',
+    description: '深綠葉材襯托優雅白綠色系鮮花，呈現自然原始的靜謐氣息。適合畢業花束、週年紀念或日常生活儀式感點綴。',
     image: 'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?auto=format&fit=crop&w=600&q=80'
   },
   {
@@ -213,14 +251,13 @@ const products = ref<Product[]>([
     name: '微光日常｜桌花盆花',
     category: '桌花設計',
     price: 2200,
-    description: '低飽和度暖色調，適合居家擺飾、品牌空間或開幕送禮。',
+    description: '低飽和度暖色調設計，兼具優雅與柔和感。適合居家客廳擺飾、品牌空間陳列、新居落成或開幕祝賀送禮。',
     image: 'https://images.unsplash.com/photo-1508610048659-a06b669e3321?auto=format&fit=crop&w=600&q=80'
   }
 ])
 
 const sameAsPayer = ref(false)
 
-// 🎯 方案 B 專用：超商門市手動輸入表單資料
 const storeInput = ref({
   name: '',
   address: ''
@@ -242,6 +279,10 @@ const orderForm = ref({
     district: '中正區',
     address: ''
   }
+})
+
+const totalCartItemsCount = computed(() => {
+  return Object.values(cartStore.cart).reduce((sum, qty) => sum + qty, 0)
 })
 
 const shippingFee = computed(() => {
@@ -280,26 +321,12 @@ watch(() => orderForm.value.payer, (newPayer) => {
 
 const isLoading = ref(false)
 
-const submitOrder = async () => {
-  if (cartStore.totalPrice === 0) {
-    alert('請先選擇至少一項商品！')
-    return
-  }
-
-  if (!orderForm.value.deliveryDate) {
-    alert('請選擇希望送達日期！')
-    return
-  }
-
+// 真正的付款跳轉發送
+const executePayment = async () => {
+  showPolicyModal.value = false
   const isStoreDelivery = ['seven_eleven', 'familymart'].includes(orderForm.value.deliveryMethod)
 
-  // 🎯 方案 B 驗證：如果選擇超商取件，檢查是否填寫門市名稱與地址
   if (isStoreDelivery) {
-    if (!storeInput.value.name.trim() || !storeInput.value.address.trim()) {
-      alert('請填寫完整取件超商門市名稱與門市地址！')
-      return
-    }
-    // 組合 selectedStore 供後端紀錄
     orderForm.value.selectedStore = {
       id: 'CUSTOM',
       name: storeInput.value.name.trim(),
@@ -391,29 +418,57 @@ const submitOrder = async () => {
 
 <template>
   <div class="page-wrapper">
-    <div class="content-grid">
-      <!-- 左側：商品展示區 -->
+    <!-- 🌸 步驟導覽列 -->
+    <div class="step-indicator">
+      <div class="step-item" :class="{ active: currentStep === 1 }" @click="currentStep = 1">
+        <span class="step-num">1</span>
+        <span class="step-text">選購商品</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step-item" :class="{ active: currentStep === 2 }" @click="cartStore.totalPrice > 0 && (currentStep = 2)">
+        <span class="step-num">2</span>
+        <span class="step-text">訂單明細與結帳</span>
+      </div>
+    </div>
+
+    <!-- ==================== 🌸 步驟一：瀏覽商品與加入購物車 ==================== -->
+    <div v-if="currentStep === 1" class="step-content">
       <section class="products-section">
         <h2 class="section-title">精選花藝作品</h2>
         <div class="product-grid">
           <div v-for="item in products" :key="item.id" class="product-card">
-            <div class="image-wrapper">
+            <!-- 點擊圖片或名稱可查看詳細資料 -->
+            <div class="image-wrapper" @click="openProductDetail(item)">
               <img :src="item.image" :alt="item.name" />
+              <div class="view-detail-badge">🔍 查看詳情</div>
             </div>
             <div class="product-info">
               <span class="category">{{ item.category }}</span>
-              <h3 class="product-name">{{ item.name }}</h3>
+              <h3 class="product-name" @click="openProductDetail(item)">{{ item.name }}</h3>
               <p class="description">{{ item.description }}</p>
               <div class="card-footer">
                 <span class="price">新台幣 {{ item.price.toLocaleString() }} 元</span>
-                <button class="add-btn" @click="cartStore.addToCart(item.id)">加入購物車</button>
+                <button class="add-btn" @click.stop="cartStore.addToCart(item.id)">加入購物車</button>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- 右側：訂單結帳區 -->
+      <!-- 🛒 購物車懸浮邊條 (快捷進下一步) -->
+      <div class="cart-floating-bar" v-if="totalCartItemsCount > 0">
+        <div class="bar-info">
+          <span>🛒 已選購 <strong>{{ totalCartItemsCount }}</strong> 件商品</span>
+          <span class="bar-price">小計：新台幣 {{ cartStore.totalPrice.toLocaleString() }} 元</span>
+        </div>
+        <button class="next-step-btn" @click="currentStep = 2">前往結帳 (下一步) →</button>
+      </div>
+    </div>
+
+    <!-- ==================== 🌸 步驟二：訂單明細與結帳表單 ==================== -->
+    <div v-if="currentStep === 2" class="step-content">
+      <button class="back-btn" @click="currentStep = 1">← 返回選購商品</button>
+
       <section class="checkout-section">
         <div class="checkout-card">
           <h2 class="section-title">訂單明細與結帳</h2>
@@ -421,7 +476,7 @@ const submitOrder = async () => {
           <!-- 購物車清單 -->
           <div class="cart-list">
             <div v-if="Object.keys(cartStore.cart).length === 0" class="empty-cart">
-              購物車目前是空的
+              購物車目前是空的，請先回到步驟一選擇商品
             </div>
             <div v-else>
               <div v-for="(qty, id) in cartStore.cart" :key="id" class="cart-item">
@@ -438,7 +493,7 @@ const submitOrder = async () => {
                 </div>
               </div>
 
-              <!-- 金額小計與運費試算區塊 -->
+              <!-- 金額小計與運費試算 -->
               <div class="summary-box">
                 <div class="summary-row">
                   <span>商品小計</span>
@@ -465,12 +520,11 @@ const submitOrder = async () => {
           <hr class="divider" />
 
           <!-- 結帳表單 -->
-          <form @submit.prevent="submitOrder" class="order-form">
+          <form @submit.prevent="openPolicyModal" class="order-form">
             <h3 class="form-subtitle">訂購與配送資訊</h3>
             
             <div class="form-group">
               <label>希望送達日期 *(一般商品於完成付款後 3 至 7 個工作天內不含例假日製作完成並出貨)</label>
-              <!-- 🌸 自訂月曆點擊觸發框 -->
               <div class="custom-date-trigger" @click="openCalendar">
                 <span>📅 {{ orderForm.deliveryDate || '點擊選擇希望送達日期' }}</span>
                 <span class="arrow">▼</span>
@@ -488,7 +542,7 @@ const submitOrder = async () => {
               </select>
             </div>
 
-            <!-- 🏪 方案 B：超商門市手動填寫區塊 -->
+            <!-- 🏪 超商門市手動填寫區塊 -->
             <div v-if="['seven_eleven', 'familymart'].includes(orderForm.deliveryMethod)" class="form-section store-input-section">
               <h4 class="sub-section-title">🏪 填寫 {{ orderForm.deliveryMethod === 'seven_eleven' ? '7-11' : '全家' }} 取件門市</h4>
               
@@ -513,27 +567,24 @@ const submitOrder = async () => {
               </div>
             </div>
 
-            <!-- 💳 1. 付款人資訊區塊 -->
+            <!-- 💳 1. 付款人資訊 -->
             <div class="form-section">
               <h4 class="sub-section-title">👤 付款人資訊</h4>
-              
               <div class="form-group">
                 <label>姓名 *</label>
                 <input type="text" v-model="orderForm.payer.name" placeholder="請輸入付款人姓名" required />
               </div>
-
               <div class="form-group">
                 <label>聯絡電話 *</label>
                 <input type="tel" v-model="orderForm.payer.phone" placeholder="0912345678" required />
               </div>
-
               <div class="form-group">
                 <label>電子郵件 Email *</label>
                 <input type="email" v-model="orderForm.payer.email" placeholder="example@gmail.com" required />
               </div>
             </div>
 
-            <!-- 🎁 2. 收件人資訊區塊 -->
+            <!-- 🎁 2. 收件人資訊 -->
             <div class="form-section">
               <div class="section-header-inline">
                 <h4 class="sub-section-title">📦 收件人資訊</h4>
@@ -552,7 +603,6 @@ const submitOrder = async () => {
                 <input type="tel" v-model="orderForm.recipient.phone" placeholder="0912345678" :disabled="sameAsPayer" required />
               </div>
 
-              <!-- 僅在宅配時顯示地址欄位 -->
               <div v-if="!['seven_eleven', 'familymart'].includes(orderForm.deliveryMethod)" class="form-group">
                 <label>聯絡地址 *</label>
                 <div class="address-group">
@@ -567,19 +617,34 @@ const submitOrder = async () => {
               </div>
             </div>
 
-            <button type="submit" class="submit-btn" :disabled="isLoading">
-              {{ isLoading ? '訂單建立中...' : `前往付款（新台幣 ${finalTotalPrice.toLocaleString()} 元）` }}
+            <button type="submit" class="submit-btn" :disabled="isLoading || Object.keys(cartStore.cart).length === 0">
+              前往付款（新台幣 {{ finalTotalPrice.toLocaleString() }} 元）
             </button>
-            
-            <p class="terms-agree-notice">
-              點擊「前往付款」即代表您已閱讀並同意下方之 <a href="#policy-section">購物須知與條款</a>。
-            </p>
           </form>
         </div>
       </section>
     </div>
 
-    <!-- 🗓️ 自訂月曆 Modal -->
+    <!-- 🔍 1. 商品詳情 Modal -->
+    <div v-if="selectedProductDetail" class="modal-backdrop" @click.self="closeProductDetail">
+      <div class="product-detail-modal">
+        <button class="close-icon-btn" @click="closeProductDetail">✕</button>
+        <div class="detail-image-wrapper">
+          <img :src="selectedProductDetail.image" :alt="selectedProductDetail.name" />
+        </div>
+        <div class="detail-body">
+          <span class="category">{{ selectedProductDetail.category }}</span>
+          <h2>{{ selectedProductDetail.name }}</h2>
+          <p class="detail-desc">{{ selectedProductDetail.description }}</p>
+          <div class="detail-footer">
+            <span class="detail-price">NT$ {{ selectedProductDetail.price.toLocaleString() }}</span>
+            <button class="add-btn" @click="cartStore.addToCart(selectedProductDetail.id); closeProductDetail()">加入購物車</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🗓️ 2. 自訂月曆 Modal -->
     <div v-if="showDatePickerModal" class="modal-backdrop" @click.self="showDatePickerModal = false">
       <div class="calendar-modal">
         <div class="calendar-header">
@@ -617,87 +682,304 @@ const submitOrder = async () => {
       </div>
     </div>
 
-    <!-- 📜 購物須知與條款區塊 -->
-    <section id="policy-section" class="policy-section">
-      <div class="policy-header">
-        <h2 class="policy-main-title">🌸 購物須知與條款</h2>
-        <p class="policy-welcome">
-          歡迎光臨「墨凝花室」（以下簡稱本店）。為了保障您的權益，在進行訂購前，請仔細閱讀以下服務條款、出貨說明、退換貨政策及隱私權保護聲明：
-        </p>
-      </div>
+    <!-- 📜 3. 強制跳出購物須知與條款 Modal -->
+    <div v-if="showPolicyModal" class="modal-backdrop" @click.self="showPolicyModal = false">
+      <div class="policy-modal">
+        <div class="policy-modal-header">
+          <h3>🌸 購物須知與條款閱讀確認</h3>
+          <button class="close-icon-btn" @click="showPolicyModal = false">✕</button>
+        </div>
+        
+        <div class="policy-modal-body">
+          <section class="policy-card">
+            <h4>一、 出貨天數與配送說明</h4>
+            <p>一般商品於完成付款後 3 至 7 個工作天內（不含例假日）製作完成並出貨。</p>
+            <p>宅配運送約 1~2 天，超商取貨約 2~3 天。</p>
+          </section>
 
-      <div class="policy-grid">
-        <!-- 一、出貨天數與配送說明 -->
-        <div class="policy-card">
-          <h3 class="policy-card-title">一、 出貨天數與配送說明</h3>
-          <div class="policy-block">
-            <h4>製作與出貨時間：</h4>
-            <p>本店花藝商品（包含手作、永生花/乾燥花及客製化作品）皆為收到訂單與付款後開始製作。</p>
-            <ul>
-              <li>一般商品於完成付款後 <strong>3 至 7 個工作天內（不含例假日）</strong>製作完成並出貨。</li>
-              <li>客製化商品或大宗花禮，出貨天數為 <strong>5 至 10 個工作天</strong>，具體交期以雙方確認之溝通內容為準。</li>
-            </ul>
-          </div>
-          <div class="policy-block">
-            <h4>配送方式與時間：</h4>
-            <p>寄出後，宅配運送時間約 <strong>1 至 2 個工作天</strong>，超商取貨約 <strong>2 至 3 個工作天</strong>（實際配送進度依物流公司公告為準）。</p>
-          </div>
+          <section class="policy-card">
+            <h4>二、 消費者權益與退換貨政策</h4>
+            <p>依據《消費者保護法》規定，本賣場花卉植物與客製化給付商品，<strong>不適用 7 天鑑賞期</strong>，訂單成立後概不接受退換貨。</p>
+          </section>
+
+          <section class="policy-card">
+            <h4>三、 隱私權與金流安全</h4>
+            <p>金流交易由「藍新金流 NewebPay」加密傳輸，本站不會留存您的信用卡敏感資訊。</p>
+          </section>
         </div>
 
-        <!-- 二、消費者權益與退換貨政策 -->
-        <div class="policy-card">
-          <h3 class="policy-card-title">二、 消費者權益與退換貨政策（鑑賞期說明）</h3>
-          <div class="policy-block">
-            <h4>客製化商品不適用 7 天鑑賞期：</h4>
-            <p>
-              依據《消費者保護法》第 19 條第 1 項但書及《通訊交易解除權合理例外情事適用準則》第 2 條規定，本店所販售之「依消費者要求所為之客製化給付商品」及「易於腐敗、保存期限較短或解約時即將逾期之花卉植物」，<strong>不適用 7 天鑑賞期（猶豫期）之規定</strong>，訂單成立後概不接受退換貨。
-            </p>
-          </div>
-          <div class="policy-block">
-            <h4>瑕疵與破損處理：</h4>
-            <p>花藝商品運送過程可能因震動有些微花瓣掉落，此屬正常現象。</p>
-            <p>
-              若您收到商品時有嚴重的箱體毀損、商品本體重大瑕疵或品項不符之情況，請於收到商品 <strong>24 小時內</strong>拍照/錄影存證，並透過客服與我們聯繫，我們將儘速為您辦理補件或補換貨事宜。
-            </p>
-          </div>
-        </div>
-
-        <!-- 三、服務條款 -->
-        <div class="policy-card">
-          <h3 class="policy-card-title">三、 服務條款</h3>
-          <p>
-            本店商品多數包含天然植物與手作成分，姿態、顏色與照片有些微差異屬正常現象。如遇花材缺貨，本店保留在維護整體設計美感的前提下，更換等值或相似花材之權利。
-          </p>
-          <p>
-            訂購人有義務提供正確、完整之收件人資訊，若因填寫資訊錯誤導致無法配送或退回，相關再發送之運費須由買家自行負擔。
-          </p>
-        </div>
-
-        <!-- 四、隱私權政策 -->
-        <div class="policy-card">
-          <h3 class="policy-card-title">四、 隱私權政策</h3>
-          <div class="policy-block">
-            <h4>個人資料蒐集與使用：</h4>
-            <p>本店僅於處理商品訂購、運送配送、顧客服務及付款確認之目的範圍內，蒐集您的個人資料（包含姓名、電話、地址、Email 等）。</p>
-          </div>
-          <div class="policy-block">
-            <h4>資料安全與保密：</h4>
-            <p>本店絕不會將您的個人資料出售、出租、交換或提供給任何第三方，亦不作其他非法用途。</p>
-          </div>
-          <div class="policy-block">
-            <h4>金流交易安全：</h4>
-            <p>
-              本店線上付款流程串接「藍新金流 NewebPay」，交易過程採用加密傳輸保護，本店不會記錄或留存您的信用卡號等敏感金融資訊。
-            </p>
-          </div>
+        <div class="policy-modal-footer">
+          <label class="agree-checkbox-label">
+            <input type="checkbox" v-model="hasAgreedPolicy" />
+            我已完整閱讀並同意上述購物須知與服務條款
+          </label>
+          <button 
+            type="button" 
+            class="confirm-pay-btn" 
+            :disabled="!hasAgreedPolicy || isLoading"
+            @click="executePayment"
+          >
+            {{ isLoading ? '處理中...' : '確認同意並前往付款' }}
+          </button>
         </div>
       </div>
-    </section>
+    </div>
+
   </div>
 </template>
 
 <style scoped>
-/* 🌸 自訂月曆觸發框樣式 */
+/* 🌸 步驟導覽列樣式 */
+.step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  background: #FFFFFF;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: all 0.2s ease;
+}
+
+.step-item.active {
+  opacity: 1;
+  font-weight: bold;
+}
+
+.step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #CBD5E1;
+  color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+}
+
+.step-item.active .step-num {
+  background: #34444E;
+  color: #FFF;
+}
+
+.step-line {
+  width: 40px;
+  height: 2px;
+  background: #CBD5E1;
+}
+
+/* 🛒 購物車懸浮邊條 */
+.cart-floating-bar {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 600px;
+  background: #34444E;
+  color: #FFF;
+  padding: 0.8rem 1.2rem;
+  border-radius: 50px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  z-index: 1000;
+}
+
+.bar-info {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.9rem;
+}
+
+.bar-price {
+  font-size: 0.8rem;
+  color: #CBD5E1;
+}
+
+.next-step-btn {
+  background: #F7F9FA;
+  color: #34444E;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 20px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.back-btn {
+  background: none;
+  border: 1px solid #FFF;
+  color: #FFF;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-bottom: 1rem;
+}
+
+/* 🔍 商品卡片 hover 效果 */
+.image-wrapper {
+  position: relative;
+  cursor: pointer;
+}
+
+.view-detail-badge {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background: rgba(0,0,0,0.6);
+  color: #FFF;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+}
+
+/* Modal 通用背景 */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+/* 🔍 商品詳情 Modal */
+.product-detail-modal {
+  background: #FFF;
+  width: 100%;
+  max-width: 500px;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.close-icon-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0,0,0,0.5);
+  color: #FFF;
+  border: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.detail-image-wrapper img {
+  width: 100%;
+  height: 260px;
+  object-fit: cover;
+}
+
+.detail-body {
+  padding: 1.5rem;
+  text-align: left;
+}
+
+.detail-desc {
+  font-size: 0.9rem;
+  color: #4A5568;
+  line-height: 1.6;
+  margin: 1rem 0;
+}
+
+.detail-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detail-price {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #2D3748;
+}
+
+/* 📜 強制條款 Modal */
+.policy-modal {
+  background: #FFF;
+  width: 100%;
+  max-width: 550px;
+  max-height: 85vh;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.policy-modal-header {
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid #E2E8F0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.policy-modal-body {
+  padding: 1.2rem;
+  overflow-y: auto;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.policy-modal-footer {
+  padding: 1rem 1.2rem;
+  border-top: 1px solid #E2E8F0;
+  background: #F8FAFC;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.agree-checkbox-label {
+  font-size: 0.85rem;
+  color: #2D3748;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.confirm-pay-btn {
+  width: 100%;
+  padding: 0.8rem;
+  background: #34444E;
+  color: #FFF;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.confirm-pay-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 保留先前頁面核心樣式 */
 .custom-date-trigger {
   display: flex;
   justify-content: space-between;
@@ -710,28 +992,6 @@ const submitOrder = async () => {
   color: #2D3748;
   cursor: pointer;
   font-size: 0.95rem;
-  user-select: none;
-}
-
-.custom-date-trigger .arrow {
-  font-size: 0.75rem;
-  color: #718096;
-}
-
-/* 🗓️ 自訂月曆 Modal 樣式 */
-.modal-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;
-  padding: 1rem;
-  box-sizing: border-box;
 }
 
 .calendar-modal {
@@ -740,130 +1000,12 @@ const submitOrder = async () => {
   max-width: 360px;
   border-radius: 12px;
   padding: 1.2rem;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-}
-
-.calendar-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.month-title {
-  font-weight: 700;
-  font-size: 1.1rem;
-  color: #2D3748;
-}
-
-.month-nav-btn {
-  background: #F1F5F9;
-  border: none;
-  font-size: 1.2rem;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  cursor: pointer;
-  color: #34444E;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.weekdays-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  text-align: center;
-  font-weight: 600;
-  font-size: 0.85rem;
-  color: #718096;
-  margin-bottom: 0.5rem;
-}
-
-.days-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-}
-
-.day-cell {
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.9rem;
-  border-radius: 6px;
-  cursor: pointer;
-  color: #2D3748;
-  transition: all 0.15s ease;
-}
-
-.day-cell:not(.disabled):not(.empty):hover {
-  background-color: #E2E8F0;
-}
-
-.day-cell.selected {
-  background-color: #34444E !important;
-  color: #FFFFFF !important;
-  font-weight: 700;
-}
-
-.day-cell.disabled {
-  color: #CBD5E1;
-  background-color: #F8FAFC;
-  cursor: not-allowed;
-  text-decoration: line-through;
-}
-
-.day-cell.empty {
-  cursor: default;
-}
-
-.calendar-footer {
-  margin-top: 1.2rem;
-  padding-top: 0.8rem;
-  border-top: 1px solid #E2E8F0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.tip-text {
-  font-size: 0.75rem;
-  color: #718096;
-}
-
-.close-modal-btn {
-  background: #E2E8F0;
-  border: none;
-  padding: 0.4rem 0.8rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  color: #34444E;
 }
 
 .page-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 3rem;
-}
-
-.submit-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.content-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 2rem;
-}
-
-@media (min-width: 850px) {
-  .content-grid {
-    grid-template-columns: 1.25fr 0.75fr;
-  }
+  gap: 1.5rem;
 }
 
 .section-title {
@@ -871,22 +1013,10 @@ const submitOrder = async () => {
   font-weight: 600;
   margin-bottom: 1.2rem;
   color: #FFFFFF;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
 }
 
 .checkout-card .section-title {
   color: #34444E;
-}
-
-.section-title::before {
-  content: '';
-  display: inline-block;
-  width: 4px;
-  height: 1.2rem;
-  background-color: #F7F9FA;
-  border-radius: 2px;
 }
 
 .product-grid {
@@ -921,14 +1051,14 @@ const submitOrder = async () => {
 .category {
   font-size: 0.8rem;
   color: #718096;
-  margin-bottom: 0.4rem;
 }
 
 .product-name {
   font-size: 1.15rem;
-  margin: 0 0 0.5rem 0;
+  margin: 0.4rem 0;
   color: #2D3748;
   font-weight: 600;
+  cursor: pointer;
 }
 
 .description {
@@ -948,7 +1078,6 @@ const submitOrder = async () => {
 .price {
   font-weight: 700;
   color: #2D3748;
-  font-size: 1rem;
 }
 
 .add-btn {
@@ -958,28 +1087,13 @@ const submitOrder = async () => {
   padding: 0.5rem 1rem;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.85rem;
   font-weight: 600;
-  transition: all 0.2s ease;
-}
-
-.add-btn:hover {
-  background-color: #34444E;
-  color: #F7F9FA;
 }
 
 .checkout-card {
   background: #FFFFFF;
   padding: 1.8rem;
   border-radius: 8px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-}
-
-.empty-cart {
-  text-align: center;
-  color: #a0aec0;
-  padding: 1.5rem 0;
-  font-size: 0.95rem;
 }
 
 .cart-item {
@@ -991,33 +1105,13 @@ const submitOrder = async () => {
   border-bottom: 1px solid #E2E8F0;
 }
 
-.cart-item-name {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #2D3748;
-}
-
-.cart-item-price {
-  font-size: 0.85rem;
-  color: #718096;
-  margin-top: 0.2rem;
-}
-
-.quantity-control {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
 .quantity-control button {
   width: 26px;
   height: 26px;
   border: 1px solid #CBD5E1;
   background: #F8FAFC;
-  color: #34444E;
   border-radius: 4px;
   cursor: pointer;
-  font-weight: bold;
 }
 
 .summary-box {
@@ -1032,21 +1126,6 @@ const submitOrder = async () => {
   font-size: 0.9rem;
   color: #4A5568;
   margin-bottom: 0.4rem;
-}
-
-.free-shipping {
-  color: #2F855A;
-  font-weight: 600;
-}
-
-.shipping-tip {
-  font-size: 0.8rem;
-  color: #DD6B20;
-  background-color: #FFFAF0;
-  padding: 0.4rem 0.6rem;
-  border-radius: 4px;
-  margin-top: 0.4rem;
-  text-align: left;
 }
 
 .total-row {
@@ -1064,14 +1143,6 @@ const submitOrder = async () => {
   margin: 1.5rem 0;
 }
 
-.form-subtitle {
-  font-size: 1.05rem;
-  margin-bottom: 1rem;
-  color: #34444E;
-  font-weight: 600;
-  text-align: center;
-}
-
 .form-section {
   background: #F8FAFC;
   border: 1px solid #E2E8F0;
@@ -1083,33 +1154,6 @@ const submitOrder = async () => {
 .store-input-section {
   background: #F0F9FF;
   border: 1px solid #BAE6FD;
-}
-
-.sub-section-title {
-  font-size: 0.95rem;
-  color: #34444E;
-  margin-bottom: 0.8rem;
-  font-weight: 600;
-}
-
-.section-header-inline {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.8rem;
-}
-
-.section-header-inline .sub-section-title {
-  margin-bottom: 0;
-}
-
-.checkbox-label {
-  font-size: 0.85rem;
-  color: #4A5568;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
 }
 
 .form-group {
@@ -1132,16 +1176,6 @@ const submitOrder = async () => {
   border: 1px solid #CBD5E1;
   border-radius: 4px;
   box-sizing: border-box;
-  font-size: 0.9rem;
-  background-color: #FFFFFF;
-  color: #2D3748;
-}
-
-.form-group input:disabled,
-.form-group select:disabled {
-  background-color: #EDF2F7;
-  color: #A0AEC0;
-  cursor: not-allowed;
 }
 
 .address-group {
@@ -1154,131 +1188,21 @@ const submitOrder = async () => {
   width: 50%;
 }
 
-.street-input {
-  width: 100%;
-}
-
 .submit-btn {
   width: 100%;
-  background-color: #F7F9FA;
-  color: #34444E;
-  border: 2px solid #34444E;
+  background-color: #34444E;
+  color: #FFFFFF;
+  border: none;
   padding: 0.9rem;
   border-radius: 4px;
   font-size: 1rem;
   font-weight: 700;
-  letter-spacing: 1px;
   cursor: pointer;
   margin-top: 1rem;
-  transition: all 0.2s ease;
 }
 
-.submit-btn:hover:not(:disabled) {
-  background-color: #34444E;
-  color: #F7F9FA;
-}
-
-.terms-agree-notice {
-  font-size: 0.78rem;
-  color: #718096;
-  text-align: center;
-  margin-top: 0.8rem;
-  line-height: 1.4;
-}
-
-.terms-agree-notice a {
-  color: #3182CE;
-  text-decoration: underline;
-}
-
-.policy-section {
-  background: #FFFFFF;
-  padding: 2.5rem;
-  border-radius: 8px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-  color: #2D3748;
-  scroll-margin-top: 2rem;
-}
-
-.policy-header {
-  border-bottom: 2px solid #E2E8F0;
-  padding-bottom: 1.2rem;
-  margin-bottom: 1.8rem;
-}
-
-.policy-main-title {
-  font-size: 1.35rem;
-  color: #34444E;
-  font-weight: 700;
-  margin-bottom: 0.6rem;
-}
-
-.policy-welcome {
-  font-size: 0.9rem;
-  color: #4A5568;
-  line-height: 1.6;
-}
-
-.policy-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.8rem;
-}
-
-@media (min-width: 768px) {
-  .policy-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-.policy-card {
-  background: #F8FAFC;
-  border: 1px solid #E2E8F0;
-  padding: 1.5rem;
-  border-radius: 6px;
-  text-align: left;
-}
-
-.policy-card-title {
-  font-size: 1.05rem;
-  color: #34444E;
-  font-weight: 700;
-  margin-bottom: 1rem;
-  border-left: 4px solid #34444E;
-  padding-left: 0.6rem;
-}
-
-.policy-block {
-  margin-bottom: 1rem;
-}
-
-.policy-block:last-child {
-  margin-bottom: 0;
-}
-
-.policy-block h4 {
-  font-size: 0.9rem;
-  color: #2D3748;
-  font-weight: 600;
-  margin-bottom: 0.3rem;
-}
-
-.policy-card p {
-  font-size: 0.85rem;
-  color: #4A5568;
-  line-height: 1.6;
-  margin-bottom: 0.5rem;
-}
-
-.policy-card ul {
-  padding-left: 1.2rem;
-  margin: 0.4rem 0;
-}
-
-.policy-card li {
-  font-size: 0.85rem;
-  color: #4A5568;
-  line-height: 1.6;
-  margin-bottom: 0.3rem;
+.submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>
