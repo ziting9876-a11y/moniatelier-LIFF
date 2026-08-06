@@ -16,7 +16,7 @@ const route = useRoute()
 const router = useRouter()
 const cartStore = useCartStore()
 
-// 📅 動態計算最早可選送達日期（今天 + 3 天，時間歸零）
+// 📅 動態計算最早可選送達日期（今天 + 3 天）
 const minDeliveryDate = computed(() => {
   const d = new Date()
   d.setDate(d.getDate() + 3)
@@ -24,7 +24,6 @@ const minDeliveryDate = computed(() => {
   return d
 })
 
-// 📅 格式化 Date 物件為 YYYY-MM-DD 字串
 const minDeliveryDateStr = computed(() => {
   const d = minDeliveryDate.value
   const year = d.getFullYear()
@@ -33,28 +32,92 @@ const minDeliveryDateStr = computed(() => {
   return `${year}-${month}-${day}`
 })
 
-// 📅 動態產生從「今天+3天」開始算起未來 30 天的可選日期清單（徹底封鎖過往日期）
-const availableDeliveryDates = computed(() => {
-  const options: { value: string; label: string }[] = []
-  const daysOfWeek = ['日', '一', '二', '三', '四', '五', '六']
-  
-  // 產生未來 30 天的可選區間
-  for (let i = 3; i < 33; i++) {
-    const d = new Date()
-    d.setDate(d.getDate() + i)
-    
-    const year = d.getFullYear()
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const date = String(d.getDate()).padStart(2, '0')
-    const dayOfWeek = daysOfWeek[d.getDay()]
-    
-    const value = `${year}-${month}-${date}`
-    const label = `${year}/${month}/${date} (星期${dayOfWeek})`
-    
-    options.push({ value, label })
-  }
-  return options
+// 📅 計算最晚可選日期（6 個月後）
+const maxDeliveryDate = computed(() => {
+  const d = new Date()
+  d.setMonth(d.getMonth() + 6)
+  d.setHours(23, 59, 59, 999)
+  return d
 })
+
+// 🗓️ 自訂月曆 Modal 控制邏輯
+const showDatePickerModal = ref(false)
+const calendarViewDate = ref(new Date()) // 目前月曆顯示的月份
+
+// 開啟月曆
+const openCalendar = () => {
+  calendarViewDate.value = orderForm.value.deliveryDate 
+    ? new Date(orderForm.value.deliveryDate) 
+    : new Date(minDeliveryDate.value)
+  showDatePickerModal.value = true
+}
+
+// 切換月份
+const changeMonth = (offset: number) => {
+  const newDate = new Date(calendarViewDate.value)
+  newDate.setMonth(newDate.getMonth() + offset)
+  
+  // 限制切換範圍在「當前月」至「6 個月後」
+  const now = new Date()
+  now.setDate(1)
+  now.setHours(0, 0, 0, 0)
+
+  const maxMonth = new Date(maxDeliveryDate.value)
+  maxMonth.setDate(1)
+  maxMonth.setHours(23, 59, 59, 999)
+
+  if (newDate >= now && newDate <= maxMonth) {
+    calendarViewDate.value = newDate
+  }
+}
+
+// 動態計算月曆網格資料
+const calendarDays = computed(() => {
+  const year = calendarViewDate.value.getFullYear()
+  const month = calendarViewDate.value.getMonth()
+  
+  const firstDayOfMonth = new Date(year, month, 1)
+  const lastDayOfMonth = new Date(year, month + 1, 0)
+  
+  const startingDayOfWeek = firstDayOfMonth.getDay() // 0 (日) ~ 6 (六)
+  const totalDays = lastDayOfMonth.getDate()
+
+  const days: { dateStr: string; dayNum: number; isDisabled: boolean; isSelected: boolean; isCurrentMonth: boolean }[] = []
+
+  // 補齊上個月的空白格
+  for (let i = 0; i < startingDayOfWeek; i++) {
+    days.push({ dateStr: '', dayNum: 0, isDisabled: true, isSelected: false, isCurrentMonth: false })
+  }
+
+  // 填入本月日期
+  for (let day = 1; day <= totalDays; day++) {
+    const current = new Date(year, month, day)
+    current.setHours(0, 0, 0, 0)
+
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    
+    // 嚴格判定是否停用：小於今天+3天 或 大於6個月後
+    const isDisabled = current.getTime() < minDeliveryDate.value.getTime() || current.getTime() > maxDeliveryDate.value.getTime()
+    const isSelected = orderForm.value.deliveryDate === dateStr
+
+    days.push({
+      dateStr,
+      dayNum: day,
+      isDisabled,
+      isSelected,
+      isCurrentMonth: true
+    })
+  }
+
+  return days
+})
+
+// 點擊選擇日期
+const selectDate = (dayItem: { dateStr: string; isDisabled: boolean }) => {
+  if (dayItem.isDisabled || !dayItem.dateStr) return
+  orderForm.value.deliveryDate = dayItem.dateStr
+  showDatePickerModal.value = false
+}
 
 // --- 🎯 頁面載入時初始化 LIFF 與偵測付款狀態 ---
 onMounted(async () => {
@@ -90,9 +153,9 @@ onMounted(async () => {
     console.warn('LIFF 初始化失敗或非於 LINE App 內開啟:', err)
   }
 
-  // 自動預設希望送達日期為最早可選日期（即未來第 3 天）
-  if (!orderForm.value.deliveryDate && availableDeliveryDates.value.length > 0) {
-    orderForm.value.deliveryDate = availableDeliveryDates.value[0].value
+  // 預設送達日期為最早可選日期
+  if (!orderForm.value.deliveryDate) {
+    orderForm.value.deliveryDate = minDeliveryDateStr.value
   }
 })
 
@@ -410,17 +473,11 @@ const submitOrder = async () => {
             
             <div class="form-group">
               <label>希望送達日期 *(一般商品於完成付款後 3 至 7 個工作天內不含例假日製作完成並出貨)</label>
-              <!-- 🌸 改用動態選單：徹底從選單中移除過往日期，百分百防止選錯 -->
-              <select v-model="orderForm.deliveryDate" required class="date-select">
-                <option value="" disabled>請選擇希望送達日期</option>
-                <option 
-                  v-for="dateItem in availableDeliveryDates" 
-                  :key="dateItem.value" 
-                  :value="dateItem.value"
-                >
-                  {{ dateItem.label }}
-                </option>
-              </select>
+              <!-- 🌸 自訂月曆點擊觸發框 -->
+              <div class="custom-date-trigger" @click="openCalendar">
+                <span>📅 {{ orderForm.deliveryDate || '點擊選擇希望送達日期' }}</span>
+                <span class="arrow">▼</span>
+              </div>
             </div>
 
             <!-- 🚚 配送方式 -->
@@ -514,6 +571,44 @@ const submitOrder = async () => {
       </section>
     </div>
 
+    <!-- 🗓️ 自訂月曆 Modal -->
+    <div v-if="showDatePickerModal" class="modal-backdrop" @click.self="showDatePickerModal = false">
+      <div class="calendar-modal">
+        <div class="calendar-header">
+          <button type="button" class="month-nav-btn" @click="changeMonth(-1)">‹</button>
+          <span class="month-title">
+            {{ calendarViewDate.getFullYear() }} 年 {{ calendarViewDate.getMonth() + 1 }} 月
+          </span>
+          <button type="button" class="month-nav-btn" @click="changeMonth(1)">›</button>
+        </div>
+
+        <div class="weekdays-grid">
+          <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+        </div>
+
+        <div class="days-grid">
+          <div
+            v-for="(day, idx) in calendarDays"
+            :key="idx"
+            class="day-cell"
+            :class="{
+              'disabled': day.isDisabled,
+              'selected': day.isSelected,
+              'empty': !day.isCurrentMonth
+            }"
+            @click="selectDate(day)"
+          >
+            {{ day.dayNum || '' }}
+          </div>
+        </div>
+
+        <div class="calendar-footer">
+          <span class="tip-text">💡 可預約 3 天後至 6 個月內之日期</span>
+          <button type="button" class="close-modal-btn" @click="showDatePickerModal = false">關閉</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 📜 購物須知與條款區塊 -->
     <section id="policy-section" class="policy-section">
       <div class="policy-header">
@@ -594,16 +689,150 @@ const submitOrder = async () => {
 </template>
 
 <style scoped>
-/* 🌸 下拉選單樣式 */
-.date-select {
+/* 🌸 自訂月曆觸發框樣式 */
+.custom-date-trigger {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   width: 100%;
-  padding: 0.6rem 0.8rem;
+  padding: 0.65rem 0.8rem;
   border: 1px solid #CBD5E1;
   border-radius: 4px;
-  box-sizing: border-box;
-  font-size: 0.95rem;
   background-color: #FFFFFF;
   color: #2D3748;
+  cursor: pointer;
+  font-size: 0.95rem;
+  user-select: none;
+}
+
+.custom-date-trigger .arrow {
+  font-size: 0.75rem;
+  color: #718096;
+}
+
+/* 🗓️ 自訂月曆 Modal 樣式 */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.calendar-modal {
+  background: #FFFFFF;
+  width: 100%;
+  max-width: 360px;
+  border-radius: 12px;
+  padding: 1.2rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.month-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #2D3748;
+}
+
+.month-nav-btn {
+  background: #F1F5F9;
+  border: none;
+  font-size: 1.2rem;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #34444E;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.weekdays-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #718096;
+  margin-bottom: 0.5rem;
+}
+
+.days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.day-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #2D3748;
+  transition: all 0.15s ease;
+}
+
+.day-cell:not(.disabled):not(.empty):hover {
+  background-color: #E2E8F0;
+}
+
+.day-cell.selected {
+  background-color: #34444E !important;
+  color: #FFFFFF !important;
+  font-weight: 700;
+}
+
+.day-cell.disabled {
+  color: #CBD5E1;
+  background-color: #F8FAFC;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+.day-cell.empty {
+  cursor: default;
+}
+
+.calendar-footer {
+  margin-top: 1.2rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid #E2E8F0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tip-text {
+  font-size: 0.75rem;
+  color: #718096;
+}
+
+.close-modal-btn {
+  background: #E2E8F0;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #34444E;
 }
 
 .page-wrapper {
