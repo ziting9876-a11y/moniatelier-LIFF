@@ -16,22 +16,44 @@ const route = useRoute()
 const router = useRouter()
 const cartStore = useCartStore()
 
-// 📅 動態計算最早可選送達日期（今天 + 3 天，精準格式化為 YYYY-MM-DD）
-const minDeliveryDateStr = computed(() => {
+// 📅 動態計算最早可選送達日期（今天 + 3 天，時間歸零）
+const minDeliveryDate = computed(() => {
   const d = new Date()
   d.setDate(d.getDate() + 3)
+  d.setHours(0, 0, 0, 0)
+  return d
+})
+
+// 📅 格式化 Date 物件為 YYYY-MM-DD 字串
+const minDeliveryDateStr = computed(() => {
+  const d = minDeliveryDate.value
   const year = d.getFullYear()
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 })
 
-// 🎯 即時強制作廢任何小於 minDeliveryDateStr 的選取
-watch(() => orderForm.value.deliveryDate, (newVal) => {
-  if (newVal && newVal < minDeliveryDateStr.value) {
-    alert(`⚠️ 花禮製作與備貨需 3 個工作天，最早可選擇的送達日期為 ${minDeliveryDateStr.value}`)
-    orderForm.value.deliveryDate = minDeliveryDateStr.value
+// 📅 動態產生從「今天+3天」開始算起未來 30 天的可選日期清單（徹底封鎖過往日期）
+const availableDeliveryDates = computed(() => {
+  const options: { value: string; label: string }[] = []
+  const daysOfWeek = ['日', '一', '二', '三', '四', '五', '六']
+  
+  // 產生未來 30 天的可選區間
+  for (let i = 3; i < 33; i++) {
+    const d = new Date()
+    d.setDate(d.getDate() + i)
+    
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const date = String(d.getDate()).padStart(2, '0')
+    const dayOfWeek = daysOfWeek[d.getDay()]
+    
+    const value = `${year}-${month}-${date}`
+    const label = `${year}/${month}/${date} (星期${dayOfWeek})`
+    
+    options.push({ value, label })
   }
+  return options
 })
 
 // --- 🎯 頁面載入時初始化 LIFF 與偵測付款狀態 ---
@@ -68,9 +90,9 @@ onMounted(async () => {
     console.warn('LIFF 初始化失敗或非於 LINE App 內開啟:', err)
   }
 
-  // 預設送達日期為最早可選日期
-  if (!orderForm.value.deliveryDate) {
-    orderForm.value.deliveryDate = minDeliveryDateStr.value
+  // 自動預設希望送達日期為最早可選日期（即未來第 3 天）
+  if (!orderForm.value.deliveryDate && availableDeliveryDates.value.length > 0) {
+    orderForm.value.deliveryDate = availableDeliveryDates.value[0].value
   }
 })
 
@@ -216,12 +238,6 @@ const submitOrder = async () => {
 
   if (!orderForm.value.deliveryDate) {
     alert('請選擇希望送達日期！')
-    return
-  }
-
-  if (orderForm.value.deliveryDate < minDeliveryDateStr.value) {
-    alert(`⚠️ 送達日期不可小於 ${minDeliveryDateStr.value}，已自動調整為最早可預約日期！`)
-    orderForm.value.deliveryDate = minDeliveryDateStr.value
     return
   }
 
@@ -394,14 +410,17 @@ const submitOrder = async () => {
             
             <div class="form-group">
               <label>希望送達日期 *(一般商品於完成付款後 3 至 7 個工作天內不含例假日製作完成並出貨)</label>
-              <!-- 🌸 改用 HTML5 原生 Date Input + min 屬性（在行動裝置極度穩定） -->
-              <input 
-                type="date" 
-                v-model="orderForm.deliveryDate" 
-                :min="minDeliveryDateStr" 
-                class="native-date-picker"
-                required 
-              />
+              <!-- 🌸 改用動態選單：徹底從選單中移除過往日期，百分百防止選錯 -->
+              <select v-model="orderForm.deliveryDate" required class="date-select">
+                <option value="" disabled>請選擇希望送達日期</option>
+                <option 
+                  v-for="dateItem in availableDeliveryDates" 
+                  :key="dateItem.value" 
+                  :value="dateItem.value"
+                >
+                  {{ dateItem.label }}
+                </option>
+              </select>
             </div>
 
             <!-- 🚚 配送方式 -->
@@ -575,8 +594,8 @@ const submitOrder = async () => {
 </template>
 
 <style scoped>
-/* 🌸 原生 Date Picker 美化樣式 */
-.native-date-picker {
+/* 🌸 下拉選單樣式 */
+.date-select {
   width: 100%;
   padding: 0.6rem 0.8rem;
   border: 1px solid #CBD5E1;
@@ -585,7 +604,6 @@ const submitOrder = async () => {
   font-size: 0.95rem;
   background-color: #FFFFFF;
   color: #2D3748;
-  font-family: inherit;
 }
 
 .page-wrapper {
