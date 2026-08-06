@@ -445,7 +445,7 @@ const submitOrder = async () => {
             
             <div class="form-group">
               <label>希望送達日期 *(一般商品於完成付款後 3 至 7 個工作天內不含例假日製作完成並出貨)</label>
-              <!-- 🌸 加上 :utc="false" 確保以本地時區計算 min-date 封鎖區域 -->
+              <!-- 🌸 VueDatePicker 掛載禁選與視覺防護 -->
               <VueDatePicker 
                 v-model="orderForm.deliveryDate" 
                 :min-date="minDeliveryDate" 
@@ -633,6 +633,20 @@ const submitOrder = async () => {
 </template>
 
 <style scoped>
+/* 🌸 強制修正 VueDatePicker 禁選日期的視覺與點擊行為 */
+:deep(.dp__disabled) {
+  background-color: #f1f5f9 !important;
+  color: #cbd5e1 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  opacity: 0.5 !important;
+}
+
+:deep(.dp__cell_disabled) {
+  pointer-events: none !important;
+  cursor: not-allowed !important;
+}
+
 .page-wrapper {
   display: flex;
   flex-direction: column;
