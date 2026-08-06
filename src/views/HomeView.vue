@@ -691,7 +691,7 @@ const executePayment = async () => {
               opacity: (!day.isCurrentMonth) ? 0 : (day.isDisabled ? 0.35 : 1),
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
+              justify-content: 'center',
               fontSize: '14px'
             }"
           >
@@ -706,7 +706,7 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 📜 3. 強制跳出購物須知與條款 Modal -->
+    <!-- 📜 3. 強制跳出購物須知與條款 Modal (完整版內容) -->
     <div v-if="showPolicyModal" class="modal-backdrop" @click.self="showPolicyModal = false">
       <div class="policy-modal">
         <div class="policy-modal-header">
@@ -715,20 +715,69 @@ const executePayment = async () => {
         </div>
         
         <div class="policy-modal-body">
-          <section class="policy-card">
-            <h4>一、 出貨天數與配送說明</h4>
-            <p>一般商品於完成付款後 3 至 7 個工作天內（不含例假日）製作完成並出貨。</p>
-            <p>宅配運送約 1~2 天，超商取貨約 2~3 天。</p>
+          <p class="policy-welcome-text">
+            歡迎光臨「墨凝花室」（以下簡稱本店）。為了保障您的權益，在進行訂購前，請仔細閱讀以下服務條款、出貨說明、退換貨政策及隱私權保護聲明：
+          </p>
+
+          <section class="policy-card-full">
+            <h4 class="policy-card-title">一、 出貨天數與配送說明</h4>
+            <div class="policy-block-item">
+              <h5>製作與出貨時間：</h5>
+              <p>本店花藝商品（包含手作、永生花/乾燥花及客製化作品）皆為收到訂單與付款後開始製作。</p>
+              <ul>
+                <li>一般商品於完成付款後 <strong>3 至 7 個工作天內（不含例假日）</strong>製作完成並出貨。</li>
+                <li>客製化商品或大宗花禮，出貨天數為 <strong>5 至 10 個工作天</strong>，具體交期以雙方確認之溝通內容為準。</li>
+              </ul>
+            </div>
+            <div class="policy-block-item">
+              <h5>配送方式與時間：</h5>
+              <p>寄出後，宅配運送時間約 <strong>1 至 2 個工作天</strong>，超商取貨約 <strong>2 至 3 個工作天</strong>（實際配送進度依物流公司公告為準）。</p>
+            </div>
           </section>
 
-          <section class="policy-card">
-            <h4>二、 消費者權益與退換貨政策</h4>
-            <p>依據《消費者保護法》規定，本賣場花卉植物與客製化給付商品，<strong>不適用 7 天鑑賞期</strong>，訂單成立後概不接受退換貨。</p>
+          <section class="policy-card-full">
+            <h4 class="policy-card-title">二、 消費者權益與退換貨政策（鑑賞期說明）</h4>
+            <div class="policy-block-item">
+              <h5>客製化商品不適用 7 天鑑賞期：</h5>
+              <p>
+                依據《消費者保護法》第 19 條第 1 項但書及《通訊交易解除權合理例外情事適用準則》第 2 條規定，本店所販售之「依消費者要求所為之客製化給付商品」及「易於腐敗、保存期限較短或解約時即將逾期之花卉植物」，<strong>不適用 7 天鑑賞期（猶豫期）之規定</strong>，訂單成立後概不接受退換貨。
+              </p>
+            </div>
+            <div class="policy-block-item">
+              <h5>瑕疵與破損處理：</h5>
+              <p>花藝商品運送過程可能因震動有些微花瓣掉落，此屬正常現象。</p>
+              <p>
+                若您收到商品時有嚴重的箱體毀損、商品本體重大瑕疵或品項不符之情況，請於收到商品 <strong>24 小時內</strong>拍照/錄影存證，並透過客服與我們聯繫，我們將儘速為您辦理補件或補換貨事宜。
+              </p>
+            </div>
           </section>
 
-          <section class="policy-card">
-            <h4>三、 隱私權與金流安全</h4>
-            <p>金流交易由「藍新金流 NewebPay」加密傳輸，本站不會留存您的信用卡敏感資訊。</p>
+          <section class="policy-card-full">
+            <h4 class="policy-card-title">三、 服務條款</h4>
+            <p>
+              本店商品多數包含天然植物與手作成分，姿態、顏色與照片有些微差異屬正常現象。如遇花材缺貨，本店保留在維護整體設計美感的前提下，更換等值或相似花材之權利。
+            </p>
+            <p>
+              訂購人有義務提供正確、完整之收件人資訊，若因填寫資訊錯誤導致無法配送或退回，相關再發送之運費須由買家自行負擔。
+            </p>
+          </section>
+
+          <section class="policy-card-full">
+            <h4 class="policy-card-title">四、 隱私權政策</h4>
+            <div class="policy-block-item">
+              <h5>個人資料蒐集與使用：</h5>
+              <p>本店僅於處理商品訂購、運送配送、顧客服務及付款確認之目的範圍內，蒐集您的個人資料（包含姓名、電話、地址、Email 等）。</p>
+            </div>
+            <div class="policy-block-item">
+              <h5>資料安全與保密：</h5>
+              <p>本店絕不會將您的個人資料出售、出租、交換或提供給任何第三方，亦不作其他非法用途。</p>
+            </div>
+            <div class="policy-block-item">
+              <h5>金流交易安全：</h5>
+              <p>
+                本店線上付款流程串接「藍新金流 NewebPay」，交易過程採用加密傳輸保護，本店不會記錄或留存您的信用卡號等敏感金融資訊。
+              </p>
+            </div>
           </section>
         </div>
 
@@ -897,17 +946,13 @@ const executePayment = async () => {
 }
 
 .close-icon-btn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: rgba(0,0,0,0.5);
-  color: #FFF;
+  position: relative;
+  background: none;
+  color: #718096;
   border: none;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
+  font-size: 1.2rem;
   cursor: pointer;
-  z-index: 10;
+  padding: 0.2rem 0.5rem;
 }
 
 .detail-image-wrapper img {
@@ -940,62 +985,127 @@ const executePayment = async () => {
   color: #2D3748;
 }
 
-/* 📜 強制條款 Modal */
+/* 📜 強制條款 Modal (完整版版面與滾動調適) */
 .policy-modal {
   background: #FFF;
   width: 100%;
-  max-width: 550px;
+  max-width: 580px;
   max-height: 85vh;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
 }
 
 .policy-modal-header {
-  padding: 1rem 1.2rem;
+  padding: 1.2rem 1.5rem;
   border-bottom: 1px solid #E2E8F0;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background-color: #F8FAFC;
+}
+
+.policy-modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #34444E;
+  font-weight: 700;
 }
 
 .policy-modal-body {
-  padding: 1.2rem;
+  padding: 1.2rem 1.5rem;
   overflow-y: auto;
   text-align: left;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.2rem;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: #4A5568;
+}
+
+.policy-welcome-text {
+  margin: 0;
+  color: #2D3748;
+  font-weight: 500;
+}
+
+.policy-card-full {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  padding: 1.2rem;
+  border-radius: 8px;
+}
+
+.policy-card-title {
+  font-size: 0.98rem;
+  color: #34444E;
+  font-weight: 700;
+  margin: 0 0 0.8rem 0;
+  border-left: 4px solid #34444E;
+  padding-left: 0.6rem;
+}
+
+.policy-block-item {
+  margin-bottom: 0.8rem;
+}
+
+.policy-block-item:last-child {
+  margin-bottom: 0;
+}
+
+.policy-block-item h5 {
+  margin: 0 0 0.3rem 0;
+  font-size: 0.88rem;
+  color: #2D3748;
+  font-weight: 600;
+}
+
+.policy-card-full p {
+  margin: 0 0 0.4rem 0;
+}
+
+.policy-card-full ul {
+  margin: 0 0 0.4rem 0;
+  padding-left: 1.2rem;
+}
+
+.policy-card-full li {
+  margin-bottom: 0.2rem;
 }
 
 .policy-modal-footer {
-  padding: 1rem 1.2rem;
+  padding: 1rem 1.5rem;
   border-top: 1px solid #E2E8F0;
-  background: #F8FAFC;
+  background: #FFFFFF;
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
 }
 
 .agree-checkbox-label {
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   color: #2D3748;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
+  font-weight: 600;
 }
 
 .confirm-pay-btn {
   width: 100%;
-  padding: 0.8rem;
+  padding: 0.85rem;
   background: #34444E;
   color: #FFF;
   border: none;
   border-radius: 6px;
+  font-size: 0.95rem;
   font-weight: bold;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .confirm-pay-btn:disabled {
