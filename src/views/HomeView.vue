@@ -161,21 +161,9 @@ const selectDate = (dayItem: { dateStr: string; isDisabled: boolean }) => {
   showDatePickerModal.value = false
 }
 
-// --- 🎯 頁面載入時初始化 LIFF 與偵測付款狀態 ---
+// --- 🎯 頁面載入時初始化 LIFF 與處理付款完成邏輯 ---
 onMounted(async () => {
-  if (route.query.status === 'success') {
-    alert(`🌸 感謝您的訂購！訂單 (${route.query.orderNo || ''}) 已成功建立並完成付款，我們已發送確認信件至您的信箱。`)
-    cartStore.clearCart?.()
-    router.replace({ query: {} })
-  } else if (route.query.status === 'failed') {
-    const errorMsg = (route.query.message as string) || '付款未完成或已取消交易'
-    alert(`⚠️ 交易未成功：${errorMsg}\n請確認卡號資訊或重新嘗試結帳。`)
-    router.replace({ query: {} })
-  } else if (route.query.status === 'error') {
-    alert('⚠️ 系統處理交易時發生異常，請稍後再試。')
-    router.replace({ query: {} })
-  }
-
+  // 1. 先進行 LIFF 初始化
   try {
     await liff.init({ liffId: LIFF_ID })
     if (liff.isLoggedIn()) {
@@ -193,6 +181,39 @@ onMounted(async () => {
     }
   } catch (err) {
     console.warn('LIFF 初始化失敗或非於 LINE App 內開啟:', err)
+  }
+
+  // 2. 偵測付款狀態
+  if (route.query.status === 'success') {
+    const orderNo = (route.query.orderNo as string) || ''
+    alert(`🌸 感謝您的訂購！訂單 (${orderNo}) 已成功建立並完成付款，我們已發送確認信件至您的信箱。`)
+    cartStore.clearCart?.()
+
+    // 🌸 若於 LINE 內開啟，發送訊息卡片並自動關閉視窗
+    if (liff.isInClient()) {
+      try {
+        await liff.sendMessages([
+          {
+            type: 'text',
+            text: `🌸【墨凝花室】訂單成功建立通知\n\n感謝您的訂購！您的訂單單號為：【${orderNo}】\n我們已收到您的款項並會儘速為您安排製作。期待花藝作品為您帶來美好的陪伴 ✨`
+          }
+        ])
+        console.log('✉️ 已透過 LIFF 在聊天室發送訂單訊息')
+      } catch (msgErr) {
+        console.warn('無法發送 LIFF 訊息:', msgErr)
+      } finally {
+        liff.closeWindow() // 👈 自動幫顧客關閉 LIFF 網頁視窗
+      }
+    } else {
+      router.replace({ query: {} })
+    }
+  } else if (route.query.status === 'failed') {
+    const errorMsg = (route.query.message as string) || '付款未完成或已取消交易'
+    alert(`⚠️ 交易未成功：${errorMsg}\n請確認卡號資訊或重新嘗試結帳。`)
+    router.replace({ query: {} })
+  } else if (route.query.status === 'error') {
+    alert('⚠️ 系統處理交易時發生異常，請稍後再試。')
+    router.replace({ query: {} })
   }
 
   if (!orderForm.value.deliveryDate) {
