@@ -190,25 +190,12 @@ onMounted(async () => {
   // 2. 偵測付款狀態
   if (route.query.status === 'success') {
     const orderNo = (route.query.orderNo as string) || ''
-    alert(`🌸 感謝您的訂購！訂單 (${orderNo}) 已成功建立並完成付款，我們已發送確認信件至您的信箱。`)
+    alert(`🌸 感謝您的訂購！訂單 (${orderNo}) 已成功建立並完成付款，我們已發送確認通知至您的 LINE 與 Email 信箱。`)
     cartStore.clearCart?.()
 
-    // 🌸 若於 LINE 內開啟，嘗試發送訊息卡片並強制關閉視窗
-    if (liff.isInClient()) {
-      try {
-        await liff.sendMessages([
-          {
-            type: 'text',
-            text: `🌸【墨凝花室】訂單成功建立通知\n\n感謝您的訂購！您的訂單單號為：【${orderNo}】\n我們已收到您的款項並會儘速為您安排製作。期待花藝作品為您帶來美好的陪伴 ✨`
-          }
-        ])
-        console.log('✉️ 已透過 LIFF 在聊天室發送訂單訊息')
-      } catch (msgErr) {
-        console.warn('⚠️ 無法發送 LIFF 聊天室訊息 (可能尚未取得全額授權):', msgErr)
-      } finally {
-        // 🎯 確保無論 sendMessages 是否成功，都必定關閉網頁視窗返回聊天室！
-        liff.closeWindow()
-      }
+    // 🎯 只要在 LINE 內開啟，一律強制呼叫關閉視窗回到聊天室
+    if (liff.isInClient() || window.navigator.userAgent.includes('Line')) {
+      liff.closeWindow()
     } else {
       router.replace({ query: {} })
     }
