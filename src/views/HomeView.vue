@@ -18,6 +18,9 @@ const cartStore = useCartStore()
 // --- 🎯 步驟切換控制 (1: 瀏覽商品, 2: 填寫結帳資料) ---
 const currentStep = ref(1)
 
+// --- 🎯 快捷購物車 Drawer 控制 ---
+const showCartDrawer = ref(false)
+
 // --- 🎯 商品詳情 Modal 控制 ---
 const selectedProductDetail = ref<Product | null>(null)
 const openProductDetail = (product: Product) => {
@@ -59,7 +62,7 @@ const openPolicyModal = () => {
   showPolicyModal.value = true
 }
 
-// 📅 動態計算最早可選送達日期（今天 + 4 天，即禁止「今天以前」與「今天往後算 3 天」）
+// 📅 動態計算最早可選送達日期（今天 + 4 天）
 const minDeliveryDate = computed(() => {
   const d = new Date()
   d.setDate(d.getDate() + 4)
@@ -120,7 +123,6 @@ const calendarDays = computed(() => {
   const firstDayOfMonth = new Date(year, month, 1)
   const lastDayOfMonth = new Date(year, month + 1, 0)
   
-  // 調整以星期一為第一天 (0: 星期一, 6: 星期日)
   let startDayIndex = firstDayOfMonth.getDay() - 1
   if (startDayIndex === -1) startDayIndex = 6
 
@@ -128,7 +130,6 @@ const calendarDays = computed(() => {
 
   const days: { dateStr: string; dayNum: number; isDisabled: boolean; isSelected: boolean; isCurrentMonth: boolean }[] = []
 
-  // 補齊第一天前的空白區塊
   for (let i = 0; i < startDayIndex; i++) {
     days.push({ dateStr: '', dayNum: 0, isDisabled: true, isSelected: false, isCurrentMonth: false })
   }
@@ -139,7 +140,6 @@ const calendarDays = computed(() => {
 
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     
-    // 今天以前 + 今天往後 3 天皆禁用
     const isDisabled = current.getTime() < minDeliveryDate.value.getTime() || current.getTime() > maxDeliveryDate.value.getTime()
     const isSelected = orderForm.value.deliveryDate === dateStr
 
@@ -445,7 +445,6 @@ const executePayment = async () => {
         <h2 class="section-title">精選花藝作品</h2>
         <div class="product-grid">
           <div v-for="item in products" :key="item.id" class="product-card">
-            <!-- 點擊圖片或名稱可查看詳細資料 -->
             <div class="image-wrapper" @click="openProductDetail(item)">
               <img :src="item.image" :alt="item.name" />
               <div class="view-detail-badge">🔍 查看詳情</div>
@@ -463,10 +462,10 @@ const executePayment = async () => {
         </div>
       </section>
 
-      <!-- 🛒 購物車懸浮邊條 (快捷進下一步) -->
+      <!-- 🛒 購物車懸浮邊條 (點擊左側可展開內容) -->
       <div class="cart-floating-bar" v-if="totalCartItemsCount > 0">
-        <div class="bar-info">
-          <span>🛒 已選購 <strong>{{ totalCartItemsCount }}</strong> 件商品</span>
+        <div class="bar-info" @click="showCartDrawer = true">
+          <span>🛒 已選購 <strong>{{ totalCartItemsCount }}</strong> 件商品 ✏️</span>
           <span class="bar-price">小計：新台幣 {{ cartStore.totalPrice.toLocaleString() }} 元</span>
         </div>
         <button class="next-step-btn" @click="currentStep = 2">前往結帳 (下一步) →</button>
@@ -633,7 +632,47 @@ const executePayment = async () => {
       </section>
     </div>
 
-    <!-- 🔍 1. 商品詳情 Modal -->
+    <!-- 🛒 快捷購物車 Drawer Modal -->
+    <div v-if="showCartDrawer" class="modal-backdrop" @click.self="showCartDrawer = false">
+      <div class="cart-drawer-modal">
+        <div class="drawer-header">
+          <h3>🛒 購物車內容</h3>
+          <button class="close-icon-btn" @click="showCartDrawer = false">✕</button>
+        </div>
+        
+        <div class="drawer-body">
+          <div v-if="Object.keys(cartStore.cart).length === 0" class="empty-cart">
+            購物車內沒有商品
+          </div>
+          <div v-else>
+            <div v-for="(qty, id) in cartStore.cart" :key="id" class="cart-item">
+              <div class="cart-item-info">
+                <div class="cart-item-name">{{ products.find(p => p.id === Number(id))?.name }}</div>
+                <div class="cart-item-price">
+                  NT$ {{ ((products.find(p => p.id === Number(id))?.price || 0) * qty).toLocaleString() }}
+                </div>
+              </div>
+              <div class="quantity-control">
+                <button @click="cartStore.removeFromCart(Number(id))">-</button>
+                <span>{{ qty }}</span>
+                <button @click="cartStore.addToCart(Number(id))">+</button>
+              </div>
+            </div>
+            
+            <div class="drawer-summary">
+              <span>小計：<strong>NT$ {{ cartStore.totalPrice.toLocaleString() }}</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="drawer-footer">
+          <button class="clear-cart-btn" v-if="Object.keys(cartStore.cart).length > 0" @click="cartStore.clearCart?.()">清空購物車</button>
+          <button class="confirm-drawer-btn" @click="showCartDrawer = false">完成編輯</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🔍 商品詳情 Modal -->
     <div v-if="selectedProductDetail" class="modal-backdrop" @click.self="closeProductDetail">
       <div class="product-detail-modal">
         <button class="close-icon-btn" @click="closeProductDetail">✕</button>
@@ -652,10 +691,9 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 🗓️ 2. 自訂月曆 Modal -->
+    <!-- 🗓️ 自訂月曆 Modal -->
     <div v-if="showDatePickerModal" class="modal-backdrop" @click.self="showDatePickerModal = false">
       <div class="calendar-modal">
-        <!-- 月曆頂部切換區 -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
           <button type="button" class="month-nav-btn" @click="changeMonth(-1)">‹</button>
           <span class="month-title" style="font-weight: bold; font-size: 16px;">
@@ -664,14 +702,12 @@ const executePayment = async () => {
           <button type="button" class="month-nav-btn" @click="changeMonth(1)">›</button>
         </div>
 
-        <!-- 星期一 ~ 星期日 標題列 (強制 7 欄) -->
         <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 8px; text-align: center;">
           <div v-for="(day, idx) in daysOfWeek" :key="idx" style="font-weight: bold; font-size: 13px; color: #666;">
             {{ day }}
           </div>
         </div>
 
-        <!-- 日期網格 (強制 7 欄網格) -->
         <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;">
           <button
             v-for="(day, idx) in calendarDays"
@@ -706,7 +742,7 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 📜 3. 強制跳出購物須知與條款 Modal (完整版內容) -->
+    <!-- 📜 購物須知與條款 Modal (針對手機顯示調適最佳化) -->
     <div v-if="showPolicyModal" class="modal-backdrop" @click.self="showPolicyModal = false">
       <div class="policy-modal">
         <div class="policy-modal-header">
@@ -716,68 +752,49 @@ const executePayment = async () => {
         
         <div class="policy-modal-body">
           <p class="policy-welcome-text">
-            歡迎光臨「墨凝花室」（以下簡稱本店）。為了保障您的權益，在進行訂購前，請仔細閱讀以下服務條款、出貨說明、退換貨政策及隱私權保護聲明：
+            歡迎光臨「墨凝花室」。進行訂購前，請仔細閱讀以下服務條款與退換貨政策：
           </p>
 
           <section class="policy-card-full">
             <h4 class="policy-card-title">一、 出貨天數與配送說明</h4>
             <div class="policy-block-item">
               <h5>製作與出貨時間：</h5>
-              <p>本店花藝商品（包含手作、永生花/乾燥花及客製化作品）皆為收到訂單與付款後開始製作。</p>
+              <p>本店花藝作品收到訂單與付款後開始製作。</p>
               <ul>
-                <li>一般商品於完成付款後 <strong>3 至 7 個工作天內（不含例假日）</strong>製作完成並出貨。</li>
-                <li>客製化商品或大宗花禮，出貨天數為 <strong>5 至 10 個工作天</strong>，具體交期以雙方確認之溝通內容為準。</li>
+                <li>一般商品：完成付款後 <strong>3 至 7 個工作天</strong>（不含例假日）製作出貨。</li>
+                <li>客製化商品/大宗花禮：<strong>5 至 10 個工作天</strong>。</li>
               </ul>
             </div>
             <div class="policy-block-item">
-              <h5>配送方式與時間：</h5>
-              <p>寄出後，宅配運送時間約 <strong>1 至 2 個工作天</strong>，超商取貨約 <strong>2 至 3 個工作天</strong>（實際配送進度依物流公司公告為準）。</p>
+              <h5>配送時間：</h5>
+              <p>宅配約 <strong>1~2 工作天</strong>，超商取貨約 <strong>2~3 工作天</strong>。</p>
             </div>
           </section>
 
           <section class="policy-card-full">
-            <h4 class="policy-card-title">二、 消費者權益與退換貨政策（鑑賞期說明）</h4>
+            <h4 class="policy-card-title">二、 退換貨政策（鑑賞期說明）</h4>
             <div class="policy-block-item">
               <h5>客製化商品不適用 7 天鑑賞期：</h5>
               <p>
-                依據《消費者保護法》第 19 條第 1 項但書及《通訊交易解除權合理例外情事適用準則》第 2 條規定，本店所販售之「依消費者要求所為之客製化給付商品」及「易於腐敗、保存期限較短或解約時即將逾期之花卉植物」，<strong>不適用 7 天鑑賞期（猶豫期）之規定</strong>，訂單成立後概不接受退換貨。
+                依《消費者保護法》第 19 條規定，花卉植物與客製化給付商品<strong>不適用 7 天鑑賞期</strong>，訂單成立後概不接受退換貨。
               </p>
             </div>
             <div class="policy-block-item">
-              <h5>瑕疵與破損處理：</h5>
-              <p>花藝商品運送過程可能因震動有些微花瓣掉落，此屬正常現象。</p>
+              <h5>瑕疵破損處理：</h5>
               <p>
-                若您收到商品時有嚴重的箱體毀損、商品本體重大瑕疵或品項不符之情況，請於收到商品 <strong>24 小時內</strong>拍照/錄影存證，並透過客服與我們聯繫，我們將儘速為您辦理補件或補換貨事宜。
+                若有嚴重毀損或重大瑕疵，請於收到商品 <strong>24 小時內</strong>拍照/錄影存證並聯繫客服。
               </p>
             </div>
           </section>
 
           <section class="policy-card-full">
             <h4 class="policy-card-title">三、 服務條款</h4>
-            <p>
-              本店商品多數包含天然植物與手作成分，姿態、顏色與照片有些微差異屬正常現象。如遇花材缺貨，本店保留在維護整體設計美感的前提下，更換等值或相似花材之權利。
-            </p>
-            <p>
-              訂購人有義務提供正確、完整之收件人資訊，若因填寫資訊錯誤導致無法配送或退回，相關再發送之運費須由買家自行負擔。
-            </p>
+            <p>天然花材姿態有些微差異屬正常現象。如遇花材缺貨，本店保留更換等值花材之權利。</p>
           </section>
 
           <section class="policy-card-full">
-            <h4 class="policy-card-title">四、 隱私權政策</h4>
-            <div class="policy-block-item">
-              <h5>個人資料蒐集與使用：</h5>
-              <p>本店僅於處理商品訂購、運送配送、顧客服務及付款確認之目的範圍內，蒐集您的個人資料（包含姓名、電話、地址、Email 等）。</p>
-            </div>
-            <div class="policy-block-item">
-              <h5>資料安全與保密：</h5>
-              <p>本店絕不會將您的個人資料出售、出租、交換或提供給任何第三方，亦不作其他非法用途。</p>
-            </div>
-            <div class="policy-block-item">
-              <h5>金流交易安全：</h5>
-              <p>
-                本店線上付款流程串接「藍新金流 NewebPay」，交易過程採用加密傳輸保護，本店不會記錄或留存您的信用卡號等敏感金融資訊。
-              </p>
-            </div>
+            <h4 class="policy-card-title">四、 隱私權與金流安全</h4>
+            <p>付款串接「藍新金流 NewebPay」加密傳輸，本站不會留存您的信用卡敏感資訊。</p>
           </section>
         </div>
 
@@ -875,6 +892,7 @@ const executePayment = async () => {
   display: flex;
   flex-direction: column;
   font-size: 0.9rem;
+  cursor: pointer;
 }
 
 .bar-price {
@@ -902,23 +920,6 @@ const executePayment = async () => {
   margin-bottom: 1rem;
 }
 
-/* 🔍 商品卡片 hover 效果 */
-.image-wrapper {
-  position: relative;
-  cursor: pointer;
-}
-
-.view-detail-badge {
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
-  background: rgba(0,0,0,0.6);
-  color: #FFF;
-  font-size: 0.75rem;
-  padding: 0.3rem 0.6rem;
-  border-radius: 4px;
-}
-
 /* Modal 通用背景 */
 .modal-backdrop {
   position: fixed;
@@ -935,62 +936,82 @@ const executePayment = async () => {
   box-sizing: border-box;
 }
 
-/* 🔍 商品詳情 Modal */
-.product-detail-modal {
+/* 🛒 購物車快捷抽屜 Modal */
+.cart-drawer-modal {
   background: #FFF;
-  width: 100%;
-  max-width: 500px;
+  width: 92%;
+  max-width: 440px;
+  max-height: 80vh;
   border-radius: 12px;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  position: relative;
 }
 
-.close-icon-btn {
-  position: relative;
-  background: none;
-  color: #718096;
-  border: none;
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 0.2rem 0.5rem;
-}
-
-.detail-image-wrapper img {
-  width: 100%;
-  height: 260px;
-  object-fit: cover;
-}
-
-.detail-body {
-  padding: 1.5rem;
-  text-align: left;
-}
-
-.detail-desc {
-  font-size: 0.9rem;
-  color: #4A5568;
-  line-height: 1.6;
-  margin: 1rem 0;
-}
-
-.detail-footer {
+.drawer-header {
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid #E2E8F0;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background: #F8FAFC;
 }
 
-.detail-price {
-  font-size: 1.2rem;
-  font-weight: bold;
+.drawer-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #34444E;
+}
+
+.drawer-body {
+  padding: 1.2rem;
+  overflow-y: auto;
+}
+
+.drawer-summary {
+  margin-top: 1rem;
+  text-align: right;
+  font-size: 0.95rem;
   color: #2D3748;
 }
 
-/* 📜 強制條款 Modal (完整版版面與滾動調適) */
+.drawer-footer {
+  padding: 1rem;
+  border-top: 1px solid #E2E8F0;
+  display: flex;
+  gap: 0.8rem;
+  background: #F8FAFC;
+}
+
+.clear-cart-btn {
+  flex: 1;
+  background: #EDF2F7;
+  color: #718096;
+  border: none;
+  padding: 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.88rem;
+}
+
+.confirm-drawer-btn {
+  flex: 2;
+  background: #34444E;
+  color: #FFF;
+  border: none;
+  padding: 0.75rem;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 0.88rem;
+}
+
+/* 📜 條款 Modal 手機版介面最佳化 */
 .policy-modal {
   background: #FFF;
-  width: 100%;
-  max-width: 580px;
-  max-height: 85vh;
+  width: 92%;
+  max-width: 440px;
+  max-height: 82vh;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
@@ -999,7 +1020,7 @@ const executePayment = async () => {
 }
 
 .policy-modal-header {
-  padding: 1.2rem 1.5rem;
+  padding: 1rem 1.2rem;
   border-bottom: 1px solid #E2E8F0;
   display: flex;
   justify-content: space-between;
@@ -1009,20 +1030,20 @@ const executePayment = async () => {
 
 .policy-modal-header h3 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1rem;
   color: #34444E;
   font-weight: 700;
 }
 
 .policy-modal-body {
-  padding: 1.2rem 1.5rem;
+  padding: 1rem 1.2rem;
   overflow-y: auto;
   text-align: left;
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
-  font-size: 0.88rem;
-  line-height: 1.6;
+  gap: 0.9rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
   color: #4A5568;
 }
 
@@ -1035,21 +1056,21 @@ const executePayment = async () => {
 .policy-card-full {
   background: #F8FAFC;
   border: 1px solid #E2E8F0;
-  padding: 1.2rem;
-  border-radius: 8px;
+  padding: 0.9rem;
+  border-radius: 6px;
 }
 
 .policy-card-title {
-  font-size: 0.98rem;
+  font-size: 0.9rem;
   color: #34444E;
   font-weight: 700;
-  margin: 0 0 0.8rem 0;
-  border-left: 4px solid #34444E;
-  padding-left: 0.6rem;
+  margin: 0 0 0.5rem 0;
+  border-left: 3px solid #34444E;
+  padding-left: 0.5rem;
 }
 
 .policy-block-item {
-  margin-bottom: 0.8rem;
+  margin-bottom: 0.5rem;
 }
 
 .policy-block-item:last-child {
@@ -1057,60 +1078,104 @@ const executePayment = async () => {
 }
 
 .policy-block-item h5 {
-  margin: 0 0 0.3rem 0;
-  font-size: 0.88rem;
+  margin: 0 0 0.2rem 0;
+  font-size: 0.82rem;
   color: #2D3748;
   font-weight: 600;
 }
 
 .policy-card-full p {
-  margin: 0 0 0.4rem 0;
+  margin: 0 0 0.3rem 0;
 }
 
 .policy-card-full ul {
-  margin: 0 0 0.4rem 0;
-  padding-left: 1.2rem;
-}
-
-.policy-card-full li {
-  margin-bottom: 0.2rem;
+  margin: 0 0 0.3rem 0;
+  padding-left: 1rem;
 }
 
 .policy-modal-footer {
-  padding: 1rem 1.5rem;
+  padding: 0.9rem 1.2rem;
   border-top: 1px solid #E2E8F0;
   background: #FFFFFF;
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
+  gap: 0.6rem;
 }
 
 .agree-checkbox-label {
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   color: #2D3748;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   font-weight: 600;
 }
 
 .confirm-pay-btn {
   width: 100%;
-  padding: 0.85rem;
+  padding: 0.75rem;
   background: #34444E;
   color: #FFF;
   border: none;
   border-radius: 6px;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: bold;
   cursor: pointer;
-  transition: all 0.2s ease;
 }
 
 .confirm-pay-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* 🔍 商品詳情 Modal */
+.product-detail-modal {
+  background: #FFF;
+  width: 92%;
+  max-width: 480px;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.close-icon-btn {
+  background: none;
+  color: #718096;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+}
+
+.detail-image-wrapper img {
+  width: 100%;
+  height: 240px;
+  object-fit: cover;
+}
+
+.detail-body {
+  padding: 1.2rem;
+  text-align: left;
+}
+
+.detail-desc {
+  font-size: 0.85rem;
+  color: #4A5568;
+  line-height: 1.5;
+  margin: 0.8rem 0;
+}
+
+.detail-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detail-price {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #2D3748;
 }
 
 .custom-date-trigger {
@@ -1129,7 +1194,7 @@ const executePayment = async () => {
 
 .calendar-modal {
   background: #FFFFFF;
-  width: 100%;
+  width: 92%;
   max-width: 360px;
   border-radius: 12px;
   padding: 1.2rem;
@@ -1186,10 +1251,26 @@ const executePayment = async () => {
   flex-direction: column;
 }
 
+.image-wrapper {
+  position: relative;
+  cursor: pointer;
+}
+
 .image-wrapper img {
   width: 100%;
   height: 210px;
   object-fit: cover;
+}
+
+.view-detail-badge {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background: rgba(0,0,0,0.6);
+  color: #FFF;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
 }
 
 .product-info {
@@ -1255,6 +1336,23 @@ const executePayment = async () => {
   margin-bottom: 1rem;
   padding-bottom: 0.8rem;
   border-bottom: 1px solid #E2E8F0;
+}
+
+.cart-item-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #2D3748;
+}
+
+.cart-item-price {
+  font-size: 0.82rem;
+  color: #718096;
+}
+
+.quantity-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .quantity-control button {
