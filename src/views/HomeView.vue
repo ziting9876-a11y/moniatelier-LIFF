@@ -190,15 +190,25 @@ onMounted(async () => {
   // 2. 偵測付款狀態
   if (route.query.status === 'success') {
     const orderNo = (route.query.orderNo as string) || ''
-    alert(`🌸 感謝您的訂購！訂單 (${orderNo}) 已成功建立並完成付款，我們已發送確認通知至您的 LINE 與 Email 信箱。`)
+    
+    // 清空購物車
     cartStore.clearCart?.()
 
-    // 🎯 只要在 LINE 內開啟，一律強制呼叫關閉視窗回到聊天室
-    if (liff.isInClient() || window.navigator.userAgent.includes('Line')) {
-      liff.closeWindow()
-    } else {
-      router.replace({ query: {} })
-    }
+    // 跳出感謝彈窗
+    alert(`🌸 感謝您的訂購！訂單 (${orderNo}) 已成功建立並完成付款，我們已將確認通知發送至您的 LINE 聊天室與 Email。`)
+
+    // 🎯 點擊確定後，強制執行關閉視窗
+    setTimeout(() => {
+      try {
+        if (typeof liff !== 'undefined' && liff.closeWindow) {
+          liff.closeWindow()
+        }
+      } catch (e) {
+        console.warn('liff.closeWindow 關閉失敗:', e)
+      }
+      // 防護備案：如果 liff.closeWindow 被 WebView 攔截，直接嘗試關閉視窗或跳轉回 LINE
+      window.close()
+    }, 100)
   } else if (route.query.status === 'failed') {
     const errorMsg = (route.query.message as string) || '付款未完成或已取消交易'
     alert(`⚠️ 交易未成功：${errorMsg}\n請確認卡號資訊或重新嘗試結帳。`)
@@ -207,11 +217,6 @@ onMounted(async () => {
     alert('⚠️ 系統處理交易時發生異常，請稍後再試。')
     router.replace({ query: {} })
   }
-
-  if (!orderForm.value.deliveryDate) {
-    orderForm.value.deliveryDate = minDeliveryDateStr.value
-  }
-})
 
 // --- 型別與產品清單 ---
 interface Product {
