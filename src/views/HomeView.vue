@@ -182,9 +182,6 @@ onMounted(async () => {
       const profile = await liff.getProfile()
       lineProfile.value = profile
 
-      // 🌸 加上這一行，打開頁面就會自動跳出您的 User ID
-      alert(`您的 LINE User ID 為：${profile.userId}`)
-
       if (!orderForm.value.payer.name && profile.displayName) {
         orderForm.value.payer.name = profile.displayName
       }
