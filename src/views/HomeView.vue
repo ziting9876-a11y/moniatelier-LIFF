@@ -4,6 +4,16 @@ import { useRoute, useRouter } from 'vue-router'
 import { useCartStore } from '../stores/cart'
 import liff from '@line/liff'
 
+// --- 🎯 型別宣告 ---
+interface Product {
+  id: number
+  name: string
+  category: string
+  price: number
+  description: string
+  image: string
+}
+
 // --- 🎯 LINE LIFF 設定 ---
 const LIFF_ID = '2010913515-HfcsIAK0'
 const lineProfile = ref<{ userId: string; displayName: string; pictureUrl?: string } | null>(null)
@@ -15,7 +25,7 @@ const route = useRoute()
 const router = useRouter()
 const cartStore = useCartStore()
 
-// --- 🎯 步驟切換控制 (1: 瀏覽商品, 2: 填寫結帳資料) ---
+// --- 🎯 步驟切換控制 ---
 const currentStep = ref(1)
 
 // --- 🎯 快捷購物車 Drawer 控制 ---
@@ -58,11 +68,10 @@ const openPolicyModal = () => {
     return
   }
 
-  // 驗證通過，觸發條款彈窗
   showPolicyModal.value = true
 }
 
-// 📅 動態計算最早可選送達日期（今天 + 4 天）
+// 📅 動態計算最早可選送達日期
 const minDeliveryDate = computed(() => {
   const d = new Date()
   d.setDate(d.getDate() + 4)
@@ -78,7 +87,7 @@ const minDeliveryDateStr = computed(() => {
   return `${year}-${month}-${day}`
 })
 
-// 📅 計算最晚可選日期（6 個月後）
+// 📅 計算最晚可選日期
 const maxDeliveryDate = computed(() => {
   const d = new Date()
   d.setMonth(d.getMonth() + 6)
@@ -163,14 +172,12 @@ const selectDate = (dayItem: { dateStr: string; isDisabled: boolean }) => {
 
 // --- 🎯 頁面載入時初始化 LIFF 與處理付款完成邏輯 ---
 onMounted(async () => {
-  // 1. 先進行 LIFF 初始化
+  let isLiffReady = false
   try {
     await liff.init({ liffId: LIFF_ID })
+    isLiffReady = true
     
-    if (!liff.isLoggedIn()) {
-      // 若尚未登入，要求登入並索取 chat_message.write 權限
-      liff.login({ scope: 'openid profile email chat_message.write' })
-    } else {
+    if (liff.isLoggedIn()) {
       const profile = await liff.getProfile()
       lineProfile.value = profile
 
@@ -189,26 +196,20 @@ onMounted(async () => {
 
   // 2. 偵測付款狀態
   if (route.query.status === 'success') {
-    const orderNo = (route.query.orderNo as string) || ''
-    
-    // 清空購物車
     cartStore.clearCart?.()
 
-    // 跳出感謝彈窗
-    alert(`🌸 感謝您的訂購！訂單 (${orderNo}) 已成功建立並完成付款，我們已將確認通知發送至您的 LINE 聊天室與 Email。`)
-
-    // 🎯 點擊確定後，強制執行關閉視窗
+    // 🎯 直接執行關閉視窗
     setTimeout(() => {
       try {
-        if (typeof liff !== 'undefined' && liff.closeWindow) {
+        if (isLiffReady && liff.isInClient()) {
           liff.closeWindow()
+        } else {
+          window.location.href = 'https://line.me/R/'
         }
       } catch (e) {
-        console.warn('liff.closeWindow 關閉失敗:', e)
+        window.location.href = 'https://line.me/R/'
       }
-      // 防護備案：如果 liff.closeWindow 被 WebView 攔截，直接嘗試關閉視窗或跳轉回 LINE
-      window.close()
-    }, 100)
+    }, 200)
   } else if (route.query.status === 'failed') {
     const errorMsg = (route.query.message as string) || '付款未完成或已取消交易'
     alert(`⚠️ 交易未成功：${errorMsg}\n請確認卡號資訊或重新嘗試結帳。`)
@@ -218,16 +219,12 @@ onMounted(async () => {
     router.replace({ query: {} })
   }
 
-// --- 型別與產品清單 ---
-interface Product {
-  id: number
-  name: string
-  category: string
-  price: number
-  description: string
-  image: string
-}
+  if (!orderForm.value.deliveryDate) {
+    orderForm.value.deliveryDate = minDeliveryDateStr.value
+  }
+})
 
+// --- 產品清單 ---
 const taiwanDistricts: Record<string, string[]> = {
   '台北市': ['中正區', '大同區', '中山區', '松山區', '大安區', '萬華區', '信義區', '士林區', '北投區', '內湖區', '南港區', '文山區'],
   '新北市': ['板橋區', '三重區', '中和區', '永和區', '新莊區', '新店區', '樹林區', '鶯歌區', '三峽區', '淡水區', '汐止區', '瑞芳區', '土城區', '蘆洲區', '五股區', '泰山區', '林口區', '深坑區', '石碇區', '坪林區', '三芝區', '石門區', '八里區', '平溪區', '雙溪區', '貢寮區', '金山區', '萬里區', '烏來區'],
@@ -347,7 +344,6 @@ watch(() => orderForm.value.payer, (newPayer) => {
 
 const isLoading = ref(false)
 
-// 真正的付款跳轉發送
 const executePayment = async () => {
   showPolicyModal.value = false
   const isStoreDelivery = ['seven_eleven', 'familymart'].includes(orderForm.value.deliveryMethod)
@@ -370,6 +366,11 @@ const executePayment = async () => {
         : `${orderForm.value.recipient.city}${orderForm.value.recipient.district}${orderForm.value.recipient.address}`
     }
 
+    let currentUserId = lineProfile.value?.userId || null
+    if (!currentUserId && typeof liff !== 'undefined' && liff.isLoggedIn()) {
+      currentUserId = liff.getDecodedIDToken()?.sub || null
+    }
+
     const response = await fetch(`${API_BASE}/api/orders`, {
       method: 'POST',
       headers: {
@@ -384,7 +385,7 @@ const executePayment = async () => {
         deliveryMethod: orderForm.value.deliveryMethod,
         selectedStore: orderForm.value.selectedStore,
         email: orderForm.value.payer.email,
-        lineUserId: lineProfile.value?.userId || null,
+        lineUserId: currentUserId,
         payer: orderForm.value.payer,
         recipient: recipientData
       })
@@ -457,7 +458,7 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- ==================== 🌸 步驟一：瀏覽商品與加入購物車 ==================== -->
+    <!-- 🌸 步驟一：選購商品 -->
     <div v-if="currentStep === 1" class="step-content">
       <section class="products-section">
         <h2 class="section-title">精選花藝作品</h2>
@@ -480,7 +481,6 @@ const executePayment = async () => {
         </div>
       </section>
 
-      <!-- 🛒 購物車懸浮邊條 (點擊左側可展開內容) -->
       <div class="cart-floating-bar" v-if="totalCartItemsCount > 0">
         <div class="bar-info" @click="showCartDrawer = true">
           <span>🛒 已選購 <strong>{{ totalCartItemsCount }}</strong> 件商品 ✏️</span>
@@ -490,7 +490,7 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- ==================== 🌸 步驟二：訂單明細與結帳表單 ==================== -->
+    <!-- 🌸 步驟二：訂單明細與結帳 -->
     <div v-if="currentStep === 2" class="step-content">
       <button class="back-btn" @click="currentStep = 1">← 返回選購商品</button>
 
@@ -498,7 +498,6 @@ const executePayment = async () => {
         <div class="checkout-card">
           <h2 class="section-title">訂單明細與結帳</h2>
           
-          <!-- 購物車清單 -->
           <div class="cart-list">
             <div v-if="Object.keys(cartStore.cart).length === 0" class="empty-cart">
               購物車目前是空的，請先回到步驟一選擇商品
@@ -518,7 +517,6 @@ const executePayment = async () => {
                 </div>
               </div>
 
-              <!-- 金額小計與運費試算 -->
               <div class="summary-box">
                 <div class="summary-row">
                   <span>商品小計</span>
@@ -544,7 +542,6 @@ const executePayment = async () => {
 
           <hr class="divider" />
 
-          <!-- 結帳表單 -->
           <form @submit.prevent="openPolicyModal" class="order-form">
             <h3 class="form-subtitle">訂購與配送資訊</h3>
             
@@ -556,7 +553,6 @@ const executePayment = async () => {
               </div>
             </div>
 
-            <!-- 🚚 配送方式 -->
             <div class="form-group">
               <label>配送方式 *(宅配運送時間約 1 至 2 個工作天，超商取貨約 2 至 3 個工作天實際配送進度依物流公司公告為準）</label>
               <select v-model="orderForm.deliveryMethod">
@@ -567,7 +563,6 @@ const executePayment = async () => {
               </select>
             </div>
 
-            <!-- 🏪 超商門市手動填寫區塊 -->
             <div v-if="['seven_eleven', 'familymart'].includes(orderForm.deliveryMethod)" class="form-section store-input-section">
               <h4 class="sub-section-title">🏪 填寫 {{ orderForm.deliveryMethod === 'seven_eleven' ? '7-11' : '全家' }} 取件門市</h4>
               
@@ -592,7 +587,6 @@ const executePayment = async () => {
               </div>
             </div>
 
-            <!-- 💳 1. 付款人資訊 -->
             <div class="form-section">
               <h4 class="sub-section-title">👤 付款人資訊</h4>
               <div class="form-group">
@@ -609,7 +603,6 @@ const executePayment = async () => {
               </div>
             </div>
 
-            <!-- 🎁 2. 收件人資訊 -->
             <div class="form-section">
               <div class="section-header-inline">
                 <h4 class="sub-section-title">📦 收件人資訊</h4>
@@ -650,7 +643,7 @@ const executePayment = async () => {
       </section>
     </div>
 
-    <!-- 🛒 快捷購物車 Drawer Modal -->
+    <!-- 🛒 購物車 Drawer Modal -->
     <div v-if="showCartDrawer" class="modal-backdrop" @click.self="showCartDrawer = false">
       <div class="cart-drawer-modal">
         <div class="drawer-header">
@@ -760,7 +753,7 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 📜 購物須知與條款 Modal (針對手機顯示調適最佳化) -->
+    <!-- 📜 購物須知與條款 Modal -->
     <div v-if="showPolicyModal" class="modal-backdrop" @click.self="showPolicyModal = false">
       <div class="policy-modal">
         <div class="policy-modal-header">
@@ -837,7 +830,6 @@ const executePayment = async () => {
 </template>
 
 <style scoped>
-/* 🌸 步驟導覽列樣式 */
 .step-indicator {
   display: flex;
   align-items: center;
@@ -887,7 +879,6 @@ const executePayment = async () => {
   background: #CBD5E1;
 }
 
-/* 🛒 購物車懸浮邊條 */
 .cart-floating-bar {
   position: fixed;
   bottom: 20px;
@@ -938,7 +929,6 @@ const executePayment = async () => {
   margin-bottom: 1rem;
 }
 
-/* Modal 通用背景 */
 .modal-backdrop {
   position: fixed;
   top: 0;
@@ -954,7 +944,6 @@ const executePayment = async () => {
   box-sizing: border-box;
 }
 
-/* 🛒 購物車快捷抽屜 Modal */
 .cart-drawer-modal {
   background: #FFF;
   width: 92%;
@@ -1024,7 +1013,6 @@ const executePayment = async () => {
   font-size: 0.88rem;
 }
 
-/* 📜 條款 Modal 手機版介面最佳化 */
 .policy-modal {
   background: #FFF;
   width: 92%;
@@ -1147,7 +1135,6 @@ const executePayment = async () => {
   cursor: not-allowed;
 }
 
-/* 🔍 商品詳情 Modal */
 .product-detail-modal {
   background: #FFF;
   width: 92%;
