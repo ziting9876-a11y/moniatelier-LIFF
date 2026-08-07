@@ -166,7 +166,11 @@ onMounted(async () => {
   // 1. 先進行 LIFF 初始化
   try {
     await liff.init({ liffId: LIFF_ID })
-    if (liff.isLoggedIn()) {
+    
+    if (!liff.isLoggedIn()) {
+      // 若尚未登入，要求登入並索取 chat_message.write 權限
+      liff.login({ scope: 'openid profile email chat_message.write' })
+    } else {
       const profile = await liff.getProfile()
       lineProfile.value = profile
 
@@ -189,7 +193,7 @@ onMounted(async () => {
     alert(`🌸 感謝您的訂購！訂單 (${orderNo}) 已成功建立並完成付款，我們已發送確認信件至您的信箱。`)
     cartStore.clearCart?.()
 
-    // 🌸 若於 LINE 內開啟，發送訊息卡片並自動關閉視窗
+    // 🌸 若於 LINE 內開啟，嘗試發送訊息卡片並強制關閉視窗
     if (liff.isInClient()) {
       try {
         await liff.sendMessages([
@@ -200,9 +204,10 @@ onMounted(async () => {
         ])
         console.log('✉️ 已透過 LIFF 在聊天室發送訂單訊息')
       } catch (msgErr) {
-        console.warn('無法發送 LIFF 訊息:', msgErr)
+        console.warn('⚠️ 無法發送 LIFF 聊天室訊息 (可能尚未取得全額授權):', msgErr)
       } finally {
-        liff.closeWindow() // 👈 自動幫顧客關閉 LIFF 網頁視窗
+        // 🎯 確保無論 sendMessages 是否成功，都必定關閉網頁視窗返回聊天室！
+        liff.closeWindow()
       }
     } else {
       router.replace({ query: {} })
