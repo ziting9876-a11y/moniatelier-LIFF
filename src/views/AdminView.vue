@@ -91,9 +91,15 @@
             <h4>{{ product.name }}</h4>
             <p class="desc">{{ product.description }}</p>
 
+            <!-- 動態判斷價格顯示 -->
             <div class="price-box">
-              <span v-if="product.originalPrice" class="old-price">原價 NT$ {{ product.originalPrice?.toLocaleString() }}</span>
-              <span class="price-text">優惠價 NT$ {{ product.price?.toLocaleString() }}</span>
+              <template v-if="product.originalPrice && product.price && product.originalPrice > product.price">
+                <span class="old-price">原價 NT$ {{ product.originalPrice?.toLocaleString() }}</span>
+                <span class="price-text">優惠價 NT$ {{ product.price?.toLocaleString() }}</span>
+              </template>
+              <template v-else>
+                <span class="price-text">NT$ {{ (product.price || product.originalPrice)?.toLocaleString() }}</span>
+              </template>
             </div>
           </div>
           
@@ -159,7 +165,7 @@
         <div class="form-row">
           <div class="form-group">
             <label>原價 (NT$)：</label>
-            <input type="number" v-model="productForm.originalPrice" placeholder="例：2680 (無優惠可留空)" />
+            <input type="number" v-model="productForm.originalPrice" placeholder="例：1980" />
           </div>
           <div class="form-group">
             <label>優惠價 (NT$)：</label>
@@ -207,10 +213,10 @@ const editingProductId = ref(null)
 const productForm = ref({
   name: '',
   category: '不凋花 / 永生花',
-  price: 1880,
-  originalPrice: 2680,
+  price: null,
+  originalPrice: 1980,
   badge: 'NO.01',
-  tag: '七夕情人節最熱賣',
+  tag: '',
   description: '',
   imageUrl: ''
 })
@@ -275,7 +281,7 @@ const openProductModal = (product = null) => {
     productForm.value = {
       name: '',
       category: '不凋花 / 永生花',
-      price: 1880,
+      price: null,
       originalPrice: null,
       badge: '',
       tag: '',
@@ -293,6 +299,24 @@ const saveProduct = async () => {
     return
   }
 
+  // 💡 彈性價格邏輯處理：至少要有一種價格（原價或優惠價）
+  const origPrice = productForm.value.originalPrice ? Number(productForm.value.originalPrice) : null
+  const salePrice = productForm.value.price ? Number(productForm.value.price) : null
+
+  if (!origPrice && !salePrice) {
+    alert('請至少填寫「原價」或「優惠價」其中一項價格！')
+    return
+  }
+
+  // 若沒填優惠價，結帳/主金額 (price) 自動帶入原價
+  const finalPrice = salePrice || origPrice
+
+  const payload = {
+    ...productForm.value,
+    originalPrice: origPrice,
+    price: finalPrice
+  }
+
   const method = editingProductId.value ? 'PUT' : 'POST'
   const url = editingProductId.value 
     ? `${API_BASE_URL}/api/products/${editingProductId.value}`
@@ -302,7 +326,7 @@ const saveProduct = async () => {
     const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(productForm.value)
+      body: JSON.stringify(payload)
     })
     const data = await res.json()
     if (data.status === 'success') {

@@ -553,25 +553,30 @@ const executePayment = async () => {
               <div class="divider"></div>
 
               <!-- 價格與購物按鈕區塊 -->
-              <div class="card-footer">
-                <div class="price-box">
-                  <div v-if="item.originalPrice" class="original-price">
-                    原價 NT$ {{ item.originalPrice.toLocaleString() }}
-                  </div>
-                  <div class="special-price">
-                    <span class="sale-tag">特價</span>
-                    <span class="price-val">NT$ {{ item.price.toLocaleString() }}</span>
-                  </div>
-                </div>
+<div class="card-footer">
+  <div class="price-box">
+    <!-- 當原價存在，且原價大於優惠價時，才顯示原價刪除線與優惠價標籤 -->
+    <template v-if="item.originalPrice && item.price && item.originalPrice > item.price">
+      <div class="original-price">
+        原價 NT$ {{ item.originalPrice.toLocaleString() }}
+      </div>
+      <div class="special-price">
+        <span class="sale-tag">優惠價</span>
+        <span class="price-val">NT$ {{ item.price.toLocaleString() }}</span>
+      </div>
+    </template>
+    <!-- 若只有原價（無特價），直接呈現原價不帶刪除線 -->
+    <template v-else>
+      <div class="special-price">
+        <span class="price-val">NT$ {{ (item.price || item.originalPrice)?.toLocaleString() }}</span>
+      </div>
+    </template>
+  </div>
 
-                <button class="add-btn" @click.stop="cartStore.addToCart(getProductId(item))">
-                  加入購物車
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+  <button class="add-btn" @click.stop="cartStore.addToCart(getProductId(item))">
+    加入購物車
+  </button>
+</div>
 
       <div class="cart-floating-bar" v-if="totalCartItemsCount > 0">
         <div class="bar-info" @click="showCartDrawer = true">
