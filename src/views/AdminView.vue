@@ -32,7 +32,11 @@
       <div v-else-if="orders.length === 0" class="state-msg">目前尚無任何訂單紀錄。</div>
 
       <div v-else class="orders-list">
-        <div v-for="order in orders" :key="order.merchantOrderNo" class="order-card">
+        <div 
+          v-for="order in orders" 
+          :key="order.merchantOrderNo" 
+          :class="['order-card', { 'is-completed': order.status === 'completed', 'is-cancelled': order.status === 'cancelled' }]"
+        >
           <div class="card-header">
             <span class="order-no">單號：{{ order.merchantOrderNo }}</span>
             <span class="status-badge" :class="order.status">{{ formatStatus(order.status) }}</span>
@@ -56,12 +60,41 @@
             </button>
           </div>
 
+          <!-- 狀態操作按鈕區 -->
           <div class="action-buttons">
-            <button @click="updateStatus(order.merchantOrderNo, 'accepted')">已接單</button>
-            <button @click="updateStatus(order.merchantOrderNo, 'in_production')">製作中</button>
-            <button @click="updateStatus(order.merchantOrderNo, 'delivering')">配送中</button>
-            <button class="btn-complete" @click="updateStatus(order.merchantOrderNo, 'completed')">
-              已完成 (發送LINE通知)
+            <button 
+              :class="{ active: order.status === 'accepted' }" 
+              @click="updateStatus(order.merchantOrderNo, 'accepted')"
+            >
+              已接單
+            </button>
+            <button 
+              :class="{ active: order.status === 'in_production' }" 
+              @click="updateStatus(order.merchantOrderNo, 'in_production')"
+            >
+              製作中
+            </button>
+            <button 
+              :class="{ active: order.status === 'delivering' }" 
+              @click="updateStatus(order.merchantOrderNo, 'delivering')"
+            >
+              配送中
+            </button>
+            
+            <button 
+              class="btn-complete" 
+              :class="{ 'is-current': order.status === 'completed' }"
+              @click="updateStatus(order.merchantOrderNo, 'completed')"
+            >
+              ✓ 已完成 (發送LINE通知)
+            </button>
+
+            <button 
+              class="btn-cancel-order" 
+              :class="{ 'is-current': order.status === 'cancelled' }"
+              @click="updateStatus(order.merchantOrderNo, 'cancelled')"
+            >
+              ✕ 已取消訂單
             </button>
           </div>
         </div>
@@ -91,16 +124,15 @@
             <h4>{{ product.name }}</h4>
             <p class="desc">{{ product.description }}</p>
 
-            <!-- 動態判斷價格顯示 -->
             <div class="price-box">
-  <template v-if="product.originalPrice && product.price && Number(product.originalPrice) > Number(product.price)">
-    <span class="old-price">原價 NT$ {{ product.originalPrice?.toLocaleString() }}</span>
-    <span class="price-text">優惠價 NT$ {{ product.price?.toLocaleString() }}</span>
-  </template>
-  <template v-else>
-    <span class="price-text">NT$ {{ (product.price || product.originalPrice)?.toLocaleString() }}</span>
-  </template>
-</div>
+              <template v-if="product.originalPrice && product.price && Number(product.originalPrice) > Number(product.price)">
+                <span class="old-price">原價 NT$ {{ product.originalPrice?.toLocaleString() }}</span>
+                <span class="price-text">優惠價 NT$ {{ product.price?.toLocaleString() }}</span>
+              </template>
+              <template v-else>
+                <span class="price-text">NT$ {{ (product.price || product.originalPrice)?.toLocaleString() }}</span>
+              </template>
+            </div>
           </div>
           
           <div class="product-actions">
@@ -299,7 +331,6 @@ const saveProduct = async () => {
     return
   }
 
-  // 💡 彈性價格邏輯處理：至少要有一種價格（原價或優惠價）
   const origPrice = productForm.value.originalPrice ? Number(productForm.value.originalPrice) : null
   const salePrice = productForm.value.price ? Number(productForm.value.price) : null
 
@@ -308,7 +339,6 @@ const saveProduct = async () => {
     return
   }
 
-  // 若沒填優惠價，結帳/主金額 (price) 自動帶入原價
   const finalPrice = salePrice || origPrice
 
   const payload = {
@@ -354,7 +384,16 @@ const deleteProduct = async (id) => {
 }
 
 // 格式轉換工具
-const formatStatus = (s) => ({ PENDING: '待付款', PAID: '已付款 / 待處理', accepted: '已接單', in_production: '製作中', delivering: '配送中', completed: '已完成' }[s] || s)
+const formatStatus = (s) => ({ 
+  PENDING: '待付款', 
+  PAID: '已付款 / 待處理', 
+  accepted: '已接單', 
+  in_production: '製作中', 
+  delivering: '配送中', 
+  completed: '✓ 已完成',
+  cancelled: '✕ 已取消' 
+}[s] || s)
+
 const formatDeliveryMethod = (m) => ({ black_cat: '黑貓宅急便', store_pickup: '門市自取', cvs: '超商取貨' }[m] || m || '未指定')
 const formatDate = (d) => d ? new Date(d).toLocaleString('zh-TW') : ''
 const getFullAddress = (o) => o.selectedStore ? `${o.selectedStore.name} (${o.selectedStore.address})` : (o.recipient?.address || '門市自取 / 無地址')
@@ -437,6 +476,22 @@ onMounted(() => {
   padding: 20px;
   margin-bottom: 20px;
   background: #fafafa;
+  transition: all 0.3s ease;
+}
+
+/* 🌸 已完成訂單卡片：淡綠色，醒目清爽不需處理 */
+.order-card.is-completed {
+  background-color: #f0fff4;
+  border-color: #c6f6d5;
+  opacity: 0.85;
+}
+
+/* 🌸 已取消訂單卡片：淡灰色，顯著暗化降調不用處理 */
+.order-card.is-cancelled {
+  background-color: #f7fafc;
+  border-color: #e2e8f0;
+  opacity: 0.55;
+  filter: grayscale(40%);
 }
 
 .card-header {
@@ -463,7 +518,8 @@ onMounted(() => {
 
 .status-badge.PAID { background: #feebc8; color: #744210; }
 .status-badge.in_production { background: #feebc8; color: #744210; }
-.status-badge.completed { background: #c6f6d5; color: #22543d; }
+.status-badge.completed { background: #38a169; color: #ffffff; }
+.status-badge.cancelled { background: #a0aec0; color: #ffffff; }
 
 .card-body p {
   margin: 6px 0;
@@ -507,6 +563,7 @@ onMounted(() => {
   font-weight: bold;
 }
 
+/* 🎯 操作按鈕區 Grid 排版 */
 .action-buttons {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -522,6 +579,14 @@ onMounted(() => {
   cursor: pointer;
   font-weight: 500;
   color: #4a5568;
+  transition: all 0.2s ease;
+}
+
+.action-buttons button.active {
+  background: #3182ce;
+  color: #ffffff;
+  border-color: #3182ce;
+  font-weight: bold;
 }
 
 .btn-complete {
@@ -530,6 +595,24 @@ onMounted(() => {
   color: #ffffff !important;
   font-weight: bold;
   border: none !important;
+}
+
+.btn-complete:hover {
+  background: #38a169 !important;
+}
+
+.btn-cancel-order {
+  grid-column: span 3;
+  background: #e2e8f0 !important;
+  color: #718096 !important;
+  font-weight: bold;
+  border: 1px solid #cbd5e0 !important;
+}
+
+.btn-cancel-order:hover {
+  background: #e53e3e !important;
+  color: #ffffff !important;
+  border-color: #e53e3e !important;
 }
 
 /* 🎯 商品網格與預覽卡片樣式 */
