@@ -34,35 +34,28 @@ const showBirthdayModal = ref(false)
 const showReferralInfoModal = ref(false)
 const isCopyReferralSuccess = ref(false)
 
-// 1. 宣告成功彈窗 State（在 <script setup> 頂部）
+// 🌸 訂單完成 Modal 控制
 const showSuccessModal = ref(false)
 const successOrderNo = ref('')
 
-const closeSuccessAndReturn = () => {
-  showSuccessModal.value = false
-  try {
-    if (liff.isInClient()) {
-      liff.closeWindow()
-    } else {
-      currentStep.value = 1
-    }
-  } catch (e) {
-    console.warn('關閉視窗失敗:', e)
-    currentStep.value = 1
-  }
-}
-
-// 4. 新增返回聊天室的控制函式
+// 🌸 統一返回 LINE 聊天室控制函式 (支援 LIFF 關閉與外部 Deep Link)
 const handleReturnToLine = () => {
   try {
     if (liff.isInClient()) {
       liff.closeWindow()
     } else {
-      alert('您目前使用的是外部瀏覽器，請直接關閉此分頁即可返回。')
+      // 🌐 外部瀏覽器：透過 Deep Link 開啟 LINE 官方帳號聊天室
+      window.location.href = 'https://line.me/R/ti/p/@509mafly'
     }
   } catch (e) {
     console.warn('關閉視窗失敗:', e)
+    window.location.href = 'https://line.me/R/ti/p/@509mafly'
   }
+}
+
+const closeSuccessAndReturn = () => {
+  showSuccessModal.value = false
+  handleReturnToLine()
 }
 
 // --- 🎯 API 後端基礎網址設定 ---
@@ -300,7 +293,7 @@ const saveBirthday = async () => {
   }
 }
 
-// 2. 修改 onMounted 中的付款轉址檢查（改為開啟 Modal）
+// --- 🎯 頁面初始化 LIFF、會員資料與付款轉址檢查 ---
 onMounted(async () => {
   await fetchProducts()
 
@@ -505,7 +498,7 @@ const executePayment = async () => {
 
     <!-- 🌸 步驟一：選購商品 -->
     <div v-if="currentStep === 1" class="step-content">
-      <!-- 5. 在選購頁面頂部新增「返回 LINE 聊天室」按鈕 -->
+      <!-- 🌸 返回 LINE 按鈕 -->
       <div style="display: flex; justify-content: flex-end; margin-bottom: 0.5rem;">
         <button type="button" class="back-btn" @click="handleReturnToLine">
           ✕ 離開選購，返回 LINE 聊天室
@@ -855,7 +848,7 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 3. 在 <template> 底部加入「訂單完成」Modal HTML -->
+    <!-- 🎉 訂單成立 Modal 彈窗 -->
     <div v-if="showSuccessModal" class="modal-backdrop">
       <div class="calendar-modal" style="text-align: center; padding: 1.5rem;">
         <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🎉</div>
