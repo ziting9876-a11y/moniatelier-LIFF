@@ -34,6 +34,37 @@ const showBirthdayModal = ref(false)
 const showReferralInfoModal = ref(false)
 const isCopyReferralSuccess = ref(false)
 
+// 1. 宣告成功彈窗 State（在 <script setup> 頂部）
+const showSuccessModal = ref(false)
+const successOrderNo = ref('')
+
+const closeSuccessAndReturn = () => {
+  showSuccessModal.value = false
+  try {
+    if (liff.isInClient()) {
+      liff.closeWindow()
+    } else {
+      currentStep.value = 1
+    }
+  } catch (e) {
+    console.warn('關閉視窗失敗:', e)
+    currentStep.value = 1
+  }
+}
+
+// 4. 新增返回聊天室的控制函式
+const handleReturnToLine = () => {
+  try {
+    if (liff.isInClient()) {
+      liff.closeWindow()
+    } else {
+      alert('您目前使用的是外部瀏覽器，請直接關閉此分頁即可返回。')
+    }
+  } catch (e) {
+    console.warn('關閉視窗失敗:', e)
+  }
+}
+
 // --- 🎯 API 後端基礎網址設定 ---
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'https://moni-atelier-backend.onrender.com').replace(/\/$/, '')
 
@@ -269,7 +300,7 @@ const saveBirthday = async () => {
   }
 }
 
-// --- 🎯 頁面初始化 LIFF、會員資料與付款轉址檢查 ---
+// 2. 修改 onMounted 中的付款轉址檢查（改為開啟 Modal）
 onMounted(async () => {
   await fetchProducts()
 
@@ -278,18 +309,11 @@ onMounted(async () => {
   const orderNoParam = route.query.orderNo as string
 
   if (statusParam === 'success') {
-    alert(`🎉 付款成功！\n訂單編號：${orderNoParam || ''}\n感謝您的訂購，墨凝花室已收到您的款項並將儘速為您製作！`)
+    successOrderNo.value = orderNoParam || ''
+    showSuccessModal.value = true
     // 清空購物車
     cartStore.cart = {}
     localStorage.removeItem('cart')
-    // 在 LINE LIFF 環境內自動關閉視窗返回聊天室
-    try {
-      if (liff.isInClient()) {
-        liff.closeWindow()
-      }
-    } catch (e) {
-      console.warn('關閉視窗失敗:', e)
-    }
   } else if (statusParam === 'failed' || statusParam === 'error') {
     alert('❌ 付款流程未完成或發生錯誤，請重新嘗試。')
   }
@@ -481,6 +505,13 @@ const executePayment = async () => {
 
     <!-- 🌸 步驟一：選購商品 -->
     <div v-if="currentStep === 1" class="step-content">
+      <!-- 5. 在選購頁面頂部新增「返回 LINE 聊天室」按鈕 -->
+      <div style="display: flex; justify-content: flex-end; margin-bottom: 0.5rem;">
+        <button type="button" class="back-btn" @click="handleReturnToLine">
+          ✕ 離開選購，返回 LINE 聊天室
+        </button>
+      </div>
+
       <section class="products-section">
         <h2 class="section-title">精選花藝作品</h2>
         <div v-if="loadingProducts" class="loading-state">🌸 正在為您載入最新花藝作品...</div>
@@ -821,6 +852,21 @@ const executePayment = async () => {
           {{ isCopyReferralSuccess ? '已成功複製！' : '一鍵複製我的專屬推薦網址' }}
         </button>
         <button class="close-modal-btn" style="margin-top: 8px;" @click="showReferralInfoModal = false">關閉</button>
+      </div>
+    </div>
+
+    <!-- 3. 在 <template> 底部加入「訂單完成」Modal HTML -->
+    <div v-if="showSuccessModal" class="modal-backdrop">
+      <div class="calendar-modal" style="text-align: center; padding: 1.5rem;">
+        <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🎉</div>
+        <h3 style="color: #34444E; font-size: 1.2rem; font-weight: bold; margin-bottom: 0.5rem;">訂單成立成功！</h3>
+        <p style="font-size: 0.88rem; color: #4A5568; line-height: 1.6; margin-bottom: 1.2rem;">
+          訂單編號：<strong style="color: #102A43;">{{ successOrderNo }}</strong><br />
+          感謝您的訂購！墨凝花室已收到您的款項與訂單，將儘速為您精心製作花藝作品 ✨
+        </p>
+        <button class="confirm-pay-btn" @click="closeSuccessAndReturn">
+          🌸 完成訂單，返回 LINE 聊天室
+        </button>
       </div>
     </div>
 
