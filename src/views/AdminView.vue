@@ -117,6 +117,7 @@
             <img :src="product.imageUrl" :alt="product.name" class="product-thumb" />
             <span v-if="product.badge" class="badge-tag">{{ product.badge }}</span>
             <span v-if="product.tag" class="hot-tag">{{ product.tag }}</span>
+            <span v-if="product.isHidden" class="hidden-badge">🔒 隱藏商品</span>
           </div>
 
           <div class="product-details">
@@ -216,6 +217,14 @@
           <textarea v-model="productForm.description" rows="3" placeholder="請輸入作品特色文案..."></textarea>
         </div>
 
+        <!-- 🔒 新增隱藏商品勾選設定 -->
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="productForm.isHidden" />
+            <span>🔒 設定為隱藏商品（不顯示於首頁，僅能透過專屬連結下單）</span>
+          </label>
+        </div>
+
         <div class="modal-actions">
           <button class="btn-save" @click="saveProduct">💾 儲存並發布</button>
           <button class="btn-cancel" @click="showProductModal = false">取消</button>
@@ -250,7 +259,8 @@ const productForm = ref({
   badge: '',
   tag: '',
   description: '',
-  imageUrl: ''
+  imageUrl: '',
+  isHidden: false
 })
 
 // 取得訂單列表
@@ -307,7 +317,10 @@ const updateStatus = async (orderNo, status) => {
 const openProductModal = (product = null) => {
   if (product) {
     editingProductId.value = product._id
-    productForm.value = { ...product }
+    productForm.value = {
+      ...product,
+      isHidden: product.isHidden || false
+    }
   } else {
     editingProductId.value = null
     productForm.value = {
@@ -318,7 +331,8 @@ const openProductModal = (product = null) => {
       badge: '',
       tag: '',
       description: '',
-      imageUrl: ''
+      imageUrl: '',
+      isHidden: false
     }
   }
   showProductModal.value = true
@@ -479,14 +493,12 @@ onMounted(() => {
   transition: all 0.3s ease;
 }
 
-/* 🌸 已完成訂單卡片：淡綠色，醒目清爽不需處理 */
 .order-card.is-completed {
   background-color: #f0fff4;
   border-color: #c6f6d5;
   opacity: 0.85;
 }
 
-/* 🌸 已取消訂單卡片：淡灰色，顯著暗化降調不用處理 */
 .order-card.is-cancelled {
   background-color: #f7fafc;
   border-color: #e2e8f0;
@@ -563,7 +575,6 @@ onMounted(() => {
   font-weight: bold;
 }
 
-/* 🎯 操作按鈕區 Grid 排版 */
 .action-buttons {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -671,6 +682,18 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+.hidden-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
 .product-details {
   padding: 12px;
   flex: 1;
@@ -739,6 +762,30 @@ onMounted(() => {
 
 .form-group {
   margin-bottom: 14px;
+}
+
+.checkbox-group {
+  margin-top: 10px;
+  background-color: #f7fafc;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: #34444e;
+  font-weight: bold;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
 }
 
 .form-group label {
