@@ -78,7 +78,7 @@ const openPolicyModal = () => {
   showPolicyModal.value = true
 }
 
-// 📅 動態計算最早可選送達日期（改為 5 天後）
+// 📅 動態計算最早可選送達日期（5 天後）
 const minDeliveryDate = computed(() => {
   const d = new Date()
   d.setDate(d.getDate() + 5)
@@ -178,8 +178,13 @@ const selectDate = (dayItem: { dateStr: string; isDisabled: boolean }) => {
 }
 
 // 🎯 商品動態讀取與備用清單
-const products = ref<Product[]>([])
+const allProducts = ref<Product[]>([]) // 保存包含隱藏商品在內的所有資料
 const loadingProducts = ref(true)
+
+// 🎯 供首頁列表顯示的商品清單（自動濾掉隱藏商品）
+const displayProducts = computed(() => {
+  return allProducts.value.filter(p => !p.isHidden)
+})
 
 const defaultProducts: Product[] = [
   {
@@ -217,7 +222,7 @@ const defaultProducts: Product[] = [
   }
 ]
 
-// 動態 API 請求 (過濾隱藏商品)
+// 動態 API 請求 (完整保留全商品清單)
 const fetchProducts = async () => {
   loadingProducts.value = true
   try {
@@ -235,19 +240,18 @@ const fetchProducts = async () => {
 
     const data = await res.json()
     if (data.status === 'success' && data.products && data.products.length > 0) {
-      // 🎯 濾掉 isHidden === true 的項目
-      const visibleProducts = data.products.filter((p: any) => !p.isHidden)
-      products.value = visibleProducts.map((p: any) => ({
+      // 🎯 保留全部商品（包含隱藏商品），以便購物車精確對應名稱與金額
+      allProducts.value = data.products.map((p: any) => ({
         ...p,
         id: p._id || p.id,
         image: p.imageUrl || p.image
       }))
     } else {
-      products.value = defaultProducts
+      allProducts.value = defaultProducts
     }
   } catch (err) {
     console.warn('❌ 抓取後端商品失敗，套用預設商品清單:', err)
-    products.value = defaultProducts
+    allProducts.value = defaultProducts
   } finally {
     loadingProducts.value = false
   }
@@ -257,14 +261,14 @@ const fetchProducts = async () => {
 const getProductImage = (item: Product) => item.imageUrl || item.image || ''
 const getProductId = (item: Product) => item._id || item.id
 
-// 💰 購物車商品總價計算 (支援相容字串 _id/id 模式)
+// 💰 購物車商品總價計算 (對應全部商品全集)
 const cartTotalPrice = computed(() => {
   if (typeof cartStore.calculateTotalPrice === 'function') {
-    return cartStore.calculateTotalPrice(products.value)
+    return cartStore.calculateTotalPrice(allProducts.value)
   }
   let total = 0
   for (const [id, qty] of Object.entries(cartStore.cart || {})) {
-    const product = products.value.find(p => String(getProductId(p)) === String(id))
+    const product = allProducts.value.find(p => String(getProductId(p)) === String(id))
     if (product) {
       const price = Number(product.price || product.originalPrice || 0)
       total += price * Number(qty)
@@ -277,23 +281,19 @@ const cartTotalPrice = computed(() => {
 onMounted(async () => {
   await fetchProducts()
 
-  // 🎯 1. 自動加購 URL 監聽（支援單一商品或逗號分隔多商品，例: ?add=花禮ID,卡片ID）
-const addParam = route.query.add as string
-const addQty = Number(route.query.qty || 1)
+  // 🎯 1. 自動加購 URL 監聽（支援多商品，例: ?add=花禮ID,卡片ID）
+  const addParam = route.query.add as string
+  const addQty = Number(route.query.qty || 1)
 
-if (addParam) {
-  // 將參數依逗號切割成陣列（如 ['花禮ID', '卡片ID']）
-  const productIds = addParam.split(',').map(id => id.trim()).filter(Boolean)
-  
-  productIds.forEach(id => {
-    for (let i = 0; i < addQty; i++) {
-      cartStore.addToCart(id)
-    }
-  })
-  
-  // 自動帶入商品後直接切換至步驟二 (結帳明細)
-  currentStep.value = 2
-}
+  if (addParam) {
+    const productIds = addParam.split(',').map(id => id.trim()).filter(Boolean)
+    productIds.forEach(id => {
+      for (let i = 0; i < addQty; i++) {
+        cartStore.addToCart(id)
+      }
+    })
+    currentStep.value = 2
+  }
 
   try {
     await liff.init({ liffId: LIFF_ID })
@@ -576,7 +576,7 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 🌸 步驟一：選購商品 -->
+    <!-- 🌸 步驟一：選購商品 (使用 displayProducts 過濾隱藏商品) -->
     <div v-if="currentStep === 1" class="step-content">
       <section class="products-section">
         <h2 class="section-title">精選花藝作品</h2>
@@ -587,7 +587,7 @@ const executePayment = async () => {
 
         <!-- 商品列表區塊 -->
         <div v-else class="product-grid">
-          <div v-for="item in products" :key="getProductId(item)" class="product-card">
+          <div v-for="item in displayProducts" :key="getProductId(item)" class="product-card">
             <div class="image-wrapper" @click="openProductDetail(item)">
               <!-- 左上角編號標籤 -->
               <span v-if="item.badge" class="badge-no">{{ item.badge }}</span>
@@ -644,7 +644,7 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 🌸 步驟二：訂單明細與結帳 -->
+    <!-- 🌸 步驟二：訂單明細與結帳 (對應 allProducts 保留隱藏商品正確顯示) -->
     <div v-if="currentStep === 2" class="step-content">
       <button class="back-btn" @click="currentStep = 1">← 返回選購商品</button>
 
@@ -660,10 +660,10 @@ const executePayment = async () => {
               <div v-for="(qty, id) in cartStore.cart" :key="id" class="cart-item">
                 <div class="cart-item-info">
                   <div class="cart-item-name">
-                    {{ products.find(p => String(getProductId(p)) === String(id))?.name || '精選花藝作品' }}
+                    {{ allProducts.find(p => String(getProductId(p)) === String(id))?.name || '精選花藝作品' }}
                   </div>
                   <div class="cart-item-price">
-                    新台幣 {{ ((products.find(p => String(getProductId(p)) === String(id))?.price || products.find(p => String(getProductId(p)) === String(id))?.originalPrice || 0) * Number(qty)).toLocaleString() }} 元
+                    新台幣 {{ ((allProducts.find(p => String(getProductId(p)) === String(id))?.price || allProducts.find(p => String(getProductId(p)) === String(id))?.originalPrice || 0) * Number(qty)).toLocaleString() }} 元
                   </div>
                 </div>
                 <div class="quantity-control">
@@ -815,10 +815,10 @@ const executePayment = async () => {
             <div v-for="(qty, id) in cartStore.cart" :key="id" class="cart-item">
               <div class="cart-item-info">
                 <div class="cart-item-name">
-                  {{ products.find(p => String(getProductId(p)) === String(id))?.name || '精選花藝作品' }}
+                  {{ allProducts.find(p => String(getProductId(p)) === String(id))?.name || '精選花藝作品' }}
                 </div>
                 <div class="cart-item-price">
-                  NT$ {{ (((products.find(p => String(getProductId(p)) === String(id))?.price || products.find(p => String(getProductId(p)) === String(id))?.originalPrice || 0)) * Number(qty)).toLocaleString() }}
+                  NT$ {{ (((allProducts.find(p => String(getProductId(p)) === String(id))?.price || allProducts.find(p => String(getProductId(p)) === String(id))?.originalPrice || 0)) * Number(qty)).toLocaleString() }}
                 </div>
               </div>
               <div class="quantity-control">
