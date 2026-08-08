@@ -216,12 +216,17 @@ const defaultProducts: Product[] = [
   }
 ]
 
-// 動態 API 請求 (嚴格防錯與網址格式化)
+// 動態 API 請求 (強制鎖定 Render 後端)
 const fetchProducts = async () => {
   loadingProducts.value = true
   try {
-    const baseUrl = (import.meta.env.VITE_API_BASE_URL || API_BASE || 'https://moni-atelier-backend.onrender.com').replace(/\/$/, '')
-    const res = await fetch(`${baseUrl}/api/products`)
+    let targetBase = import.meta.env.VITE_API_BASE_URL
+    if (!targetBase || typeof targetBase !== 'string' || !targetBase.startsWith('http')) {
+      targetBase = 'https://moni-atelier-backend.onrender.com'
+    }
+    targetBase = targetBase.replace(/\/$/, '')
+
+    const res = await fetch(`${targetBase}/api/products`)
     
     if (!res.ok) {
       throw new Error(`HTTP 請求失敗，狀態碼: ${res.status}`)
@@ -456,8 +461,13 @@ const executePayment = async () => {
       }
     }
 
-    const baseUrl = (import.meta.env.VITE_API_BASE_URL || API_BASE || 'https://moni-atelier-backend.onrender.com').replace(/\/$/, '')
-    const response = await fetch(`${baseUrl}/api/orders`, {
+    let targetBase = import.meta.env.VITE_API_BASE_URL
+    if (!targetBase || typeof targetBase !== 'string' || !targetBase.startsWith('http')) {
+      targetBase = 'https://moni-atelier-backend.onrender.com'
+    }
+    targetBase = targetBase.replace(/\/$/, '')
+
+    const response = await fetch(`${targetBase}/api/orders`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
