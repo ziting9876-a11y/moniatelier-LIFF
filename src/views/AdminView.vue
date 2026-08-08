@@ -93,7 +93,7 @@
 
             <div class="price-box">
               <span v-if="product.originalPrice" class="old-price">原價 NT$ {{ product.originalPrice?.toLocaleString() }}</span>
-              <span class="price-text">特價 NT$ {{ product.price?.toLocaleString() }}</span>
+              <span class="price-text">優惠價 NT$ {{ product.price?.toLocaleString() }}</span>
             </div>
           </div>
           
@@ -162,8 +162,8 @@
             <input type="number" v-model="productForm.originalPrice" placeholder="例：2680 (無優惠可留空)" />
           </div>
           <div class="form-group">
-            <label>特價 / 優惠價 (NT$)：</label>
-            <input type="number" v-model="productForm.price" placeholder="例：1880" />
+            <label>優惠價 (NT$)：</label>
+            <input type="number" v-model="productForm.price" placeholder="例：2680 (無優惠可留空)" />
           </div>
         </div>
 
