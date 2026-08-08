@@ -187,13 +187,12 @@ const cartTotalPrice = computed(() => {
   return total
 })
 
-// 🚚 動態計算運費（包含專人配送 1 與 2）
 const shippingFee = computed(() => {
   if (cartTotalPrice.value === 0 || cartTotalPrice.value >= 4500) return 0
   if (orderForm.value.deliveryMethod === 'express_taipei_2') {
-    return 500 // 專人雙北配送 2 運費 $500
+    return 500
   }
-  return 300 // 黑貓、店到店、專人雙北配送 1 運費 $300
+  return 300
 })
 
 const actualUsedPoints = computed(() => {
@@ -471,7 +470,6 @@ const executePayment = async () => {
                 <option value="seven_eleven">7-11店到店 (運費 NT$300 / 滿 NT$4,500 免運)</option>
               </select>
               
-              <!-- 🚚 專人雙北配送區域備註說明 -->
               <div v-if="orderForm.deliveryMethod === 'express_taipei_1'" class="delivery-note">
                 📍 <strong>專人雙北配送1 可送區域：</strong><br />
                 松山區、信義區、大安區、中山區、中正區、大同區、萬華區、文山區、南港區、內湖區、士林區、北投區、板橋區、三重區、中和區、永和區、汐止區。
@@ -563,7 +561,7 @@ const executePayment = async () => {
       </section>
     </div>
 
-    <!-- 🛒 購物車 Drawer Modal (美化版) -->
+    <!-- 🛒 購物車 Drawer Modal -->
     <div v-if="showCartDrawer" class="modal-backdrop" @click.self="showCartDrawer = false">
       <div class="cart-drawer-modal">
         <div class="drawer-header">
@@ -642,12 +640,12 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 📜 購物須知與條款 Modal -->
+    <!-- 📜 購物須知與條款 Modal (美化修復版) -->
     <div v-if="showPolicyModal" class="modal-backdrop" @click.self="showPolicyModal = false">
       <div class="policy-modal">
         <div class="policy-modal-header">
           <h3>🌸 購物須知與條款閱讀確認</h3>
-          <button class="close-icon-btn" @click="showPolicyModal = false">✕</button>
+          <button type="button" class="close-icon-btn" @click="showPolicyModal = false">✕</button>
         </div>
         <div class="policy-modal-body">
           <p>歡迎光臨「墨凝花室」。客製化花禮不適用 7 天鑑賞期，請確認訂購內容無誤。</p>
@@ -655,7 +653,7 @@ const executePayment = async () => {
         <div class="policy-modal-footer">
           <label class="agree-checkbox-label">
             <input type="checkbox" v-model="hasAgreedPolicy" />
-            我已完整閱讀並同意條款
+            <span>我已完整閱讀並同意條款</span>
           </label>
           <button type="button" class="confirm-pay-btn" :disabled="!hasAgreedPolicy || isLoading" @click="executePayment">
             {{ isLoading ? '處理中...' : '確認同意並前往付款' }}
@@ -759,7 +757,7 @@ const executePayment = async () => {
 .submit-btn { width: 100%; background: #34444E; color: #FFF; padding: 1rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 1.5rem; }
 .back-btn { background: none; border: 1px solid #FFF; color: #FFF; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; }
 
-/* 🛒 購物車 Drawer 美化 CSS */
+/* Modal 彈窗通用 */
 .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 9999; }
 .cart-drawer-modal { background: #FFFFFF; border-radius: 16px; padding: 1.2rem; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); }
 .drawer-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.8rem; margin-bottom: 1rem; }
@@ -777,8 +775,18 @@ const executePayment = async () => {
 .drawer-footer { border-top: 1px solid #E2E8F0; padding-top: 0.8rem; }
 .confirm-drawer-btn { width: 100%; background: #34444E; color: #FFFFFF; border: none; padding: 0.8rem; border-radius: 8px; font-weight: bold; font-size: 0.95rem; cursor: pointer; }
 
-.calendar-modal, .policy-modal, .product-detail-modal { background: #FFF; border-radius: 12px; padding: 1.2rem; max-width: 400px; width: 90%; color: #333; }
-.confirm-pay-btn { width: 100%; padding: 0.75rem; background: #34444E; color: #FFF; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+/* 📜 購物須知 Modal 樣式修正 (重點修復區域) */
+.policy-modal { background: #FFFFFF; border-radius: 16px; padding: 1.5rem; max-width: 400px; width: 90%; color: #333333; display: flex; flex-direction: column; gap: 1rem; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); }
+.policy-modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.8rem; }
+.policy-modal-header h3 { margin: 0; font-size: 1.05rem; font-weight: bold; color: #34444E; }
+.policy-modal-body { font-size: 0.9rem; color: #4A5568; line-height: 1.6; padding: 0.5rem 0; text-align: left; }
+.policy-modal-footer { display: flex; flex-direction: column; gap: 1rem; }
+.agree-checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; font-weight: bold; color: #2D3748; cursor: pointer; user-select: none; }
+.agree-checkbox-label input { width: 18px; height: 18px; cursor: pointer; }
+
+.calendar-modal, .product-detail-modal { background: #FFF; border-radius: 12px; padding: 1.2rem; max-width: 400px; width: 90%; color: #333; }
+.confirm-pay-btn { width: 100%; padding: 0.8rem; background: #34444E; color: #FFF; border: none; border-radius: 8px; font-weight: bold; font-size: 0.95rem; cursor: pointer; }
+.confirm-pay-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .close-modal-btn { width: 100%; padding: 6px; background: #E2E8F0; border: none; border-radius: 4px; cursor: pointer; }
 .month-nav-btn { background: none; border: none; font-size: 18px; cursor: pointer; }
 .calendar-day-btn { width: 100%; height: 32px; border: none; background: transparent; cursor: pointer; }
