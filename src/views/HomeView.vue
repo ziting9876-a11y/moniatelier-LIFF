@@ -29,6 +29,7 @@ const lineProfile = ref<{ userId: string; displayName: string; pictureUrl?: stri
 const userPoints = ref(0)
 const usedPointsInput = ref(0)
 const userBirthday = ref('')
+const hasBirthday = ref(false) // 🎂 紀錄會員是否已填寫過生日
 const showBirthdayModal = ref(false)
 const showReferralInfoModal = ref(false)
 const isCopyReferralSuccess = ref(false)
@@ -216,6 +217,7 @@ const saveBirthday = async () => {
     const data = await res.json()
     if (data.status === 'success') {
       userPoints.value = data.points
+      hasBirthday.value = true // 🎂 設定完成後，自動隱藏生日按鈕
       alert(data.message)
       showBirthdayModal.value = false
     }
@@ -255,6 +257,9 @@ onMounted(async () => {
       if (userData.status === 'success' && userData.user) {
         userPoints.value = userData.user.points || 0
         usedPointsInput.value = userPoints.value
+        if (userData.user.birthday) {
+          hasBirthday.value = true // 🎂 判斷若已登記過生日則設為 true
+        }
       }
     }
   } catch (err) {
@@ -412,40 +417,18 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 🌸 步驟二：訂單明細與結帳 (美化版面) -->
+    <!-- 🌸 步驟二：訂單明細與結帳 -->
     <div v-if="currentStep === 2" class="step-content">
       <button class="back-btn" @click="currentStep = 1">← 返回選購商品</button>
       <section class="checkout-section">
         <div class="checkout-card">
           <h2 class="checkout-title">訂單明細與結帳</h2>
           
+          <!-- 1. 訂單明細與金額小計 -->
           <div class="cart-list">
             <div v-for="(qty, id) in cartStore.cart" :key="id" class="cart-item-row">
               <span class="item-name">{{ allProducts.find(p => String(getProductId(p)) === String(id))?.name || '精選花藝作品' }} x {{ qty }}</span>
               <span class="item-price">NT$ {{ ((allProducts.find(p => String(getProductId(p)) === String(id))?.price || 0) * Number(qty)).toLocaleString() }}</span>
-            </div>
-
-            <!-- 🎁 會員點數、生日禮金與好友推薦專區 (重新設計視覺) -->
-            <div v-if="lineProfile" class="checkout-member-card">
-              <div class="member-info-header">
-                <span class="user-label">👤 {{ lineProfile.displayName }} 的專屬紅利</span>
-                <span class="points-badge">目前點數：<strong>{{ userPoints }}</strong> 點 ($1點=$1元)</span>
-              </div>
-
-              <div v-if="userPoints > 0" class="points-deduct-row">
-                <label>折抵紅利：</label>
-                <input type="number" v-model.number="usedPointsInput" :max="userPoints" min="0" placeholder="0" />
-                <span class="points-tip">折抵 NT$ {{ actualUsedPoints }} 元</span>
-              </div>
-
-              <div class="member-actions-row">
-                <button type="button" class="btn-member-action" @click="showBirthdayModal = true">
-                  🎂 登錄生日領 $100 購物金
-                </button>
-                <button type="button" class="btn-member-action" @click="showReferralInfoModal = true">
-                  🔗 推薦好友領 $50 紅利
-                </button>
-              </div>
             </div>
 
             <div class="summary-box">
@@ -466,6 +449,7 @@ const executePayment = async () => {
           <hr class="divider" />
 
           <form @submit.prevent="openPolicyModal" class="order-form">
+            <!-- 2. 訂購與配送資訊 -->
             <h3 class="form-subtitle">訂購與配送資訊</h3>
             <div class="form-group">
               <label>希望送達日期 *</label>
@@ -493,6 +477,7 @@ const executePayment = async () => {
               </div>
             </div>
 
+            <!-- 3. 付款人資訊 & 收件人資訊 -->
             <div class="form-section">
               <h4 class="sub-section-title">👤 付款人資訊</h4>
               <div class="form-group"><label>姓名 *</label><input type="text" v-model="orderForm.payer.name" required class="styled-input" /></div>
@@ -514,7 +499,7 @@ const executePayment = async () => {
               </div>
               <div class="form-group">
                 <label>聯絡電話 *</label>
-                <input type="tel" v-model="orderForm.recipient.phone" :disabled="sameAsPayer" required class="styled-input" />
+                <input type="text" v-model="orderForm.recipient.phone" :disabled="sameAsPayer" required class="styled-input" />
               </div>
 
               <div v-if="!['seven_eleven', 'familymart'].includes(orderForm.deliveryMethod)" class="form-group">
@@ -531,6 +516,30 @@ const executePayment = async () => {
               </div>
             </div>
 
+            <!-- 4. 專屬紅利區塊（已移至表單下方） -->
+            <div v-if="lineProfile" class="checkout-member-card">
+              <div class="member-info-header">
+                <span class="user-label">👤 {{ lineProfile.displayName }} 的專屬紅利</span>
+                <span class="points-badge">目前點數：<strong>{{ userPoints }}</strong> 點 ($1點=$1元)</span>
+              </div>
+
+              <div v-if="userPoints > 0" class="points-deduct-row">
+                <label>折抵紅利：</label>
+                <input type="number" v-model.number="usedPointsInput" :max="userPoints" min="0" placeholder="0" />
+                <span class="points-tip">折抵 NT$ {{ actualUsedPoints }} 元</span>
+              </div>
+
+              <div class="member-actions-row">
+                <!-- 🎂 已登錄過生日則自動隱藏此按鈕 -->
+                <button v-if="!hasBirthday" type="button" class="btn-member-action" @click="showBirthdayModal = true">
+                  🎂 登錄生日領 $100 購物金
+                </button>
+                <button type="button" class="btn-member-action" @click="showReferralInfoModal = true">
+                  🔗 推薦好友領 $50 紅利
+                </button>
+              </div>
+            </div>
+
             <button type="submit" class="submit-btn" :disabled="isLoading || Object.keys(cartStore.cart).length === 0">
               前往付款（NT$ {{ finalTotalPrice.toLocaleString() }}）
             </button>
@@ -539,7 +548,7 @@ const executePayment = async () => {
       </section>
     </div>
 
-    <!-- Modal 彈窗區域保持完美運作 -->
+    <!-- Modal 彈窗區域 -->
     <div v-if="showCartDrawer" class="modal-backdrop" @click.self="showCartDrawer = false">
       <div class="cart-drawer-modal">
         <div class="drawer-header">
@@ -724,7 +733,7 @@ const executePayment = async () => {
 /* 表單優化 */
 .form-subtitle { font-size: 1.05rem; color: #34444E; font-weight: bold; margin: 1.2rem 0 0.8rem; }
 .form-group { margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px; font-size: 0.88rem; }
-.styled-input, .styled-select, .custom-date-trigger { width: 100%; padding: 10px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 0.9rem; box-sizing: border-border-box; }
+.styled-input, .styled-select, .custom-date-trigger { width: 100%; padding: 10px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 0.9rem; box-sizing: border-box; }
 .custom-date-trigger { background: #F8FAFC; cursor: pointer; }
 .address-group { display: flex; gap: 8px; }
 .submit-btn { width: 100%; background: #34444E; color: #FFF; padding: 1rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 1.5rem; }
