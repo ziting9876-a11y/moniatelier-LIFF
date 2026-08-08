@@ -141,7 +141,6 @@ const selectDate = (dayItem: { dateStr: string; isDisabled: boolean }) => {
 const allProducts = ref<Product[]>([])
 const loadingProducts = ref(true)
 
-// 過濾未勾選隱藏的真實商品
 const displayProducts = computed(() => allProducts.value.filter(p => p.isHidden !== true))
 
 const fetchProducts = async () => {
@@ -155,7 +154,6 @@ const fetchProducts = async () => {
   for (const url of targets) {
     if (success) break
     try {
-      console.log('🌸 嘗試抓取商品資料網址:', url)
       const res = await fetch(url)
       const data = await res.json()
       if (data.status === 'success' && Array.isArray(data.products)) {
@@ -165,7 +163,6 @@ const fetchProducts = async () => {
           image: p.imageUrl || p.image
         }))
         success = true
-        console.log(`✅ 成功抓取 ${allProducts.value.length} 項後端商品！`)
       }
     } catch (err) {
       console.warn(`⚠️ 嘗試連線 ${url} 失敗:`, err)
@@ -415,7 +412,7 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 🌸 步驟二：訂單明細與結帳 -->
+    <!-- 🌸 步驟二：訂單明細與結帳 (美化版面) -->
     <div v-if="currentStep === 2" class="step-content">
       <button class="back-btn" @click="currentStep = 1">← 返回選購商品</button>
       <section class="checkout-section">
@@ -423,33 +420,29 @@ const executePayment = async () => {
           <h2 class="checkout-title">訂單明細與結帳</h2>
           
           <div class="cart-list">
-            <div v-for="(qty, id) in cartStore.cart" :key="id" class="cart-item">
-              <div class="cart-item-info">
-                <div class="cart-item-name">{{ allProducts.find(p => String(getProductId(p)) === String(id))?.name || '精選花藝作品' }}</div>
-                <div class="cart-item-price">新台幣 {{ ((allProducts.find(p => String(getProductId(p)) === String(id))?.price || 0) * Number(qty)).toLocaleString() }} 元</div>
-              </div>
+            <div v-for="(qty, id) in cartStore.cart" :key="id" class="cart-item-row">
+              <span class="item-name">{{ allProducts.find(p => String(getProductId(p)) === String(id))?.name || '精選花藝作品' }} x {{ qty }}</span>
+              <span class="item-price">NT$ {{ ((allProducts.find(p => String(getProductId(p)) === String(id))?.price || 0) * Number(qty)).toLocaleString() }}</span>
             </div>
 
-            <!-- 🎁 會員點數、生日禮金與好友推薦專區 -->
-            <div v-if="lineProfile" class="checkout-member-section">
-              <div class="member-header">
-                <span>👤 {{ lineProfile.displayName }} 的專屬紅利</span>
-                <span class="points-badge">目前累積 <strong>{{ userPoints }}</strong> 點 ($1點=$1元)</span>
+            <!-- 🎁 會員點數、生日禮金與好友推薦專區 (重新設計視覺) -->
+            <div v-if="lineProfile" class="checkout-member-card">
+              <div class="member-info-header">
+                <span class="user-label">👤 {{ lineProfile.displayName }} 的專屬紅利</span>
+                <span class="points-badge">目前點數：<strong>{{ userPoints }}</strong> 點 ($1點=$1元)</span>
               </div>
 
-              <!-- 1. 折抵紅利點數輸入 -->
-              <div v-if="userPoints > 0" class="points-input-row">
-                <label>使用點數折抵：</label>
+              <div v-if="userPoints > 0" class="points-deduct-row">
+                <label>折抵紅利：</label>
                 <input type="number" v-model.number="usedPointsInput" :max="userPoints" min="0" placeholder="0" />
-                <span class="points-tip">可折抵 NT$ {{ actualUsedPoints }} 元</span>
+                <span class="points-tip">折抵 NT$ {{ actualUsedPoints }} 元</span>
               </div>
 
-              <!-- 2. 生日禮金與推薦好友獎勵按鈕 -->
-              <div class="member-extra-actions">
-                <button type="button" class="action-outline-btn" @click="showBirthdayModal = true">
+              <div class="member-actions-row">
+                <button type="button" class="btn-member-action" @click="showBirthdayModal = true">
                   🎂 登錄生日領 $100 購物金
                 </button>
-                <button type="button" class="action-outline-btn" @click="showReferralInfoModal = true">
+                <button type="button" class="btn-member-action" @click="showReferralInfoModal = true">
                   🔗 推薦好友領 $50 紅利
                 </button>
               </div>
@@ -462,11 +455,11 @@ const executePayment = async () => {
             </div>
             
             <div class="total-row">
-              <div>
-                <span>合計 總金額</span>
+              <div class="total-label-box">
+                <span class="main-total-label">實付總金額</span>
                 <span class="earned-points-tip"> (完成訂單可獲得 🎁 {{ earnedPoints }} 點紅利)</span>
               </div>
-              <span class="total-price">新台幣 {{ finalTotalPrice.toLocaleString() }} 元</span>
+              <span class="total-price">NT$ {{ finalTotalPrice.toLocaleString() }}</span>
             </div>
           </div>
 
@@ -481,7 +474,7 @@ const executePayment = async () => {
 
             <div class="form-group">
               <label>配送方式 *</label>
-              <select v-model="orderForm.deliveryMethod">
+              <select v-model="orderForm.deliveryMethod" class="styled-select">
                 <option value="black_cat">黑貓宅配 (運費 NT$300 / 滿 NT$4,500 免運)</option>
                 <option value="familymart">全家店到店 (運費 NT$300 / 滿 NT$4,500 免運)</option>
                 <option value="seven_eleven">7-11店到店 (運費 NT$300 / 滿 NT$4,500 免運)</option>
@@ -492,19 +485,19 @@ const executePayment = async () => {
               <h4 class="sub-section-title">🏪 填寫門市資訊</h4>
               <div class="form-group">
                 <label>門市名稱 *</label>
-                <input type="text" v-model="storeInput.name" placeholder="例如：7-11 鑫南京門市" required />
+                <input type="text" v-model="storeInput.name" placeholder="例如：7-11 鑫南京門市" required class="styled-input" />
               </div>
               <div class="form-group">
                 <label>門市地址 *</label>
-                <input type="text" v-model="storeInput.address" placeholder="例如：台北市中山區南京東路二段100號" required />
+                <input type="text" v-model="storeInput.address" placeholder="例如：台北市中山區南京東路二段100號" required class="styled-input" />
               </div>
             </div>
 
             <div class="form-section">
               <h4 class="sub-section-title">👤 付款人資訊</h4>
-              <div class="form-group"><label>姓名 *</label><input type="text" v-model="orderForm.payer.name" required /></div>
-              <div class="form-group"><label>聯絡電話 *</label><input type="tel" v-model="orderForm.payer.phone" required /></div>
-              <div class="form-group"><label>Email *</label><input type="email" v-model="orderForm.payer.email" required /></div>
+              <div class="form-group"><label>姓名 *</label><input type="text" v-model="orderForm.payer.name" required class="styled-input" /></div>
+              <div class="form-group"><label>聯絡電話 *</label><input type="tel" v-model="orderForm.payer.phone" required class="styled-input" /></div>
+              <div class="form-group"><label>Email *</label><input type="email" v-model="orderForm.payer.email" required class="styled-input" /></div>
             </div>
 
             <div class="form-section">
@@ -517,36 +510,36 @@ const executePayment = async () => {
 
               <div class="form-group">
                 <label>姓名 *</label>
-                <input type="text" v-model="orderForm.recipient.name" :disabled="sameAsPayer" required />
+                <input type="text" v-model="orderForm.recipient.name" :disabled="sameAsPayer" required class="styled-input" />
               </div>
               <div class="form-group">
                 <label>聯絡電話 *</label>
-                <input type="tel" v-model="orderForm.recipient.phone" :disabled="sameAsPayer" required />
+                <input type="tel" v-model="orderForm.recipient.phone" :disabled="sameAsPayer" required class="styled-input" />
               </div>
 
               <div v-if="!['seven_eleven', 'familymart'].includes(orderForm.deliveryMethod)" class="form-group">
                 <label>聯絡地址 *</label>
                 <div class="address-group">
-                  <select v-model="orderForm.recipient.city" required>
+                  <select v-model="orderForm.recipient.city" required class="styled-select">
                     <option v-for="city in taiwanCities" :key="city" :value="city">{{ city }}</option>
                   </select>
-                  <select v-model="orderForm.recipient.district" required>
+                  <select v-model="orderForm.recipient.district" required class="styled-select">
                     <option v-for="dist in taiwanDistricts[orderForm.recipient.city] || []" :key="dist" :value="dist">{{ dist }}</option>
                   </select>
                 </div>
-                <input type="text" v-model="orderForm.recipient.address" placeholder="街道門牌資訊" required />
+                <input type="text" v-model="orderForm.recipient.address" placeholder="街道門牌資訊" required class="styled-input" style="margin-top: 8px;" />
               </div>
             </div>
 
             <button type="submit" class="submit-btn" :disabled="isLoading || Object.keys(cartStore.cart).length === 0">
-              前往付款（新台幣 {{ finalTotalPrice.toLocaleString() }} 元）
+              前往付款（NT$ {{ finalTotalPrice.toLocaleString() }}）
             </button>
           </form>
         </div>
       </section>
     </div>
 
-    <!-- 🛒 購物車 Drawer Modal -->
+    <!-- Modal 彈窗區域保持完美運作 -->
     <div v-if="showCartDrawer" class="modal-backdrop" @click.self="showCartDrawer = false">
       <div class="cart-drawer-modal">
         <div class="drawer-header">
@@ -575,7 +568,6 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 🔍 商品詳情 Modal -->
     <div v-if="selectedProductDetail" class="modal-backdrop" @click.self="closeProductDetail">
       <div class="product-detail-modal">
         <button class="close-icon-btn" @click="closeProductDetail">✕</button>
@@ -594,7 +586,6 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 🗓️ 自訂月曆 Modal -->
     <div v-if="showDatePickerModal" class="modal-backdrop" @click.self="showDatePickerModal = false">
       <div class="calendar-modal">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -625,7 +616,6 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 📜 購物須知與條款 Modal -->
     <div v-if="showPolicyModal" class="modal-backdrop" @click.self="showPolicyModal = false">
       <div class="policy-modal">
         <div class="policy-modal-header">
@@ -647,7 +637,6 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 🎂 生日領取紅利 Modal -->
     <div v-if="showBirthdayModal" class="modal-backdrop" @click.self="showBirthdayModal = false">
       <div class="calendar-modal">
         <h3>🎂 紀錄生日月份</h3>
@@ -657,7 +646,6 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 🔗 推薦好友使用說明 Modal -->
     <div v-if="showReferralInfoModal" class="modal-backdrop" @click.self="showReferralInfoModal = false">
       <div class="calendar-modal">
         <h3>🎁 推薦好友賺紅利說明</h3>
@@ -677,248 +665,69 @@ const executePayment = async () => {
 </template>
 
 <style scoped>
-.page-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
+.page-wrapper { display: flex; flex-direction: column; gap: 1rem; }
+.section-title { color: #FFFFFF; font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem; }
+.loading-state { text-align: center; color: #FFFFFF; padding: 2rem; }
 
-/* 🌸 標題與內文樣式 */
-.section-title {
-  color: #FFFFFF;
-  font-size: 1.25rem;
-  font-weight: bold;
-  margin-bottom: 1rem;
-}
-.loading-state {
-  text-align: center;
-  color: #FFFFFF;
-  padding: 2rem;
-}
+.product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.2rem; }
+.product-card { background: #FFFFFF; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+.image-wrapper { aspect-ratio: 3/4; background: #34444E; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; }
+.image-wrapper img { width: 100%; height: 100%; object-fit: contain; }
+.badge-no { position: absolute; top: 8px; left: 8px; background: #FFF; color: #333; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; }
+.tag-hot { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: #FFF; color: #8B5E4C; padding: 2px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; }
+.view-detail-badge { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: #FFF; font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; }
+.product-info { padding: 1rem; display: flex; flex-direction: column; flex-grow: 1; text-align: center; color: #2D3748; }
+.product-name { font-size: 1.05rem; margin: 0.3rem 0; color: #2D3748; }
+.description { font-size: 0.82rem; color: #718096; line-height: 1.4; height: 36px; overflow: hidden; }
+.card-footer { margin-top: auto; display: flex; justify-content: space-between; align-items: center; }
+.price-val { font-size: 1rem; font-weight: bold; color: #8B5E4C; }
+.add-btn { background: #F7F9FA; color: #34444E; border: 1px solid #34444E; padding: 0.4rem 0.8rem; border-radius: 6px; font-weight: bold; cursor: pointer; }
 
-/* 🌸 商品卡片區塊 */
-.product-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 1.2rem;
-}
-.product-card {
-  background: #FFFFFF;
-  border-radius: 12px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-.image-wrapper {
-  aspect-ratio: 3/4;
-  background: #34444E;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  cursor: pointer;
-}
-.image-wrapper img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-.badge-no {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  background: #FFF;
-  color: #333;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 0.75rem;
-  font-weight: bold;
-}
-.tag-hot {
-  position: absolute;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #FFF;
-  color: #8B5E4C;
-  padding: 2px 10px;
-  border-radius: 10px;
-  font-size: 0.75rem;
-  font-weight: bold;
-}
-.view-detail-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: rgba(0,0,0,0.6);
-  color: #FFF;
-  font-size: 0.75rem;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-.product-info {
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  flex-grow: 1;
-  text-align: center;
-  color: #2D3748;
-}
-.product-name {
-  font-size: 1.05rem;
-  margin: 0.3rem 0;
-  color: #2D3748;
-}
-.description {
-  font-size: 0.82rem;
-  color: #718096;
-  line-height: 1.4;
-  height: 36px;
-  overflow: hidden;
-}
-.card-footer {
-  margin-top: auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.price-val {
-  font-size: 1rem;
-  font-weight: bold;
-  color: #8B5E4C;
-}
-.add-btn {
-  background: #F7F9FA;
-  color: #34444E;
-  border: 1px solid #34444E;
-  padding: 0.4rem 0.8rem;
-  border-radius: 6px;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-/* 🌸 步驟導覽列 */
-.step-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  background: #FFFFFF;
-  padding: 0.8rem;
-  border-radius: 8px;
-}
+.step-indicator { display: flex; align-items: center; justify-content: center; gap: 1rem; background: #FFFFFF; padding: 0.8rem; border-radius: 8px; }
 .step-item { cursor: pointer; opacity: 0.5; color: #333; }
 .step-item.active { opacity: 1; font-weight: bold; }
-.step-num {
-  display: inline-block;
-  width: 24px;
-  height: 24px;
-  line-height: 24px;
-  border-radius: 50%;
-  background: #CBD5E1;
-  text-align: center;
-  margin-right: 4px;
-}
+.step-num { display: inline-block; width: 24px; height: 24px; line-height: 24px; border-radius: 50%; background: #CBD5E1; text-align: center; margin-right: 4px; }
 .step-item.active .step-num { background: #34444E; color: #FFF; }
 .step-line { width: 30px; height: 2px; background: #CBD5E1; }
 
-/* 🌸 浮動購物車 Bar */
-.cart-floating-bar {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 90%;
-  max-width: 500px;
-  background: #34444E;
-  color: #FFFFFF;
-  padding: 0.8rem 1.2rem;
-  border-radius: 50px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-  z-index: 1000;
-}
+.cart-floating-bar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 500px; background: #34444E; color: #FFFFFF; padding: 0.8rem 1.2rem; border-radius: 50px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); z-index: 1000; }
 .bar-info { display: flex; flex-direction: column; font-size: 0.88rem; cursor: pointer; }
 .bar-price { font-size: 0.78rem; color: #CBD5E1; }
-.next-step-btn {
-  background: #FFFFFF;
-  color: #34444E;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-weight: bold;
-  cursor: pointer;
-}
+.next-step-btn { background: #FFFFFF; color: #34444E; border: none; padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold; cursor: pointer; }
 
-/* 🌸 結帳頁面會員區塊 */
-.checkout-card {
-  background: #FFFFFF;
-  padding: 1.5rem;
-  border-radius: 12px;
-  color: #2D3748;
-}
-.checkout-title {
-  font-size: 1.2rem;
-  color: #34444E;
-  margin-bottom: 1rem;
-}
-.checkout-member-section {
-  background: #F8FAFC;
-  border: 1px solid #E2E8F0;
-  padding: 1rem;
-  border-radius: 8px;
-  margin: 1rem 0;
-}
-.member-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.9rem;
-  font-weight: bold;
-  color: #34444E;
-  margin-bottom: 0.8rem;
-}
-.points-badge { color: #D97706; }
-.points-input-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.88rem;
-  margin-bottom: 0.8rem;
-}
-.points-input-row input {
-  width: 90px;
-  padding: 6px;
-  border: 1px solid #CBD5E1;
-  border-radius: 4px;
-}
+/* 🌸 結帳頁面美化樣式 */
+.checkout-card { background: #FFFFFF; padding: 1.5rem; border-radius: 12px; color: #2D3748; }
+.checkout-title { font-size: 1.25rem; color: #34444E; font-weight: bold; margin-bottom: 1.2rem; text-align: center; }
+.cart-item-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 0.95rem; margin-bottom: 12px; color: #2D3748; }
+
+/* 🎁 美化後的會員卡片 */
+.checkout-member-card { background: #F8FAFC; border: 1px solid #E2E8F0; padding: 1rem; border-radius: 10px; margin: 1.2rem 0; display: flex; flex-direction: column; gap: 10px; }
+.member-info-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem; flex-wrap: wrap; gap: 6px; }
+.user-label { font-weight: bold; color: #34444E; }
+.points-badge { color: #D97706; font-weight: bold; }
+.points-deduct-row { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; }
+.points-deduct-row input { width: 80px; padding: 6px; border: 1px solid #CBD5E1; border-radius: 6px; }
 .points-tip { font-weight: bold; color: #B45309; }
-.member-extra-actions {
-  display: flex;
-  gap: 8px;
-}
-.action-outline-btn {
-  flex: 1;
-  background: #FFFFFF;
-  border: 1px solid #34444E;
-  color: #34444E;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 0.78rem;
-  font-weight: bold;
-  cursor: pointer;
-}
-.referral-guide-body {
-  font-size: 0.85rem;
-  line-height: 1.5;
-  color: #4A5568;
-  text-align: left;
-  margin: 12px 0;
-}
+.member-actions-row { display: flex; gap: 8px; margin-top: 4px; }
+.btn-member-action { flex: 1; background: #FFFFFF; border: 1px solid #34444E; color: #34444E; padding: 8px; border-radius: 6px; font-size: 0.78rem; font-weight: bold; cursor: pointer; }
 
-.submit-btn { width: 100%; background: #34444E; color: #FFF; padding: 0.9rem; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 1rem; }
+/* 金額明細 */
+.summary-box { background: #FAF9F6; padding: 12px; border-radius: 8px; margin: 12px 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.88rem; }
+.summary-row { display: flex; justify-content: space-between; color: #4A5568; }
+.discount-row { color: #D97706; font-weight: bold; }
+.total-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-top: 2px solid #E2E8F0; margin-top: 8px; }
+.total-label-box { display: flex; flex-direction: column; }
+.main-total-label { font-size: 1rem; font-weight: bold; color: #2D3748; }
+.earned-points-tip { font-size: 0.75rem; color: #059669; }
+.total-price { font-size: 1.25rem; font-weight: bold; color: #8B5E4C; }
+
+/* 表單優化 */
+.form-subtitle { font-size: 1.05rem; color: #34444E; font-weight: bold; margin: 1.2rem 0 0.8rem; }
+.form-group { margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px; font-size: 0.88rem; }
+.styled-input, .styled-select, .custom-date-trigger { width: 100%; padding: 10px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 0.9rem; box-sizing: border-border-box; }
+.custom-date-trigger { background: #F8FAFC; cursor: pointer; }
+.address-group { display: flex; gap: 8px; }
+.submit-btn { width: 100%; background: #34444E; color: #FFF; padding: 1rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 1.5rem; }
 .back-btn { background: none; border: 1px solid #FFF; color: #FFF; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; }
 
 /* Modal 彈窗通用 */
