@@ -1298,18 +1298,23 @@ const executePayment = async () => {
   position: relative;
 }
 
-/* 2. 商品詳情 Modal 的圖片容器與圖片 */
+/* 2. 商品詳情 Modal 的圖片容器與圖片：改為直式 3:4 比例 + contain */
 .detail-image-wrapper {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 3 / 4;
   background-color: #34444E;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  box-sizing: border-box;
 }
 
 .detail-image-wrapper img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
 }
 
@@ -1431,22 +1436,27 @@ const executePayment = async () => {
   border: 1px solid #F3EBE6;
 }
 
-/* 1. 商品列表卡片：採用 4:3 黃金比例，搭配墨凝企業色 #34444E 背景 */
+/* 1. 商品列表卡片：改為直式 3:4 比例，搭配 object-fit: contain 完整呈現花禮與企業色背景 */
 .image-wrapper {
   position: relative;
   cursor: pointer;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 3 / 4;
   background-color: #34444E;
   overflow: hidden;
   border-top-left-radius: 12px;
   border-top-right-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  box-sizing: border-box;
 }
 
 .image-wrapper img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
 }
 
