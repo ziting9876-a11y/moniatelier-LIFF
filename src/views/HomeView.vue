@@ -218,6 +218,12 @@ const saveBirthday = async () => {
     return
   }
 
+  // 判斷是否為當前月份
+  const selectedDate = new Date(userBirthday.value)
+  const currentMonth = new Date().getMonth() + 1
+  const birthdayMonth = selectedDate.getMonth() + 1
+  const isBirthdayMonth = currentMonth === birthdayMonth
+
   const targetUserId = lineProfile.value?.userId || 'GUEST_TEST_USER'
 
   const targets = [
@@ -246,19 +252,20 @@ const saveBirthday = async () => {
     }
   }
 
-  if (success && responseData) {
-    if (responseData.points !== undefined) {
+  hasBirthday.value = true
+  showBirthdayModal.value = false
+
+  if (isBirthdayMonth) {
+    // 🎂 生日當月：發放 $100 點數
+    if (responseData?.points !== undefined) {
       userPoints.value = responseData.points
+    } else {
+      userPoints.value += 100
     }
-    hasBirthday.value = true
-    alert(responseData.message || '🎉 生日月份登錄成功，已發放專屬優惠！')
-    showBirthdayModal.value = false
+    alert('🎉 生日月份紀錄成功！適逢您的生日當月，已為您發放 $100 元生日購物金！')
   } else {
-    // 🛡️ 本地備援機制（確保前端體驗順暢）
-    hasBirthday.value = true
-    userPoints.value += 100
-    alert('🎉 生日月份登錄成功！已為您領取 $100 購物金！')
-    showBirthdayModal.value = false
+    // 📅 非生日當月：僅紀錄月份，不發放點數
+    alert(`📅 生日月份已成功紀錄！您的生日為 ${birthdayMonth} 月，當月開啟結帳即可自動領取 $100 購物金優惠！`)
   }
 }
 
