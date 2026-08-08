@@ -216,11 +216,17 @@ const defaultProducts: Product[] = [
   }
 ]
 
-// 動態 API 請求
+// 動態 API 請求 (嚴格防錯與網址格式化)
 const fetchProducts = async () => {
   loadingProducts.value = true
   try {
-    const res = await fetch(`${API_BASE}/api/products`)
+    const baseUrl = (import.meta.env.VITE_API_BASE_URL || API_BASE || 'https://moni-atelier-backend.onrender.com').replace(/\/$/, '')
+    const res = await fetch(`${baseUrl}/api/products`)
+    
+    if (!res.ok) {
+      throw new Error(`HTTP 請求失敗，狀態碼: ${res.status}`)
+    }
+
     const data = await res.json()
     if (data.status === 'success' && data.products && data.products.length > 0) {
       products.value = data.products.map((p: any) => ({
@@ -450,7 +456,8 @@ const executePayment = async () => {
       }
     }
 
-    const response = await fetch(`${API_BASE}/api/orders`, {
+    const baseUrl = (import.meta.env.VITE_API_BASE_URL || API_BASE || 'https://moni-atelier-backend.onrender.com').replace(/\/$/, '')
+    const response = await fetch(`${baseUrl}/api/orders`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
