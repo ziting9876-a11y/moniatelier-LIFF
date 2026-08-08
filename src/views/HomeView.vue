@@ -371,16 +371,32 @@ const executePayment = async () => {
         : `${orderForm.value.recipient.city}${orderForm.value.recipient.district}${orderForm.value.recipient.address}`
     }
 
+    // 🎯 1. 確保 100% 取得 LINE User ID (優先取 ref，若無則主動向 LIFF 索取 profile 或 decoded token)
     let currentUserId = lineProfile.value?.userId || null
-    if (!currentUserId && typeof liff !== 'undefined' && liff.isLoggedIn()) {
-      currentUserId = liff.getDecodedIDToken()?.sub || null
+
+    if (!currentUserId && typeof liff !== 'undefined') {
+      try {
+        if (liff.isLoggedIn()) {
+          const profile = await liff.getProfile()
+          currentUserId = profile?.userId || null
+        }
+        if (!currentUserId) {
+          const idToken = liff.getDecodedIDToken()
+          currentUserId = idToken?.sub || null
+        }
+      } catch (err) {
+        console.warn('結帳時重新取得 LIFF Profile 失敗:', err)
+      }
     }
+
+    console.log('📤 [前端結帳] 準備送出的 LINE UserID:', currentUserId)
 
     const response = await fetch(`${API_BASE}/api/orders`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
+      // 🎯 2. 同時帶入相容欄位 lineUserId 與 userId
       body: JSON.stringify({
         cart: cartStore.cart,
         subtotal: cartStore.totalPrice,
@@ -391,6 +407,7 @@ const executePayment = async () => {
         selectedStore: orderForm.value.selectedStore,
         email: orderForm.value.payer.email,
         lineUserId: currentUserId,
+        userId: currentUserId,
         payer: orderForm.value.payer,
         recipient: recipientData
       })
