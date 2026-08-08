@@ -51,7 +51,7 @@ const showPolicyModal = ref(false)
 const hasAgreedPolicy = ref(false)
 
 const openPolicyModal = () => {
-  if (cartStore.totalPrice === 0) {
+  if (cartTotalPrice.value === 0) {
     alert('請先選擇至少一項商品！')
     return
   }
@@ -243,6 +243,22 @@ const fetchProducts = async () => {
 const getProductImage = (item: Product) => item.imageUrl || item.image || ''
 const getProductId = (item: Product) => item._id || item.id
 
+// 💰 購物車商品總價計算 (支援相容字串 _id/id 模式)
+const cartTotalPrice = computed(() => {
+  if (typeof cartStore.calculateTotalPrice === 'function') {
+    return cartStore.calculateTotalPrice(products.value)
+  }
+  let total = 0
+  for (const [id, qty] of Object.entries(cartStore.cart || {})) {
+    const product = products.value.find(p => String(getProductId(p)) === String(id))
+    if (product) {
+      const price = Number(product.price || product.originalPrice || 0)
+      total += price * Number(qty)
+    }
+  }
+  return total
+})
+
 // --- 🎯 頁面載入時初始化 LIFF 與處理付款完成邏輯 ---
 onMounted(async () => {
   fetchProducts()
@@ -360,12 +376,12 @@ const totalCartItemsCount = computed(() => {
 })
 
 const shippingFee = computed(() => {
-  if (cartStore.totalPrice === 0) return 0
-  return cartStore.totalPrice >= 4500 ? 0 : 300
+  if (cartTotalPrice.value === 0) return 0
+  return cartTotalPrice.value >= 4500 ? 0 : 300
 })
 
 const finalTotalPrice = computed(() => {
-  return cartStore.totalPrice + shippingFee.value
+  return cartTotalPrice.value + shippingFee.value
 })
 
 watch(() => orderForm.value.recipient.city, (newCity) => {
@@ -441,7 +457,7 @@ const executePayment = async () => {
       },
       body: JSON.stringify({
         cart: cartStore.cart,
-        subtotal: cartStore.totalPrice,
+        subtotal: cartTotalPrice.value,
         shippingFee: shippingFee.value,
         totalAmount: finalTotalPrice.value,
         deliveryDate: orderForm.value.deliveryDate,
@@ -516,7 +532,7 @@ const executePayment = async () => {
         <span class="step-text">選購商品</span>
       </div>
       <div class="step-line"></div>
-      <div class="step-item" :class="{ active: currentStep === 2 }" @click="cartStore.totalPrice > 0 && (currentStep = 2)">
+      <div class="step-item" :class="{ active: currentStep === 2 }" @click="cartTotalPrice > 0 && (currentStep = 2)">
         <span class="step-num">2</span>
         <span class="step-text">訂單明細與結帳</span>
       </div>
@@ -531,7 +547,7 @@ const executePayment = async () => {
           🌸 正在為您載入最新花藝作品...
         </div>
 
-        <!-- 商品列表區塊 (已修復標籤結構) -->
+        <!-- 商品列表區塊 -->
         <div v-else class="product-grid">
           <div v-for="item in products" :key="getProductId(item)" class="product-card">
             <div class="image-wrapper" @click="openProductDetail(item)">
@@ -584,7 +600,7 @@ const executePayment = async () => {
       <div class="cart-floating-bar" v-if="totalCartItemsCount > 0">
         <div class="bar-info" @click="showCartDrawer = true">
           <span>🛒 已選購 <strong>{{ totalCartItemsCount }}</strong> 件商品 ✏️</span>
-          <span class="bar-price">小計：新台幣 {{ cartStore.totalPrice.toLocaleString() }} 元</span>
+          <span class="bar-price">小計：新台幣 {{ cartTotalPrice.toLocaleString() }} 元</span>
         </div>
         <button class="next-step-btn" @click="currentStep = 2">前往結帳 (下一步) →</button>
       </div>
@@ -609,7 +625,7 @@ const executePayment = async () => {
                     {{ products.find(p => String(getProductId(p)) === String(id))?.name || '精選花藝作品' }}
                   </div>
                   <div class="cart-item-price">
-                    新台幣 {{ ((products.find(p => String(getProductId(p)) === String(id))?.price || 0) * Number(qty)).toLocaleString() }} 元
+                    新台幣 {{ ((products.find(p => String(getProductId(p)) === String(id))?.price || products.find(p => String(getProductId(p)) === String(id))?.originalPrice || 0) * Number(qty)).toLocaleString() }} 元
                   </div>
                 </div>
                 <div class="quantity-control">
@@ -622,7 +638,7 @@ const executePayment = async () => {
               <div class="summary-box">
                 <div class="summary-row">
                   <span>商品小計</span>
-                  <span>新台幣 {{ cartStore.totalPrice.toLocaleString() }} 元</span>
+                  <span>新台幣 {{ cartTotalPrice.toLocaleString() }} 元</span>
                 </div>
                 <div class="summary-row">
                   <span>運費</span>
@@ -630,8 +646,8 @@ const executePayment = async () => {
                     {{ shippingFee === 0 ? '免運費 (滿 NT$ 4,500)' : `新台幣 ${shippingFee} 元` }}
                   </span>
                 </div>
-                <div v-if="cartStore.totalPrice < 4500 && cartStore.totalPrice > 0" class="shipping-tip">
-                  💡 再消費 NT$ {{ (4500 - cartStore.totalPrice).toLocaleString() }} 元即可享全館免運！
+                <div v-if="cartTotalPrice < 4500 && cartTotalPrice > 0" class="shipping-tip">
+                  💡 再消費 NT$ {{ (4500 - cartTotalPrice).toLocaleString() }} 元即可享全館免運！
                 </div>
               </div>
               
@@ -764,7 +780,7 @@ const executePayment = async () => {
                   {{ products.find(p => String(getProductId(p)) === String(id))?.name || '精選花藝作品' }}
                 </div>
                 <div class="cart-item-price">
-                  NT$ {{ ((products.find(p => String(getProductId(p)) === String(id))?.price || 0) * Number(qty)).toLocaleString() }}
+                  NT$ {{ (((products.find(p => String(getProductId(p)) === String(id))?.price || products.find(p => String(getProductId(p)) === String(id))?.originalPrice || 0)) * Number(qty)).toLocaleString() }}
                 </div>
               </div>
               <div class="quantity-control">
@@ -775,7 +791,7 @@ const executePayment = async () => {
             </div>
             
             <div class="drawer-summary">
-              <span>小計：<strong>NT$ {{ cartStore.totalPrice.toLocaleString() }}</strong></span>
+              <span>小計：<strong>NT$ {{ cartTotalPrice.toLocaleString() }}</strong></span>
             </div>
           </div>
         </div>
