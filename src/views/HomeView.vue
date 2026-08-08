@@ -7,12 +7,17 @@ import liff from '@line/liff'
 
 // --- 🎯 型別宣告 ---
 interface Product {
-  id: number
+  id: number | string
+  _id?: string
   name: string
   category: string
   price: number
+  originalPrice?: number | null
+  badge?: string
+  tag?: string
   description: string
-  image: string
+  image?: string
+  imageUrl?: string
 }
 
 // --- 🎯 LINE LIFF 設定 ---
@@ -171,8 +176,77 @@ const selectDate = (dayItem: { dateStr: string; isDisabled: boolean }) => {
   showDatePickerModal.value = false
 }
 
+// 🎯 商品動態讀取與備用清單
+const products = ref<Product[]>([])
+const loadingProducts = ref(true)
+
+const defaultProducts: Product[] = [
+  {
+    id: 1,
+    name: '晨霧與詩｜永生花框',
+    category: '不凋花 / 永生花',
+    price: 2580,
+    originalPrice: 2980,
+    badge: 'NO.01',
+    tag: '熱銷人氣推薦',
+    description: '嚴選大地色系永生玫瑰，搭配質感木框與輕便乾燥花材，紀錄時尚永恆之美。適用於生日祝賀、相框擺飾或告白禮物。',
+    image: 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?auto=format&fit=crop&w=600&q=80'
+  },
+  {
+    id: 2,
+    name: '寂靜森林｜手綁鮮花束',
+    category: '鮮花花束',
+    price: 1880,
+    originalPrice: 2200,
+    badge: 'NO.02',
+    tag: '七夕節慶推薦',
+    description: '深綠葉材襯托優雅白綠色系鮮花，呈現自然原始的靜謐氣息。適合畢業花束、週年紀念或日常生活儀式感點綴。',
+    image: 'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?auto=format&fit=crop&w=600&q=80'
+  },
+  {
+    id: 3,
+    name: '微光日常｜桌花盆花',
+    category: '桌花設計',
+    price: 2200,
+    originalPrice: null,
+    badge: 'NO.03',
+    tag: '居家擺飾必備',
+    description: '低飽和度暖色調設計，兼具優雅與柔和感。適合居家客廳擺飾、品牌空間陳列、新居落成或開幕祝賀送禮。',
+    image: 'https://images.unsplash.com/photo-1508610048659-a06b669e3321?auto=format&fit=crop&w=600&q=80'
+  }
+]
+
+// 動態 API 請求
+const fetchProducts = async () => {
+  loadingProducts.value = true
+  try {
+    const res = await fetch(`${API_BASE}/api/products`)
+    const data = await res.json()
+    if (data.status === 'success' && data.products && data.products.length > 0) {
+      products.value = data.products.map((p: any) => ({
+        ...p,
+        id: p._id || p.id,
+        image: p.imageUrl || p.image
+      }))
+    } else {
+      products.value = defaultProducts
+    }
+  } catch (err) {
+    console.warn('❌ 抓取後端商品失敗，套用預設商品清單:', err)
+    products.value = defaultProducts
+  } finally {
+    loadingProducts.value = false
+  }
+}
+
+// 取得商品通用圖片或 ID 工具
+const getProductImage = (item: Product) => item.imageUrl || item.image || ''
+const getProductId = (item: Product) => item._id || item.id
+
 // --- 🎯 頁面載入時初始化 LIFF 與處理付款完成邏輯 ---
 onMounted(async () => {
+  fetchProducts()
+
   try {
     await liff.init({ liffId: LIFF_ID })
     
@@ -197,7 +271,6 @@ onMounted(async () => {
   if (route.query.status === 'success') {
     cartStore.clearCart?.()
 
-    // 🎯 判斷是否在 LINE APP 內 (包含跨域重定向後的情境)
     const isLineApp = /Line/i.test(navigator.userAgent) || (typeof liff !== 'undefined' && liff.isInClient?.())
 
     if (isLineApp) {
@@ -209,8 +282,6 @@ onMounted(async () => {
         } catch (e) {
           console.warn('liff.closeWindow 失敗，使用 Scheme 強制跳轉:', e)
         }
-        
-        // 🎯 防護備案：若 closeWindow 被阻擋，呼叫 LINE Scheme 將直接關閉當前 WebView 返回聊天室
         window.location.href = 'line://'
       }, 150)
     } else {
@@ -230,7 +301,7 @@ onMounted(async () => {
   }
 })
 
-// --- 產品清單與相關設定 ---
+// 縣市與行政區對照
 const taiwanDistricts: Record<string, string[]> = {
   '台北市': ['中正區', '大同區', '中山區', '松山區', '大安區', '萬華區', '信義區', '士林區', '北投區', '內湖區', '南港區', '文山區'],
   '新北市': ['板橋區', '三重區', '中和區', '永和區', '新莊區', '新店區', '樹林區', '鶯歌區', '三峽區', '淡水區', '汐止區', '瑞芳區', '土城區', '蘆洲區', '五股區', '泰山區', '林口區', '深坑區', '石碇區', '坪林區', '三芝區', '石門區', '八里區', '平溪區', '雙溪區', '貢寮區', '金山區', '萬里區', '烏來區'],
@@ -257,33 +328,6 @@ const taiwanDistricts: Record<string, string[]> = {
 }
 
 const taiwanCities = Object.keys(taiwanDistricts)
-
-const products = ref<Product[]>([
-  {
-    id: 1,
-    name: '晨霧與詩｜永生花框',
-    category: '不凋花 / 永生花',
-    price: 2580,
-    description: '嚴選大地色系永生玫瑰，搭配質感木框與輕便乾燥花材，紀錄時尚永恆之美。適用於生日祝賀、相框擺飾或告白禮物。',
-    image: 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?auto=format&fit=crop&w=600&q=80'
-  },
-  {
-    id: 2,
-    name: '寂靜森林｜手綁鮮花束',
-    category: '鮮花花束',
-    price: 1880,
-    description: '深綠葉材襯托優雅白綠色系鮮花，呈現自然原始的靜謐氣息。適合畢業花束、週年紀念或日常生活儀式感點綴。',
-    image: 'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?auto=format&fit=crop&w=600&q=80'
-  },
-  {
-    id: 3,
-    name: '微光日常｜桌花盆花',
-    category: '桌花設計',
-    price: 2200,
-    description: '低飽和度暖色調設計，兼具優雅與柔和感。適合居家客廳擺飾、品牌空間陳列、新居落成或開幕祝賀送禮。',
-    image: 'https://images.unsplash.com/photo-1508610048659-a06b669e3321?auto=format&fit=crop&w=600&q=80'
-  }
-])
 
 const sameAsPayer = ref(false)
 
@@ -373,7 +417,6 @@ const executePayment = async () => {
         : `${orderForm.value.recipient.city}${orderForm.value.recipient.district}${orderForm.value.recipient.address}`
     }
 
-    // 🎯 1. 確保 100% 取得 LINE User ID (優先取 ref，若無則主動向 LIFF 索取 profile 或 decoded token)
     let currentUserId = lineProfile.value?.userId || null
 
     if (!currentUserId && typeof liff !== 'undefined') {
@@ -391,14 +434,11 @@ const executePayment = async () => {
       }
     }
 
-    console.log('📤 [前端結帳] 準備送出的 LINE UserID:', currentUserId)
-
     const response = await fetch(`${API_BASE}/api/orders`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      // 🎯 2. 同時帶入相容欄位 lineUserId 與 userId
       body: JSON.stringify({
         cart: cartStore.cart,
         subtotal: cartStore.totalPrice,
@@ -486,19 +526,47 @@ const executePayment = async () => {
     <div v-if="currentStep === 1" class="step-content">
       <section class="products-section">
         <h2 class="section-title">精選花藝作品</h2>
-        <div class="product-grid">
-          <div v-for="item in products" :key="item.id" class="product-card">
+
+        <div v-if="loadingProducts" class="loading-state">
+          🌸 正在為您載入最新花藝作品...
+        </div>
+
+        <div v-else class="product-grid">
+          <div v-for="item in products" :key="getProductId(item)" class="product-card">
             <div class="image-wrapper" @click="openProductDetail(item)">
-              <img :src="item.image" :alt="item.name" />
+              <!-- 左上角編號標籤 -->
+              <span v-if="item.badge" class="badge-no">{{ item.badge }}</span>
+              
+              <img :src="getProductImage(item)" :alt="item.name" />
+              
+              <!-- 圖片下方熱銷標籤 -->
+              <span v-if="item.tag" class="tag-hot">{{ item.tag }}</span>
+
               <div class="view-detail-badge">🔍 查看詳情</div>
             </div>
+
             <div class="product-info">
               <span class="category">{{ item.category }}</span>
               <h3 class="product-name" @click="openProductDetail(item)">{{ item.name }}</h3>
               <p class="description">{{ item.description }}</p>
+
+              <div class="divider"></div>
+
+              <!-- 價格與購物按鈕區塊 -->
               <div class="card-footer">
-                <span class="price">新台幣 {{ item.price.toLocaleString() }} 元</span>
-                <button class="add-btn" @click.stop="cartStore.addToCart(item.id)">加入購物車</button>
+                <div class="price-box">
+                  <div v-if="item.originalPrice" class="original-price">
+                    原價 NT$ {{ item.originalPrice.toLocaleString() }}
+                  </div>
+                  <div class="special-price">
+                    <span class="sale-tag">特價</span>
+                    <span class="price-val">NT$ {{ item.price.toLocaleString() }}</span>
+                  </div>
+                </div>
+
+                <button class="add-btn" @click.stop="cartStore.addToCart(getProductId(item))">
+                  加入購物車
+                </button>
               </div>
             </div>
           </div>
@@ -529,15 +597,17 @@ const executePayment = async () => {
             <div v-else>
               <div v-for="(qty, id) in cartStore.cart" :key="id" class="cart-item">
                 <div class="cart-item-info">
-                  <div class="cart-item-name">{{ products.find(p => p.id === Number(id))?.name }}</div>
+                  <div class="cart-item-name">
+                    {{ products.find(p => String(getProductId(p)) === String(id))?.name || '精選花藝作品' }}
+                  </div>
                   <div class="cart-item-price">
-                    新台幣 {{ ((products.find(p => p.id === Number(id))?.price || 0) * qty).toLocaleString() }} 元
+                    新台幣 {{ ((products.find(p => String(getProductId(p)) === String(id))?.price || 0) * Number(qty)).toLocaleString() }} 元
                   </div>
                 </div>
                 <div class="quantity-control">
-                  <button @click="cartStore.removeFromCart(Number(id))">-</button>
+                  <button @click="cartStore.removeFromCart(id)">-</button>
                   <span>{{ qty }}</span>
-                  <button @click="cartStore.addToCart(Number(id))">+</button>
+                  <button @click="cartStore.addToCart(id)">+</button>
                 </div>
               </div>
 
@@ -682,15 +752,17 @@ const executePayment = async () => {
           <div v-else>
             <div v-for="(qty, id) in cartStore.cart" :key="id" class="cart-item">
               <div class="cart-item-info">
-                <div class="cart-item-name">{{ products.find(p => p.id === Number(id))?.name }}</div>
+                <div class="cart-item-name">
+                  {{ products.find(p => String(getProductId(p)) === String(id))?.name || '精選花藝作品' }}
+                </div>
                 <div class="cart-item-price">
-                  NT$ {{ ((products.find(p => p.id === Number(id))?.price || 0) * qty).toLocaleString() }}
+                  NT$ {{ ((products.find(p => String(getProductId(p)) === String(id))?.price || 0) * Number(qty)).toLocaleString() }}
                 </div>
               </div>
               <div class="quantity-control">
-                <button @click="cartStore.removeFromCart(Number(id))">-</button>
+                <button @click="cartStore.removeFromCart(id)">-</button>
                 <span>{{ qty }}</span>
-                <button @click="cartStore.addToCart(Number(id))">+</button>
+                <button @click="cartStore.addToCart(id)">+</button>
               </div>
             </div>
             
@@ -712,15 +784,20 @@ const executePayment = async () => {
       <div class="product-detail-modal">
         <button class="close-icon-btn" @click="closeProductDetail">✕</button>
         <div class="detail-image-wrapper">
-          <img :src="selectedProductDetail.image" :alt="selectedProductDetail.name" />
+          <img :src="getProductImage(selectedProductDetail)" :alt="selectedProductDetail.name" />
         </div>
         <div class="detail-body">
           <span class="category">{{ selectedProductDetail.category }}</span>
           <h2>{{ selectedProductDetail.name }}</h2>
           <p class="detail-desc">{{ selectedProductDetail.description }}</p>
           <div class="detail-footer">
-            <span class="detail-price">NT$ {{ selectedProductDetail.price.toLocaleString() }}</span>
-            <button class="add-btn" @click="cartStore.addToCart(selectedProductDetail.id); closeProductDetail()">加入購物車</button>
+            <div class="modal-price-box">
+              <span v-if="selectedProductDetail.originalPrice" class="modal-old-price">
+                原價 NT$ {{ selectedProductDetail.originalPrice.toLocaleString() }}
+              </span>
+              <span class="detail-price">NT$ {{ selectedProductDetail.price.toLocaleString() }}</span>
+            </div>
+            <button class="add-btn" @click="cartStore.addToCart(getProductId(selectedProductDetail)); closeProductDetail()">加入購物車</button>
           </div>
         </div>
       </div>
@@ -854,6 +931,13 @@ const executePayment = async () => {
 </template>
 
 <style scoped>
+.loading-state {
+  text-align: center;
+  color: #FFFFFF;
+  padding: 3rem;
+  font-size: 1.05rem;
+}
+
 .step-indicator {
   display: flex;
   align-items: center;
@@ -1201,6 +1285,17 @@ const executePayment = async () => {
   align-items: center;
 }
 
+.modal-price-box {
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-old-price {
+  font-size: 0.8rem;
+  color: #A0AEC0;
+  text-decoration: line-through;
+}
+
 .detail-price {
   font-size: 1.1rem;
   font-weight: bold;
@@ -1273,33 +1368,67 @@ const executePayment = async () => {
 
 .product-card {
   background: #FFFFFF;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
+  border: 1px solid #F3EBE6;
 }
 
 .image-wrapper {
   position: relative;
   cursor: pointer;
+  height: 220px;
+  background-color: #FCEFE9;
 }
 
 .image-wrapper img {
   width: 100%;
-  height: 210px;
+  height: 100%;
   object-fit: cover;
+}
+
+.badge-no {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: #FFFFFF;
+  color: #4A5568;
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 4px 10px;
+  border-radius: 16px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  z-index: 2;
+}
+
+.tag-hot {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #FFFFFF;
+  color: #8B5E4C;
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 4px 12px;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  white-space: nowrap;
+  z-index: 2;
 }
 
 .view-detail-badge {
   position: absolute;
-  bottom: 10px;
+  top: 10px;
   right: 10px;
   background: rgba(0,0,0,0.6);
   color: #FFF;
   font-size: 0.75rem;
   padding: 0.3rem 0.6rem;
   border-radius: 4px;
+  z-index: 2;
 }
 
 .product-info {
@@ -1316,7 +1445,7 @@ const executePayment = async () => {
 }
 
 .product-name {
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   margin: 0.4rem 0;
   color: #2D3748;
   font-weight: 600;
@@ -1327,29 +1456,72 @@ const executePayment = async () => {
   font-size: 0.85rem;
   color: #718096;
   line-height: 1.5;
-  margin-bottom: 1.2rem;
-  flex-grow: 1;
+  margin-bottom: 0.8rem;
+  height: 38px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.divider {
+  border-top: 1px dashed #E2E8F0;
+  margin: 8px 0 12px 0;
 }
 
 .card-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-top: auto;
 }
 
-.price {
+.price-box {
+  text-align: left;
+}
+
+.original-price {
+  font-size: 0.78rem;
+  color: #A0AEC0;
+  text-decoration: line-through;
+}
+
+.special-price {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sale-tag {
+  background: #8B5E4C;
+  color: #FFFFFF;
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: bold;
+}
+
+.price-val {
   font-weight: 700;
-  color: #2D3748;
+  color: #8B5E4C;
+  font-size: 1rem;
 }
 
 .add-btn {
   background-color: #F7F9FA;
   color: #34444E;
   border: 1px solid #34444E;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  padding: 0.5rem 0.8rem;
+  border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.add-btn:hover {
+  background-color: #34444E;
+  color: #FFFFFF;
 }
 
 .checkout-card {

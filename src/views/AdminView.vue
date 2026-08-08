@@ -80,13 +80,23 @@
 
       <div v-else class="products-grid">
         <div v-for="product in products" :key="product._id" class="product-admin-card">
-          <img :src="product.imageUrl" :alt="product.name" class="product-thumb" />
+          <div class="thumb-container">
+            <img :src="product.imageUrl" :alt="product.name" class="product-thumb" />
+            <span v-if="product.badge" class="badge-tag">{{ product.badge }}</span>
+            <span v-if="product.tag" class="hot-tag">{{ product.tag }}</span>
+          </div>
+
           <div class="product-details">
             <span class="cat-tag">{{ product.category }}</span>
             <h4>{{ product.name }}</h4>
             <p class="desc">{{ product.description }}</p>
-            <p class="price-text">NT$ {{ product.price?.toLocaleString() }}</p>
+
+            <div class="price-box">
+              <span v-if="product.originalPrice" class="old-price">原價 NT$ {{ product.originalPrice?.toLocaleString() }}</span>
+              <span class="price-text">特價 NT$ {{ product.price?.toLocaleString() }}</span>
+            </div>
           </div>
+          
           <div class="product-actions">
             <button class="btn-edit" @click="openProductModal(product)">✏️ 編輯內容</button>
             <button class="btn-delete" @click="deleteProduct(product._id)">🗑️ 刪除</button>
@@ -125,6 +135,17 @@
         <h3>{{ editingProductId ? '✏️ 編輯花藝作品' : '➕ 新增花藝作品' }}</h3>
         <hr />
 
+        <div class="form-row">
+          <div class="form-group">
+            <label>編號標籤 (左上角)：</label>
+            <input v-model="productForm.badge" placeholder="例：NO.01" />
+          </div>
+          <div class="form-group">
+            <label>活動標籤 (圖片下方)：</label>
+            <input v-model="productForm.tag" placeholder="例：七夕情人節最熱賣" />
+          </div>
+        </div>
+
         <div class="form-group">
           <label>商品分類：</label>
           <input v-model="productForm.category" placeholder="例：不凋花 / 永生花" />
@@ -132,17 +153,23 @@
 
         <div class="form-group">
           <label>商品名稱：</label>
-          <input v-model="productForm.name" placeholder="例：晨霧與詩 | 永生花框" />
+          <input v-model="productForm.name" placeholder="例：紅玫瑰花束【恆溫。時光淬煉的誓約】" />
         </div>
 
-        <div class="form-group">
-          <label>商品價格 (NT$)：</label>
-          <input type="number" v-model="productForm.price" placeholder="2580" />
+        <div class="form-row">
+          <div class="form-group">
+            <label>原價 (NT$)：</label>
+            <input type="number" v-model="productForm.originalPrice" placeholder="例：2680 (無優惠可留空)" />
+          </div>
+          <div class="form-group">
+            <label>特價 / 優惠價 (NT$)：</label>
+            <input type="number" v-model="productForm.price" placeholder="例：1880" />
+          </div>
         </div>
 
         <div class="form-group">
           <label>圖片網址 (URL)：</label>
-          <input v-model="productForm.imageUrl" placeholder="貼上圖片連結（Imgur / Unsplash / Cloudinary）" />
+          <input v-model="productForm.imageUrl" placeholder="貼上圖片連結（Imgur / ImgBB / Cloudinary）" />
           <img v-if="productForm.imageUrl" :src="productForm.imageUrl" class="img-preview" />
         </div>
 
@@ -180,7 +207,10 @@ const editingProductId = ref(null)
 const productForm = ref({
   name: '',
   category: '不凋花 / 永生花',
-  price: 2000,
+  price: 1880,
+  originalPrice: 2680,
+  badge: 'NO.01',
+  tag: '七夕情人節最熱賣',
   description: '',
   imageUrl: ''
 })
@@ -245,7 +275,10 @@ const openProductModal = (product = null) => {
     productForm.value = {
       name: '',
       category: '不凋花 / 永生花',
-      price: 2000,
+      price: 1880,
+      originalPrice: null,
+      badge: '',
+      tag: '',
       description: '',
       imageUrl: ''
     }
@@ -370,7 +403,7 @@ onMounted(() => {
   color: #666;
 }
 
-/* 🎯 訂單卡片樣式還原 */
+/* 🎯 訂單卡片樣式 */
 .order-card {
   border: 1px solid #e2e8f0;
   border-radius: 10px;
@@ -447,7 +480,6 @@ onMounted(() => {
   font-weight: bold;
 }
 
-/* 按鈕排列與樣式修正 */
 .action-buttons {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -473,7 +505,7 @@ onMounted(() => {
   border: none !important;
 }
 
-/* 商品網格 */
+/* 🎯 商品網格與預覽卡片樣式 */
 .products-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -489,10 +521,44 @@ onMounted(() => {
   flex-direction: column;
 }
 
-.product-thumb {
+.thumb-container {
+  position: relative;
   width: 100%;
   height: 180px;
+}
+
+.product-thumb {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+}
+
+.badge-tag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: #ffffff;
+  color: #4a5568;
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.hot-tag {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ffffff;
+  color: #8b5e4c;
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 4px 12px;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  white-space: nowrap;
 }
 
 .product-details {
@@ -518,10 +584,21 @@ onMounted(() => {
   overflow: hidden;
 }
 
+.price-box {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.old-price {
+  font-size: 0.8rem;
+  color: #a0aec0;
+  text-decoration: line-through;
+}
+
 .price-text {
   font-weight: bold;
   color: #e53e3e;
-  margin-top: 8px;
 }
 
 .product-actions {
@@ -540,7 +617,16 @@ onMounted(() => {
 .btn-edit { background: #edf2f7; color: #2d3748; }
 .btn-delete { background: #fed7d7; color: #9b2c2c; }
 
-/* 表單 Modal */
+/* 🎯 表單 Modal 樣式 */
+.form-row {
+  display: flex;
+  gap: 12px;
+}
+
+.form-row .form-group {
+  flex: 1;
+}
+
 .form-group {
   margin-bottom: 14px;
 }
