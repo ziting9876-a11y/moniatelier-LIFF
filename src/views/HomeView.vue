@@ -29,7 +29,7 @@ const lineProfile = ref<{ userId: string; displayName: string; pictureUrl?: stri
 const userPoints = ref(0)
 const usedPointsInput = ref(0)
 const userBirthday = ref('')
-const hasBirthday = ref(false) // 🎂 紀錄會員是否已填寫過生日
+const hasBirthday = ref(false)
 const showBirthdayModal = ref(false)
 const showReferralInfoModal = ref(false)
 const isCopyReferralSuccess = ref(false)
@@ -217,7 +217,7 @@ const saveBirthday = async () => {
     const data = await res.json()
     if (data.status === 'success') {
       userPoints.value = data.points
-      hasBirthday.value = true // 🎂 設定完成後，自動隱藏生日按鈕
+      hasBirthday.value = true
       alert(data.message)
       showBirthdayModal.value = false
     }
@@ -258,7 +258,7 @@ onMounted(async () => {
         userPoints.value = userData.user.points || 0
         usedPointsInput.value = userPoints.value
         if (userData.user.birthday) {
-          hasBirthday.value = true // 🎂 判斷若已登記過生日則設為 true
+          hasBirthday.value = true
         }
       }
     }
@@ -424,7 +424,6 @@ const executePayment = async () => {
         <div class="checkout-card">
           <h2 class="checkout-title">訂單明細與結帳</h2>
           
-          <!-- 1. 訂單明細與金額小計 -->
           <div class="cart-list">
             <div v-for="(qty, id) in cartStore.cart" :key="id" class="cart-item-row">
               <span class="item-name">{{ allProducts.find(p => String(getProductId(p)) === String(id))?.name || '精選花藝作品' }} x {{ qty }}</span>
@@ -449,7 +448,6 @@ const executePayment = async () => {
           <hr class="divider" />
 
           <form @submit.prevent="openPolicyModal" class="order-form">
-            <!-- 2. 訂購與配送資訊 -->
             <h3 class="form-subtitle">訂購與配送資訊</h3>
             <div class="form-group">
               <label>希望送達日期 *</label>
@@ -477,7 +475,6 @@ const executePayment = async () => {
               </div>
             </div>
 
-            <!-- 3. 付款人資訊 & 收件人資訊 -->
             <div class="form-section">
               <h4 class="sub-section-title">👤 付款人資訊</h4>
               <div class="form-group"><label>姓名 *</label><input type="text" v-model="orderForm.payer.name" required class="styled-input" /></div>
@@ -516,7 +513,6 @@ const executePayment = async () => {
               </div>
             </div>
 
-            <!-- 4. 專屬紅利區塊（已移至表單下方） -->
             <div v-if="lineProfile" class="checkout-member-card">
               <div class="member-info-header">
                 <span class="user-label">👤 {{ lineProfile.displayName }} 的專屬紅利</span>
@@ -530,7 +526,6 @@ const executePayment = async () => {
               </div>
 
               <div class="member-actions-row">
-                <!-- 🎂 已登錄過生日則自動隱藏此按鈕 -->
                 <button v-if="!hasBirthday" type="button" class="btn-member-action" @click="showBirthdayModal = true">
                   🎂 登錄生日領 $100 購物金
                 </button>
@@ -548,7 +543,7 @@ const executePayment = async () => {
       </section>
     </div>
 
-    <!-- Modal 彈窗區域 -->
+    <!-- 🛒 購物車 Drawer Modal (美化版) -->
     <div v-if="showCartDrawer" class="modal-backdrop" @click.self="showCartDrawer = false">
       <div class="cart-drawer-modal">
         <div class="drawer-header">
@@ -557,26 +552,27 @@ const executePayment = async () => {
         </div>
         <div class="drawer-body">
           <div v-if="Object.keys(cartStore.cart).length === 0" class="empty-cart">購物車內沒有商品</div>
-          <div v-else>
-            <div v-for="(qty, id) in cartStore.cart" :key="id" class="cart-item">
-              <div class="cart-item-info">
-                <div class="cart-item-name">{{ allProducts.find(p => String(getProductId(p)) === String(id))?.name || '精選花藝作品' }}</div>
-                <div class="cart-item-price">NT$ {{ (((allProducts.find(p => String(getProductId(p)) === String(id))?.price || 0)) * Number(qty)).toLocaleString() }}</div>
+          <div v-else class="drawer-item-list">
+            <div v-for="(qty, id) in cartStore.cart" :key="id" class="drawer-cart-item">
+              <div class="drawer-item-info">
+                <span class="drawer-item-name">{{ allProducts.find(p => String(getProductId(p)) === String(id))?.name || '精選花藝作品' }}</span>
+                <span class="drawer-item-price">NT$ {{ (((allProducts.find(p => String(getProductId(p)) === String(id))?.price || 0)) * Number(qty)).toLocaleString() }}</span>
               </div>
               <div class="quantity-control">
-                <button @click="cartStore.removeFromCart(id)">-</button>
-                <span>{{ qty }}</span>
-                <button @click="cartStore.addToCart(id)">+</button>
+                <button type="button" class="qty-btn" @click="cartStore.removeFromCart(id)">-</button>
+                <span class="qty-num">{{ qty }}</span>
+                <button type="button" class="qty-btn" @click="cartStore.addToCart(id)">+</button>
               </div>
             </div>
           </div>
         </div>
         <div class="drawer-footer">
-          <button class="confirm-drawer-btn" @click="showCartDrawer = false">完成編輯</button>
+          <button type="button" class="confirm-drawer-btn" @click="showCartDrawer = false">完成編輯</button>
         </div>
       </div>
     </div>
 
+    <!-- 🔍 商品詳情 Modal -->
     <div v-if="selectedProductDetail" class="modal-backdrop" @click.self="closeProductDetail">
       <div class="product-detail-modal">
         <button class="close-icon-btn" @click="closeProductDetail">✕</button>
@@ -595,6 +591,7 @@ const executePayment = async () => {
       </div>
     </div>
 
+    <!-- 🗓️ 自訂月曆 Modal -->
     <div v-if="showDatePickerModal" class="modal-backdrop" @click.self="showDatePickerModal = false">
       <div class="calendar-modal">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -625,6 +622,7 @@ const executePayment = async () => {
       </div>
     </div>
 
+    <!-- 📜 購物須知與條款 Modal -->
     <div v-if="showPolicyModal" class="modal-backdrop" @click.self="showPolicyModal = false">
       <div class="policy-modal">
         <div class="policy-modal-header">
@@ -646,6 +644,7 @@ const executePayment = async () => {
       </div>
     </div>
 
+    <!-- 🎂 生日領取紅利 Modal -->
     <div v-if="showBirthdayModal" class="modal-backdrop" @click.self="showBirthdayModal = false">
       <div class="calendar-modal">
         <h3>🎂 紀錄生日月份</h3>
@@ -655,6 +654,7 @@ const executePayment = async () => {
       </div>
     </div>
 
+    <!-- 🔗 推薦好友使用說明 Modal -->
     <div v-if="showReferralInfoModal" class="modal-backdrop" @click.self="showReferralInfoModal = false">
       <div class="calendar-modal">
         <h3>🎁 推薦好友賺紅利說明</h3>
@@ -709,7 +709,6 @@ const executePayment = async () => {
 .checkout-title { font-size: 1.25rem; color: #34444E; font-weight: bold; margin-bottom: 1.2rem; text-align: center; }
 .cart-item-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 0.95rem; margin-bottom: 12px; color: #2D3748; }
 
-/* 🎁 美化後的會員卡片 */
 .checkout-member-card { background: #F8FAFC; border: 1px solid #E2E8F0; padding: 1rem; border-radius: 10px; margin: 1.2rem 0; display: flex; flex-direction: column; gap: 10px; }
 .member-info-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem; flex-wrap: wrap; gap: 6px; }
 .user-label { font-weight: bold; color: #34444E; }
@@ -720,7 +719,6 @@ const executePayment = async () => {
 .member-actions-row { display: flex; gap: 8px; margin-top: 4px; }
 .btn-member-action { flex: 1; background: #FFFFFF; border: 1px solid #34444E; color: #34444E; padding: 8px; border-radius: 6px; font-size: 0.78rem; font-weight: bold; cursor: pointer; }
 
-/* 金額明細 */
 .summary-box { background: #FAF9F6; padding: 12px; border-radius: 8px; margin: 12px 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.88rem; }
 .summary-row { display: flex; justify-content: space-between; color: #4A5568; }
 .discount-row { color: #D97706; font-weight: bold; }
@@ -730,7 +728,6 @@ const executePayment = async () => {
 .earned-points-tip { font-size: 0.75rem; color: #059669; }
 .total-price { font-size: 1.25rem; font-weight: bold; color: #8B5E4C; }
 
-/* 表單優化 */
 .form-subtitle { font-size: 1.05rem; color: #34444E; font-weight: bold; margin: 1.2rem 0 0.8rem; }
 .form-group { margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px; font-size: 0.88rem; }
 .styled-input, .styled-select, .custom-date-trigger { width: 100%; padding: 10px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 0.9rem; box-sizing: border-box; }
@@ -739,9 +736,25 @@ const executePayment = async () => {
 .submit-btn { width: 100%; background: #34444E; color: #FFF; padding: 1rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 1.5rem; }
 .back-btn { background: none; border: 1px solid #FFF; color: #FFF; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; }
 
-/* Modal 彈窗通用 */
+/* 🛒 購物車 Drawer 美化 CSS (徹底修復跑版問題) */
 .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 9999; }
-.calendar-modal, .policy-modal, .cart-drawer-modal, .product-detail-modal { background: #FFF; border-radius: 12px; padding: 1.2rem; max-width: 400px; width: 90%; color: #333; }
+.cart-drawer-modal { background: #FFFFFF; border-radius: 16px; padding: 1.2rem; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); }
+.drawer-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.8rem; margin-bottom: 1rem; }
+.drawer-header h3 { margin: 0; font-size: 1.1rem; color: #34444E; font-weight: bold; }
+.close-icon-btn { background: none; border: none; font-size: 1.2rem; color: #718096; cursor: pointer; padding: 4px 8px; }
+.empty-cart { text-align: center; padding: 1.5rem 0; color: #A0AEC0; font-size: 0.9rem; }
+.drawer-item-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 1rem; max-height: 250px; overflow-y: auto; }
+.drawer-cart-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #E2E8F0; }
+.drawer-item-info { display: flex; flex-direction: column; gap: 2px; text-align: left; }
+.drawer-item-name { font-size: 0.95rem; font-weight: bold; color: #2D3748; }
+.drawer-item-price { font-size: 0.85rem; color: #8B5E4C; font-weight: bold; }
+.quantity-control { display: flex; align-items: center; gap: 8px; background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 20px; padding: 2px 8px; }
+.qty-btn { background: none; border: none; font-size: 1rem; font-weight: bold; color: #34444E; width: 24px; height: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.qty-num { font-size: 0.9rem; font-weight: bold; color: #2D3748; min-width: 16px; text-align: center; }
+.drawer-footer { border-top: 1px solid #E2E8F0; padding-top: 0.8rem; }
+.confirm-drawer-btn { width: 100%; background: #34444E; color: #FFFFFF; border: none; padding: 0.8rem; border-radius: 8px; font-weight: bold; font-size: 0.95rem; cursor: pointer; }
+
+.calendar-modal, .policy-modal, .product-detail-modal { background: #FFF; border-radius: 12px; padding: 1.2rem; max-width: 400px; width: 90%; color: #333; }
 .confirm-pay-btn { width: 100%; padding: 0.75rem; background: #34444E; color: #FFF; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
 .close-modal-btn { width: 100%; padding: 6px; background: #E2E8F0; border: none; border-radius: 4px; cursor: pointer; }
 .month-nav-btn { background: none; border: none; font-size: 18px; cursor: pointer; }
