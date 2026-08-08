@@ -34,6 +34,7 @@ const userPoints = ref(0)
 const usedPointsInput = ref(0)
 const userBirthday = ref('')
 const showBirthdayModal = ref(false)
+const showReferralInfoModal = ref(false)
 const isCopyReferralSuccess = ref(false)
 
 // --- 🎯 API 後端基礎網址設定 ---
@@ -140,43 +141,7 @@ const selectDate = (dayItem: { dateStr: string; isDisabled: boolean }) => {
   showDatePickerModal.value = false
 }
 
-// 🎯 商品動態讀取與預設備用商品
-const defaultProducts: Product[] = [
-  {
-    id: 1,
-    name: '晨霧與詩｜永生花框',
-    category: '不凋花 / 永生花',
-    price: 2580,
-    originalPrice: 2980,
-    badge: 'NO.01',
-    tag: '熱銷人氣推薦',
-    description: '嚴選大地色系永生玫瑰，搭配質感木框與輕便乾燥花材，紀錄時尚永恆之美。適用於生日祝賀、相框擺飾或告白禮物。',
-    image: 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?auto=format&fit=crop&w=600&q=80'
-  },
-  {
-    id: 2,
-    name: '寂靜森林｜手綁鮮花束',
-    category: '鮮花花束',
-    price: 1880,
-    originalPrice: 2200,
-    badge: 'NO.02',
-    tag: '七夕節慶推薦',
-    description: '深綠葉材襯托優雅白綠色系鮮花，呈現自然原始的靜謐氣息。適合畢業花束、週年紀念或日常生活儀式感點綴。',
-    image: 'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?auto=format&fit=crop&w=600&q=80'
-  },
-  {
-    id: 3,
-    name: '微光日常｜桌花盆花',
-    category: '桌花設計',
-    price: 2200,
-    originalPrice: null,
-    badge: 'NO.03',
-    tag: '居家擺飾必備',
-    description: '低飽和度暖色調設計，兼具優雅與柔和感。適合居家客廳擺飾、品牌空間陳列、新居落成或開幕祝賀送禮。',
-    image: 'https://images.unsplash.com/photo-1508610048659-a06b669e3321?auto=format&fit=crop&w=600&q=80'
-  }
-]
-
+// 🎯 商品動態讀取
 const allProducts = ref<Product[]>([])
 const loadingProducts = ref(true)
 const displayProducts = computed(() => allProducts.value.filter(p => !p.isHidden))
@@ -187,14 +152,15 @@ const fetchProducts = async () => {
     let targetBase = (import.meta.env.VITE_API_BASE_URL || API_BASE).replace(/\/$/, '')
     const res = await fetch(`${targetBase}/api/products`)
     const data = await res.json()
-    if (data.status === 'success' && data.products && data.products.length > 0) {
-      allProducts.value = data.products.map((p: any) => ({ ...p, id: p._id || p.id, image: p.imageUrl || p.image }))
-    } else {
-      allProducts.value = defaultProducts
+    if (data.status === 'success' && Array.isArray(data.products)) {
+      allProducts.value = data.products.map((p: any) => ({
+        ...p,
+        id: p._id || p.id,
+        image: p.imageUrl || p.image
+      }))
     }
   } catch (err) {
-    console.warn('❌ 抓取商品失敗，載入預設商品:', err)
-    allProducts.value = defaultProducts
+    console.warn('❌ 抓取後端商品失敗:', err)
   } finally {
     loadingProducts.value = false
   }
@@ -392,19 +358,7 @@ const executePayment = async () => {
 
 <template>
   <div class="page-wrapper">
-    <!-- 🌸 會員資訊區塊（Logo 上方） -->
-    <div v-if="lineProfile" class="user-member-bar">
-      <div class="member-info">
-        <span class="user-name">👤 {{ lineProfile.displayName }}</span>
-        <span class="points-badge">🎁 剩餘紅利：<strong>{{ userPoints }}</strong> 點 ($1點=$1元)</span>
-      </div>
-      <div class="member-actions">
-        <button class="small-btn" @click="showBirthdayModal = true">🎂 填生日領100點</button>
-        <button class="small-btn" @click="copyReferralLink">🔗 {{ isCopyReferralSuccess ? '已複製推薦連結！' : '推薦好友' }}</button>
-      </div>
-    </div>
-
-    <!-- 🌸 品牌 Logo（改用綁定變數） -->
+    <!-- 🌸 品牌 Logo（僅保留中央一個 Logo） -->
     <div class="brand-header">
       <img :src="logoImg" alt="Moni Atelier" class="brand-logo" />
     </div>
@@ -475,14 +429,28 @@ const executePayment = async () => {
               </div>
             </div>
 
-            <!-- 🎁 紅利點數折抵區塊 -->
-            <div v-if="userPoints > 0" class="points-discount-box">
-              <div class="points-header">
-                <span>🎁 使用紅利點數折抵 (可用 {{ userPoints }} 點)</span>
+            <!-- 🎁 會員點數、生日禮金與好友推薦專區（整合於結帳頁） -->
+            <div v-if="lineProfile" class="checkout-member-section">
+              <div class="member-header">
+                <span>👤 {{ lineProfile.displayName }} 的專屬紅利</span>
+                <span class="points-badge">目前累積 <strong>{{ userPoints }}</strong> 點 ($1點=$1元)</span>
               </div>
-              <div class="points-input-row">
-                <input type="number" v-model.number="usedPointsInput" :max="userPoints" min="0" placeholder="輸入折抵點數" />
-                <span class="points-tip">折抵 NT$ {{ actualUsedPoints }} 元</span>
+
+              <!-- 1. 折抵紅利點數輸入 -->
+              <div v-if="userPoints > 0" class="points-input-row">
+                <label>使用點數折抵：</label>
+                <input type="number" v-model.number="usedPointsInput" :max="userPoints" min="0" placeholder="0" />
+                <span class="points-tip">可折抵 NT$ {{ actualUsedPoints }} 元</span>
+              </div>
+
+              <!-- 2. 生日禮金與推薦好友獎勵按鈕 -->
+              <div class="member-extra-actions">
+                <button type="button" class="action-outline-btn" @click="showBirthdayModal = true">
+                  🎂 登錄生日領 $100 購物金
+                </button>
+                <button type="button" class="action-outline-btn" @click="showReferralInfoModal = true">
+                  🔗 推薦好友領 $50 紅利
+                </button>
               </div>
             </div>
 
@@ -688,6 +656,22 @@ const executePayment = async () => {
       </div>
     </div>
 
+    <!-- 🔗 推薦好友使用說明 Modal -->
+    <div v-if="showReferralInfoModal" class="modal-backdrop" @click.self="showReferralInfoModal = false">
+      <div class="calendar-modal">
+        <h3>🎁 推薦好友賺紅利說明</h3>
+        <div class="referral-guide-body">
+          <p><strong>1. 複製您的專屬連結：</strong><br />點擊下方按鈕複製您的專屬推廣網址。</p>
+          <p><strong>2. 分享給親朋好友：</strong><br />將連結發給好友，好友點開即可獲得新會員 $100 首購折抵金！</p>
+          <p><strong>3. 賺取 $50 紅利獎勵：</strong><br />當好友使用您的連結完成首筆下單，系統將自動回饋您 <strong>50 點紅利 ($50元)</strong>！</p>
+        </div>
+        <button class="confirm-pay-btn" @click="copyReferralLink(); showReferralInfoModal = false">
+          {{ isCopyReferralSuccess ? '已成功複製！' : '一鍵複製我的專屬推薦網址' }}
+        </button>
+        <button class="close-modal-btn" style="margin-top: 8px;" @click="showReferralInfoModal = false">關閉</button>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -698,41 +682,15 @@ const executePayment = async () => {
   gap: 1rem;
 }
 
-/* 🌸 品牌 Logo 設定 */
+/* 🌸 品牌 Logo 設定：保留中央單一 Logo */
 .brand-header {
   text-align: center;
-  margin: 0.2rem 0;
+  margin: 0.8rem 0;
 }
 .brand-logo {
-  max-width: 140px;
+  max-width: 150px;
   height: auto;
   display: inline-block;
-}
-
-/* 🌸 會員資訊列 (Logo 上方) */
-.user-member-bar {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #FFFFFF;
-  padding: 0.7rem 0.9rem;
-  border-radius: 8px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.85rem;
-}
-.member-info { display: flex; flex-direction: column; gap: 2px; }
-.points-badge { color: #FCD34D; font-weight: bold; }
-.member-actions { display: flex; gap: 6px; }
-.small-btn {
-  background: #FFFFFF;
-  color: #34444E;
-  border: none;
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: bold;
-  cursor: pointer;
 }
 
 /* 🌸 標題與內文樣式 */
@@ -904,7 +862,7 @@ const executePayment = async () => {
   cursor: pointer;
 }
 
-/* 🌸 結帳頁面卡片 */
+/* 🌸 結帳頁面會員區塊 */
 .checkout-card {
   background: #FFFFFF;
   padding: 1.5rem;
@@ -916,13 +874,59 @@ const executePayment = async () => {
   color: #34444E;
   margin-bottom: 1rem;
 }
-.points-discount-box { background: #FEF3C7; border: 1px solid #FDE68A; padding: 0.8rem; border-radius: 6px; margin: 1rem 0; }
-.points-header { font-weight: bold; color: #92400E; font-size: 0.88rem; margin-bottom: 6px; }
-.points-input-row { display: flex; align-items: center; gap: 10px; }
-.points-input-row input { width: 110px; padding: 6px; border: 1px solid #F59E0B; border-radius: 4px; }
-.points-tip { font-size: 0.85rem; color: #B45309; font-weight: bold; }
-.discount-row { color: #D97706; font-weight: bold; }
-.earned-points-tip { font-size: 0.8rem; color: #059669; font-weight: normal; }
+.checkout-member-section {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  padding: 1rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+.member-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: #34444E;
+  margin-bottom: 0.8rem;
+}
+.points-badge { color: #D97706; }
+.points-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  margin-bottom: 0.8rem;
+}
+.points-input-row input {
+  width: 90px;
+  padding: 6px;
+  border: 1px solid #CBD5E1;
+  border-radius: 4px;
+}
+.points-tip { font-weight: bold; color: #B45309; }
+.member-extra-actions {
+  display: flex;
+  gap: 8px;
+}
+.action-outline-btn {
+  flex: 1;
+  background: #FFFFFF;
+  border: 1px solid #34444E;
+  color: #34444E;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+.referral-guide-body {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #4A5568;
+  text-align: left;
+  margin: 12px 0;
+}
 
 .submit-btn { width: 100%; background: #34444E; color: #FFF; padding: 0.9rem; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 1rem; }
 .back-btn { background: none; border: 1px solid #FFF; color: #FFF; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; }
