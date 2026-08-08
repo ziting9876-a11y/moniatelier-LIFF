@@ -531,7 +531,8 @@ const executePayment = async () => {
           🌸 正在為您載入最新花藝作品...
         </div>
 
-        <div v-else class="product-grid">
+        <!-- 商品列表區塊 -->
+<div v-else class="product-grid">
           <div v-for="item in products" :key="getProductId(item)" class="product-card">
             <div class="image-wrapper" @click="openProductDetail(item)">
               <!-- 左上角編號標籤 -->
@@ -553,30 +554,31 @@ const executePayment = async () => {
               <div class="divider"></div>
 
               <!-- 價格與購物按鈕區塊 -->
-<div class="card-footer">
-  <div class="price-box">
-    <!-- 當原價存在，且原價大於優惠價時，才顯示原價刪除線與優惠價標籤 -->
-    <template v-if="item.originalPrice && item.price && item.originalPrice > item.price">
-      <div class="original-price">
-        原價 NT$ {{ item.originalPrice.toLocaleString() }}
-      </div>
-      <div class="special-price">
-        <span class="sale-tag">優惠價</span>
-        <span class="price-val">NT$ {{ item.price.toLocaleString() }}</span>
-      </div>
-    </template>
-    <!-- 若只有原價（無特價），直接呈現原價不帶刪除線 -->
-    <template v-else>
-      <div class="special-price">
-        <span class="price-val">NT$ {{ (item.price || item.originalPrice)?.toLocaleString() }}</span>
-      </div>
-    </template>
-  </div>
+              <div class="card-footer">
+                <div class="price-box">
+                  <template v-if="item.originalPrice && item.price && Number(item.originalPrice) > Number(item.price)">
+                    <div class="original-price">
+                      原價 NT$ {{ Number(item.originalPrice).toLocaleString() }}
+                    </div>
+                    <div class="special-price">
+                      <span class="sale-tag">優惠價</span>
+                      <span class="price-val">NT$ {{ Number(item.price).toLocaleString() }}</span>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <div class="special-price">
+                      <span class="price-val">NT$ {{ Number(item.price || item.originalPrice).toLocaleString() }}</span>
+                    </div>
+                  </template>
+                </div>
 
-  <button class="add-btn" @click.stop="cartStore.addToCart(getProductId(item))">
-    加入購物車
-  </button>
-</div>
+                <button class="add-btn" @click.stop="cartStore.addToCart(getProductId(item))">
+                  加入購物車
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
 
       <div class="cart-floating-bar" v-if="totalCartItemsCount > 0">
         <div class="bar-info" @click="showCartDrawer = true">

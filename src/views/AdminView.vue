@@ -93,14 +93,14 @@
 
             <!-- 動態判斷價格顯示 -->
             <div class="price-box">
-              <template v-if="product.originalPrice && product.price && product.originalPrice > product.price">
-                <span class="old-price">原價 NT$ {{ product.originalPrice?.toLocaleString() }}</span>
-                <span class="price-text">優惠價 NT$ {{ product.price?.toLocaleString() }}</span>
-              </template>
-              <template v-else>
-                <span class="price-text">NT$ {{ (product.price || product.originalPrice)?.toLocaleString() }}</span>
-              </template>
-            </div>
+  <template v-if="product.originalPrice && product.price && Number(product.originalPrice) > Number(product.price)">
+    <span class="old-price">原價 NT$ {{ product.originalPrice?.toLocaleString() }}</span>
+    <span class="price-text">優惠價 NT$ {{ product.price?.toLocaleString() }}</span>
+  </template>
+  <template v-else>
+    <span class="price-text">NT$ {{ (product.price || product.originalPrice)?.toLocaleString() }}</span>
+  </template>
+</div>
           </div>
           
           <div class="product-actions">
