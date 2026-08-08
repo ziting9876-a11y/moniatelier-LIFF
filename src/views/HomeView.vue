@@ -18,6 +18,7 @@ interface Product {
   description: string
   image?: string
   imageUrl?: string
+  isHidden?: boolean
 }
 
 // --- 🎯 LINE LIFF 設定 ---
@@ -216,7 +217,7 @@ const defaultProducts: Product[] = [
   }
 ]
 
-// 動態 API 請求 (強制鎖定 Render 後端)
+// 動態 API 請求 (過濾隱藏商品)
 const fetchProducts = async () => {
   loadingProducts.value = true
   try {
@@ -234,7 +235,9 @@ const fetchProducts = async () => {
 
     const data = await res.json()
     if (data.status === 'success' && data.products && data.products.length > 0) {
-      products.value = data.products.map((p: any) => ({
+      // 🎯 濾掉 isHidden === true 的項目
+      const visibleProducts = data.products.filter((p: any) => !p.isHidden)
+      products.value = visibleProducts.map((p: any) => ({
         ...p,
         id: p._id || p.id,
         image: p.imageUrl || p.image
@@ -270,9 +273,21 @@ const cartTotalPrice = computed(() => {
   return total
 })
 
-// --- 🎯 頁面載入時初始化 LIFF 與處理付款完成邏輯 ---
+// --- 🎯 頁面載入時初始化 LIFF 與處理自動加購、付款完成邏輯 ---
 onMounted(async () => {
-  fetchProducts()
+  await fetchProducts()
+
+  // 🎯 1. 自動加購 URL 監聽 (?add=PRODUCT_ID&qty=1)
+  const addProductId = route.query.add as string
+  const addQty = Number(route.query.qty || 1)
+
+  if (addProductId) {
+    for (let i = 0; i < addQty; i++) {
+      cartStore.addToCart(addProductId)
+    }
+    // 自動帶入商品後直接切換至步驟二 (結帳明細)
+    currentStep.value = 2
+  }
 
   try {
     await liff.init({ liffId: LIFF_ID })
@@ -1315,7 +1330,6 @@ const executePayment = async () => {
   position: relative;
 }
 
-/* 2. 商品詳情 Modal 的圖片容器與圖片：改為直式 3:4 比例 + contain */
 .detail-image-wrapper {
   width: 100%;
   aspect-ratio: 3 / 4;
@@ -1453,7 +1467,6 @@ const executePayment = async () => {
   border: 1px solid #F3EBE6;
 }
 
-/* 1. 商品列表卡片：改為直式 3:4 比例，搭配 object-fit: contain 完整呈現花禮與企業色背景 */
 .image-wrapper {
   position: relative;
   cursor: pointer;
