@@ -5,6 +5,10 @@ import { useRoute } from 'vue-router'
 import { useCartStore } from '../stores/cart'
 import liff from '@line/liff'
 
+// 🎯 引入 Logo 靜態圖檔
+// @ts-ignore
+import logoImg from '../assets/logo.png'
+
 // --- 🎯 型別宣告 ---
 interface Product {
   id: number | string
@@ -388,7 +392,7 @@ const executePayment = async () => {
 
 <template>
   <div class="page-wrapper">
-    <!-- 🌸 會員資訊區塊（移動至 Logo 上方） -->
+    <!-- 🌸 會員資訊區塊（Logo 上方） -->
     <div v-if="lineProfile" class="user-member-bar">
       <div class="member-info">
         <span class="user-name">👤 {{ lineProfile.displayName }}</span>
@@ -400,9 +404,9 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 🌸 品牌 Logo（已縮小） -->
+    <!-- 🌸 品牌 Logo（改用綁定變數） -->
     <div class="brand-header">
-      <img src="/assets/logo.png" alt="Moni Atelier" class="brand-logo" />
+      <img :src="logoImg" alt="Moni Atelier" class="brand-logo" />
     </div>
 
     <!-- 🌸 步驟導覽列 -->
@@ -694,7 +698,7 @@ const executePayment = async () => {
   gap: 1rem;
 }
 
-/* 🌸 品牌 Logo 設定：縮小比例 */
+/* 🌸 品牌 Logo 設定 */
 .brand-header {
   text-align: center;
   margin: 0.2rem 0;
@@ -731,7 +735,7 @@ const executePayment = async () => {
   cursor: pointer;
 }
 
-/* 🌸 標題與內文樣式：統一白色清爽配色 */
+/* 🌸 標題與內文樣式 */
 .section-title {
   color: #FFFFFF;
   font-size: 1.25rem;
