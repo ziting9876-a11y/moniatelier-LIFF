@@ -311,6 +311,7 @@ const totalCartItemsCount = computed(() => {
 
 const isLoading = ref(false)
 
+// 💳 執行付款與建立訂單
 const executePayment = async () => {
   showPolicyModal.value = false
   const isStoreDelivery = ['seven_eleven', 'familymart'].includes(orderForm.value.deliveryMethod)
@@ -320,32 +321,62 @@ const executePayment = async () => {
 
   try {
     isLoading.value = true
+
+    // 格式化收件人全址，確保任何配送方式都不會有空值
+    const city = isStoreDelivery ? '超商門市' : (orderForm.value.recipient.city || '台北市')
+    const district = isStoreDelivery ? '門市取件' : (orderForm.value.recipient.district || '中正區')
+    const addressDetail = isStoreDelivery ? `${storeInput.value.name} (${storeInput.value.address})` : (orderForm.value.recipient.address || '')
+
     const recipientData = {
-      ...orderForm.value.recipient,
-      fullAddress: isStoreDelivery ? `${storeInput.value.name} (${storeInput.value.address})` : `${orderForm.value.recipient.city}${orderForm.value.recipient.district}${orderForm.value.recipient.address}`
+      name: orderForm.value.recipient.name || orderForm.value.payer.name,
+      phone: orderForm.value.recipient.phone || orderForm.value.payer.phone,
+      city,
+      district,
+      address: addressDetail,
+      fullAddress: isStoreDelivery ? `${storeInput.value.name} (${storeInput.value.address})` : `${city}${district}${addressDetail}`
     }
 
-    const response = await fetch(`${API_BASE}/api/orders`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        cart: cartStore.cart,
-        subtotal: cartTotalPrice.value,
-        shippingFee: shippingFee.value,
-        usedPoints: actualUsedPoints.value,
-        totalAmount: finalTotalPrice.value,
-        deliveryDate: orderForm.value.deliveryDate,
-        deliveryMethod: orderForm.value.deliveryMethod,
-        selectedStore: orderForm.value.selectedStore,
-        email: orderForm.value.payer.email,
-        lineUserId: lineProfile.value?.userId || null,
-        payer: orderForm.value.payer,
-        recipient: recipientData
-      })
-    })
+    const payload = {
+      cart: cartStore.cart,
+      subtotal: cartTotalPrice.value,
+      shippingFee: shippingFee.value,
+      usedPoints: actualUsedPoints.value,
+      totalAmount: finalTotalPrice.value,
+      deliveryDate: orderForm.value.deliveryDate,
+      deliveryMethod: orderForm.value.deliveryMethod,
+      selectedStore: orderForm.value.selectedStore,
+      email: orderForm.value.payer.email,
+      lineUserId: lineProfile.value?.userId || null,
+      payer: orderForm.value.payer,
+      recipient: recipientData
+    }
 
-    const resData = await response.json()
-    if (resData.status === 'success' && resData.data) {
+    const targets = [
+      `${API_BASE}/api/orders`,
+      'https://moni-atelier-backend.onrender.com/api/orders'
+    ]
+
+    let resData: any = null
+    let success = false
+
+    for (const url of targets) {
+      if (success) break
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        resData = await response.json()
+        if (response.ok && resData.status === 'success') {
+          success = true
+        }
+      } catch (e) {
+        console.warn(`嘗試發送至 ${url} 失敗:`, e)
+      }
+    }
+
+    if (success && resData && resData.data) {
       const data = resData.data
       const PayGateWay = data.PayGateWay || data.payGateWay
       const MerchantID = data.MerchantID || data.merchantId
@@ -365,10 +396,11 @@ const executePayment = async () => {
       document.body.appendChild(form)
       setTimeout(() => form.submit(), 50)
     } else {
-      alert(resData.message || '建立訂單失敗，請稍後再試')
+      const errMsg = resData?.message || resData?.error || '伺服器拒絕建立訂單，請檢查欄位是否齊全'
+      alert(`❌ 建立訂單失敗：${errMsg}`)
     }
   } catch (error) {
-    alert('無法連線至伺服器或發生系統錯誤')
+    alert('無法連線至伺服器，請檢查網路連線或稍後再試。')
   } finally {
     isLoading.value = false
   }
@@ -560,7 +592,7 @@ const executePayment = async () => {
             </div>
 
             <button type="submit" class="submit-btn" :disabled="isLoading || Object.keys(cartStore.cart).length === 0">
-              前往付款（NT$ {{ finalTotalPrice.toLocaleString() }}）
+              {{ isLoading ? '處理中...' : `前往付款（NT$ ${finalTotalPrice.toLocaleString()}）` }}
             </button>
           </form>
         </div>
@@ -646,7 +678,7 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 📜 購物須知與條款 Modal (補齊所有條款文字) -->
+    <!-- 📜 購物須知與條款 Modal -->
     <div v-if="showPolicyModal" class="modal-backdrop" @click.self="showPolicyModal = false">
       <div class="policy-modal">
         <div class="policy-modal-header">
@@ -654,7 +686,6 @@ const executePayment = async () => {
           <button type="button" class="close-icon-btn" @click="showPolicyModal = false">✕</button>
         </div>
         
-        <!-- 📜 可捲動完整條款內容 -->
         <div class="policy-modal-body scrollable-policy">
           <p class="policy-intro">
             歡迎光臨「墨凝花室」（以下簡稱本店）。<br />
@@ -804,7 +835,7 @@ const executePayment = async () => {
 .submit-btn { width: 100%; background: #34444E; color: #FFF; padding: 1rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 1.5rem; }
 .back-btn { background: none; border: 1px solid #FFF; color: #FFF; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; }
 
-/* 🛒 購物車 Drawer 美化 CSS */
+/* Modal 彈窗通用 */
 .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 9999; }
 .cart-drawer-modal { background: #FFFFFF; border-radius: 16px; padding: 1.2rem; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); }
 .drawer-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.8rem; margin-bottom: 1rem; }
@@ -822,7 +853,7 @@ const executePayment = async () => {
 .drawer-footer { border-top: 1px solid #E2E8F0; padding-top: 0.8rem; }
 .confirm-drawer-btn { width: 100%; background: #34444E; color: #FFFFFF; border: none; padding: 0.8rem; border-radius: 8px; font-weight: bold; font-size: 0.95rem; cursor: pointer; }
 
-/* 📜 購物須知 Modal 完整條款美化排版 */
+/* 📜 購物須知 Modal 樣式修正 */
 .policy-modal { background: #FFFFFF; border-radius: 16px; padding: 1.2rem 1.5rem; max-width: 440px; width: 90%; max-height: 85vh; color: #333333; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); }
 .policy-modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.8rem; flex-shrink: 0; }
 .policy-modal-header h3 { margin: 0; font-size: 1.05rem; font-weight: bold; color: #34444E; }
