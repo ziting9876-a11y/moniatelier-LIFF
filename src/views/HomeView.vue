@@ -322,7 +322,6 @@ const executePayment = async () => {
   try {
     isLoading.value = true
 
-    // 格式化收件人全址，確保任何配送方式都不會有空值
     const city = isStoreDelivery ? '超商門市' : (orderForm.value.recipient.city || '台北市')
     const district = isStoreDelivery ? '門市取件' : (orderForm.value.recipient.district || '中正區')
     const addressDetail = isStoreDelivery ? `${storeInput.value.name} (${storeInput.value.address})` : (orderForm.value.recipient.address || '')
@@ -569,9 +568,10 @@ const executePayment = async () => {
               </div>
             </div>
 
-            <div v-if="lineProfile" class="checkout-member-card">
+            <!-- 常駐顯示的會員紅利區塊 -->
+            <div class="checkout-member-card">
               <div class="member-info-header">
-                <span class="user-label">👤 {{ lineProfile.displayName }} 的專屬紅利</span>
+                <span class="user-label">👤 {{ lineProfile?.displayName || '會員' }} 的專屬紅利</span>
                 <span class="points-badge">目前點數：<strong>{{ userPoints }}</strong> 點 ($1點=$1元)</span>
               </div>
 
@@ -604,7 +604,7 @@ const executePayment = async () => {
       <div class="cart-drawer-modal">
         <div class="drawer-header">
           <h3>🛒 購物車內容</h3>
-          <button class="close-icon-btn" @click="showCartDrawer = false">✕</button>
+          <button type="button" class="close-icon-btn" @click="showCartDrawer = false">✕</button>
         </div>
         <div class="drawer-body">
           <div v-if="Object.keys(cartStore.cart).length === 0" class="empty-cart">購物車內沒有商品</div>
@@ -631,7 +631,7 @@ const executePayment = async () => {
     <!-- 🔍 商品詳情 Modal -->
     <div v-if="selectedProductDetail" class="modal-backdrop" @click.self="closeProductDetail">
       <div class="product-detail-modal">
-        <button class="close-icon-btn" @click="closeProductDetail">✕</button>
+        <button type="button" class="close-icon-btn" @click="closeProductDetail">✕</button>
         <div class="detail-image-wrapper">
           <img :src="getProductImage(selectedProductDetail)" :alt="selectedProductDetail.name" />
         </div>
@@ -853,7 +853,7 @@ const executePayment = async () => {
 .drawer-footer { border-top: 1px solid #E2E8F0; padding-top: 0.8rem; }
 .confirm-drawer-btn { width: 100%; background: #34444E; color: #FFFFFF; border: none; padding: 0.8rem; border-radius: 8px; font-weight: bold; font-size: 0.95rem; cursor: pointer; }
 
-/* 📜 購物須知 Modal 樣式修正 */
+/* 📜 購物須知 Modal 樣式 */
 .policy-modal { background: #FFFFFF; border-radius: 16px; padding: 1.2rem 1.5rem; max-width: 440px; width: 90%; max-height: 85vh; color: #333333; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); }
 .policy-modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.8rem; flex-shrink: 0; }
 .policy-modal-header h3 { margin: 0; font-size: 1.05rem; font-weight: bold; color: #34444E; }
