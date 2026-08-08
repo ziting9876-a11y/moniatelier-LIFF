@@ -41,6 +41,9 @@ const orderSchema = new mongoose.Schema({
   // 🎯 移除 enum 限制，相容「已下單、製作中、配送中、PAID」等多重訂單狀態
   status: { type: String, default: 'PENDING' },
   paidAt: { type: Date }
-}, { timestamps: true })
+}, { 
+  timestamps: true,
+  strict: false // 🎯 強制關閉嚴格模式，允許未定義之欄位或非固定格式隨意寫入 DB
+})
 
 export default mongoose.model('Order', orderSchema)
