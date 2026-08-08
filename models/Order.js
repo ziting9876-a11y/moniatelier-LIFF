@@ -1,6 +1,5 @@
 import mongoose from 'mongoose'
 
-// 🎯 1. 付款人資料結構（允許自取或未填縣市/地址）
 const payerSchema = new mongoose.Schema({
   name: { type: String, required: true },
   phone: { type: String, required: true },
@@ -10,7 +9,6 @@ const payerSchema = new mongoose.Schema({
   address: { type: String, default: '' }
 }, { _id: false })
 
-// 🎯 2. 收件人資料結構（收件人可免填 Email，彈性較高）
 const recipientSchema = new mongoose.Schema({
   name: { type: String, default: '' },
   phone: { type: String, default: '' },
@@ -21,29 +19,28 @@ const recipientSchema = new mongoose.Schema({
 }, { _id: false })
 
 const orderSchema = new mongoose.Schema({
-  merchantOrderNo: { type: String, required: true, unique: true }, // 墨凝訂單編號
-  tradeNo: { type: String, default: '' },                          // 藍新交易序號
+  merchantOrderNo: { type: String, required: true, unique: true },
+  tradeNo: { type: String, default: '' },
   
-  // 🎯 補上 LINE UserID 雙欄位宣告，解決被 Mongoose 自動過濾導致 undefined 的問題
-  lineUserId: { type: String, default: null },
-  userId: { type: String, default: null },
+  // 🎯 明確宣告 LINE 相關欄位
+  lineUserId: { type: String, default: '' },
+  userId: { type: String, default: '' },
 
-  cart: { type: Object, required: true },                          // 購物車內容
-  totalAmount: { type: Number, required: true },                   // 總金額
-  deliveryDate: { type: String, default: '' },                     // 送達日期
-  deliveryMethod: { type: String, default: '' },                   // 取件方式
-  selectedStore: { type: Object, default: null },                  // 🏪 超商門市資訊
-  customerEmail: { type: String, default: '' },                    // 顧客 Email
+  cart: { type: Object, required: true },
+  totalAmount: { type: Number, required: true },
+  deliveryDate: { type: String, default: '' },
+  deliveryMethod: { type: String, default: '' },
+  selectedStore: { type: Object, default: null },
+  customerEmail: { type: String, default: '' },
   
   payer: { type: payerSchema, default: {} },
   recipient: { type: recipientSchema, default: {} },
   
-  // 🎯 移除 enum 限制，相容「已下單、製作中、配送中、PAID」等多重訂單狀態
   status: { type: String, default: 'PENDING' },
   paidAt: { type: Date }
 }, { 
   timestamps: true,
-  strict: false // 🎯 強制關閉嚴格模式，允許未定義之欄位或非固定格式隨意寫入 DB
+  strict: false 
 })
 
 export default mongoose.model('Order', orderSchema)
