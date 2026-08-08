@@ -298,6 +298,12 @@ const orderForm = ref({
   recipient: { name: '', phone: '', city: '台北市', district: '中正區', address: '' }
 })
 
+const storeNamePlaceholder = computed(() => {
+  return orderForm.value.deliveryMethod === 'familymart' 
+    ? '例如：全家 鑫南京店' 
+    : '例如：7-11 鑫南京門市'
+})
+
 const totalCartItemsCount = computed(() => {
   const values = Object.values(cartStore.cart || {}) as number[]
   return values.reduce((sum: number, qty: number) => sum + Number(qty), 0)
@@ -485,14 +491,7 @@ const executePayment = async () => {
               <h4 class="sub-section-title">🏪 填寫門市資訊</h4>
               <div class="form-group">
                 <label>門市名稱 *</label>
-                <!-- 🎯 直接精準判定全家與 7-11 的提示文字 -->
-                <input 
-                  type="text" 
-                  v-model="storeInput.name" 
-                  :placeholder="orderForm.deliveryMethod === 'familymart' ? '例如：全家 鑫南京店' : '例如：7-11 鑫南京門市'" 
-                  required 
-                  class="styled-input" 
-                />
+                <input type="text" v-model="storeInput.name" :placeholder="storeNamePlaceholder" required class="styled-input" />
               </div>
               <div class="form-group">
                 <label>門市地址 *</label>
@@ -647,20 +646,61 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 📜 購物須知與條款 Modal -->
+    <!-- 📜 購物須知與條款 Modal (補齊所有條款文字) -->
     <div v-if="showPolicyModal" class="modal-backdrop" @click.self="showPolicyModal = false">
       <div class="policy-modal">
         <div class="policy-modal-header">
           <h3>🌸 購物須知與條款閱讀確認</h3>
           <button type="button" class="close-icon-btn" @click="showPolicyModal = false">✕</button>
         </div>
-        <div class="policy-modal-body">
-          <p>歡迎光臨「墨凝花室」。客製化花禮不適用 7 天鑑賞期，請確認訂購內容無誤。</p>
+        
+        <!-- 📜 可捲動完整條款內容 -->
+        <div class="policy-modal-body scrollable-policy">
+          <p class="policy-intro">
+            歡迎光臨「墨凝花室」（以下簡稱本店）。<br />
+            為了保障您的權益，在進行訂購前，請仔細閱讀以下服務條款、出貨說明、退換貨政策及隱私權保護聲明：
+          </p>
+
+          <h4 class="policy-section-title">一、 出貨天數與配送說明</h4>
+          <p><strong>製作與出貨時間：</strong></p>
+          <ul>
+            <li>本店花藝商品（包含手作、永生花/乾燥花及客製化作品）皆為收到訂單與付款後開始製作。</li>
+            <li>一般商品於完成付款後 3 至 7 個工作天內（不含例假日）製作完成並出貨。</li>
+            <li>客製化商品或大宗花禮，出貨天數為 5 至 10 個工作天，具體交期以雙方確認之溝通內容為準。</li>
+          </ul>
+          <p><strong>配送方式與時間：</strong></p>
+          <ul>
+            <li>寄出後，宅配運送時間約 1 至 2 個工作天，超商取貨約 2 至 3 個工作天（實際配送進度依物流公司公告為準）。</li>
+          </ul>
+
+          <h4 class="policy-section-title">二、 消費者權益與退換貨政策（鑑賞期說明）</h4>
+          <p><strong>客製化商品不適用 7 天鑑賞期：</strong></p>
+          <p>依據《消費者保護法》第 19 條第 1 項但書及《通訊交易解除權合理例外情事適用準則》第 2 條規定，本店所販售之「依消費者要求所為之客製化給付商品」及「易於腐敗、保存期限較短或解約時即將逾期之花卉植物」，不適用 7 天鑑賞期（猶豫期）之規定，訂單成立後概不接受退換貨。</p>
+          <p><strong>瑕疵與破損處理：</strong></p>
+          <ul>
+            <li>花藝商品運送過程可能因震動有些微花瓣掉落，此屬正常現象。</li>
+            <li>若您收到商品時有嚴重的箱體毀損、商品本體重大瑕疵或品項不符之情況，請於收到商品 24 小時內拍照/錄影存證，並透過客服與我們聯繫，我們將儘速為您辦理補件或補換貨事宜。</li>
+          </ul>
+
+          <h4 class="policy-section-title">三、 服務條款</h4>
+          <ul>
+            <li>本店商品多數包含天然植物與手作成分，姿態、顏色與照片有些微差異屬正常現象。如遇花材缺貨，本店保留在維護整體設計美感的前提下，更換等值或相似花材之權利。</li>
+            <li>訂購人有義務提供正確、完整之收件人資訊，若因填寫資訊錯誤導致無法配送或退回，相關再發送之運費須由買家自行負擔。</li>
+          </ul>
+
+          <h4 class="policy-section-title">四、 隱私權政策</h4>
+          <p><strong>個人資料蒐集與使用：</strong></p>
+          <p>本店僅於處理商品訂購、運送配送、顧客服務及付款確認之目的範圍內，蒐集您的個人資料（包含姓名、電話、地址、Email 等）。</p>
+          <p><strong>資料安全與保密：</strong></p>
+          <p>本店絕不會將您的個人資料出售、出租、交換或提供給任何第三方，亦不作其他非法用途。</p>
+          <p><strong>金流交易安全：</strong></p>
+          <p>本店線上付款流程串接「藍新金流 NewebPay」，交易過程採用加密傳輸保護，本店不會記錄或留存您的信用卡號等敏感金融資訊。</p>
         </div>
+
         <div class="policy-modal-footer">
           <label class="agree-checkbox-label">
             <input type="checkbox" v-model="hasAgreedPolicy" />
-            <span>我已完整閱讀並同意條款</span>
+            <span>我已完整閱讀並同意上述所有條款</span>
           </label>
           <button type="button" class="confirm-pay-btn" :disabled="!hasAgreedPolicy || isLoading" @click="executePayment">
             {{ isLoading ? '處理中...' : '確認同意並前往付款' }}
@@ -764,7 +804,7 @@ const executePayment = async () => {
 .submit-btn { width: 100%; background: #34444E; color: #FFF; padding: 1rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 1.5rem; }
 .back-btn { background: none; border: 1px solid #FFF; color: #FFF; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; }
 
-/* Modal 彈窗通用 */
+/* 🛒 購物車 Drawer 美化 CSS */
 .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 9999; }
 .cart-drawer-modal { background: #FFFFFF; border-radius: 16px; padding: 1.2rem; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); }
 .drawer-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.8rem; margin-bottom: 1rem; }
@@ -782,13 +822,17 @@ const executePayment = async () => {
 .drawer-footer { border-top: 1px solid #E2E8F0; padding-top: 0.8rem; }
 .confirm-drawer-btn { width: 100%; background: #34444E; color: #FFFFFF; border: none; padding: 0.8rem; border-radius: 8px; font-weight: bold; font-size: 0.95rem; cursor: pointer; }
 
-/* 📜 購物須知 Modal 樣式修正 */
-.policy-modal { background: #FFFFFF; border-radius: 16px; padding: 1.5rem; max-width: 400px; width: 90%; color: #333333; display: flex; flex-direction: column; gap: 1rem; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); }
-.policy-modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.8rem; }
+/* 📜 購物須知 Modal 完整條款美化排版 */
+.policy-modal { background: #FFFFFF; border-radius: 16px; padding: 1.2rem 1.5rem; max-width: 440px; width: 90%; max-height: 85vh; color: #333333; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); }
+.policy-modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.8rem; flex-shrink: 0; }
 .policy-modal-header h3 { margin: 0; font-size: 1.05rem; font-weight: bold; color: #34444E; }
-.policy-modal-body { font-size: 0.9rem; color: #4A5568; line-height: 1.6; padding: 0.5rem 0; text-align: left; }
-.policy-modal-footer { display: flex; flex-direction: column; gap: 1rem; }
-.agree-checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; font-weight: bold; color: #2D3748; cursor: pointer; user-select: none; }
+.scrollable-policy { overflow-y: auto; max-height: 380px; padding: 0.8rem 0; font-size: 0.85rem; color: #4A5568; line-height: 1.6; text-align: left; }
+.scrollable-policy ul { padding-left: 1.2rem; margin: 4px 0 10px; }
+.scrollable-policy li { margin-bottom: 4px; }
+.policy-intro { margin-bottom: 10px; font-weight: 500; }
+.policy-section-title { font-size: 0.92rem; color: #34444E; font-weight: bold; margin: 12px 0 6px; border-left: 3px solid #34444E; padding-left: 6px; }
+.policy-modal-footer { display: flex; flex-direction: column; gap: 0.8rem; border-top: 1px solid #E2E8F0; padding-top: 0.8rem; flex-shrink: 0; }
+.agree-checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; font-weight: bold; color: #2D3748; cursor: pointer; user-select: none; }
 .agree-checkbox-label input { width: 18px; height: 18px; cursor: pointer; }
 
 .calendar-modal, .product-detail-modal { background: #FFF; border-radius: 12px; padding: 1.2rem; max-width: 400px; width: 90%; color: #333; }
