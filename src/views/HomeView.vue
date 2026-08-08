@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+// @ts-ignore
 import { useCartStore } from '../stores/cart'
 import liff from '@line/liff'
 
@@ -310,7 +311,8 @@ const orderForm = ref({
 })
 
 const totalCartItemsCount = computed(() => {
-  return Object.values(cartStore.cart).reduce((sum, qty) => sum + qty, 0)
+  const values = Object.values(cartStore.cart || {}) as number[]
+  return values.reduce((sum: number, qty: number) => sum + Number(qty), 0)
 })
 
 const shippingFee = computed(() => {
