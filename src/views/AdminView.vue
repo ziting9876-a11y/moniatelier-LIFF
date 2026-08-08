@@ -214,8 +214,8 @@ const productForm = ref({
   name: '',
   category: '不凋花 / 永生花',
   price: null,
-  originalPrice: 1980,
-  badge: 'NO.01',
+  originalPrice: null,
+  badge: '',
   tag: '',
   description: '',
   imageUrl: ''
@@ -333,9 +333,12 @@ const saveProduct = async () => {
       alert('🌸 商品已成功儲存並發布！')
       showProductModal.value = false
       fetchProducts()
+    } else {
+      alert(`❌ 儲存失敗：${data.message || '無法儲存商品'}`)
     }
   } catch (err) {
     console.error('❌ 儲存商品失敗:', err)
+    alert('網路連線失敗或伺服器異常')
   }
 }
 
