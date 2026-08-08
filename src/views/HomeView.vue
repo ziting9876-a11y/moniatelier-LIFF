@@ -277,17 +277,23 @@ const cartTotalPrice = computed(() => {
 onMounted(async () => {
   await fetchProducts()
 
-  // 🎯 1. 自動加購 URL 監聽 (?add=PRODUCT_ID&qty=1)
-  const addProductId = route.query.add as string
-  const addQty = Number(route.query.qty || 1)
+  // 🎯 1. 自動加購 URL 監聽（支援單一商品或逗號分隔多商品，例: ?add=花禮ID,卡片ID）
+const addParam = route.query.add as string
+const addQty = Number(route.query.qty || 1)
 
-  if (addProductId) {
+if (addParam) {
+  // 將參數依逗號切割成陣列（如 ['花禮ID', '卡片ID']）
+  const productIds = addParam.split(',').map(id => id.trim()).filter(Boolean)
+  
+  productIds.forEach(id => {
     for (let i = 0; i < addQty; i++) {
-      cartStore.addToCart(addProductId)
+      cartStore.addToCart(id)
     }
-    // 自動帶入商品後直接切換至步驟二 (結帳明細)
-    currentStep.value = 2
-  }
+  })
+  
+  // 自動帶入商品後直接切換至步驟二 (結帳明細)
+  currentStep.value = 2
+}
 
   try {
     await liff.init({ liffId: LIFF_ID })
