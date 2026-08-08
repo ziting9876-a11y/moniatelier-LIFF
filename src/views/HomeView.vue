@@ -213,22 +213,33 @@ const copyReferralLink = () => {
 }
 
 const saveBirthday = async () => {
-  if (!userBirthday.value || !lineProfile.value?.userId) return
+  if (!userBirthday.value) {
+    alert('請先選擇您的生日日期！')
+    return
+  }
+
+  // 取得 LINE ID，若非 LINE LIFF 環境（如 Safari/Chrome）則使用本地備援 ID 進行測試
+  const targetUserId = lineProfile.value?.userId || 'GUEST_TEST_USER'
+
   try {
     const res = await fetch(`${API_BASE}/api/users/birthday`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lineUserId: lineProfile.value.userId, birthday: userBirthday.value })
+      body: JSON.stringify({ lineUserId: targetUserId, birthday: userBirthday.value })
     })
     const data = await res.json()
     if (data.status === 'success') {
-      userPoints.value = data.points
+      if (data.points !== undefined) {
+        userPoints.value = data.points
+      }
       hasBirthday.value = true
-      alert(data.message)
+      alert(data.message || '生日月份登錄成功！')
       showBirthdayModal.value = false
+    } else {
+      alert(`❌ 儲存失敗：${data.message || '請稍後再試'}`)
     }
   } catch (err) {
-    alert('設定生日失敗，請稍後再試')
+    alert('❌ 連線至伺服器失敗，請檢查網路狀態')
   }
 }
 
