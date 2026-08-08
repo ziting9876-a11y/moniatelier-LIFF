@@ -172,10 +172,8 @@ const selectDate = (dayItem: { dateStr: string; isDisabled: boolean }) => {
 
 // --- 🎯 頁面載入時初始化 LIFF 與處理付款完成邏輯 ---
 onMounted(async () => {
-  let isLiffReady = false
   try {
     await liff.init({ liffId: LIFF_ID })
-    isLiffReady = true
     
     if (liff.isLoggedIn()) {
       const profile = await liff.getProfile()
@@ -198,18 +196,25 @@ onMounted(async () => {
   if (route.query.status === 'success') {
     cartStore.clearCart?.()
 
-    // 🎯 直接執行關閉視窗
-    setTimeout(() => {
-      try {
-        if (isLiffReady && liff.isInClient()) {
-          liff.closeWindow()
-        } else {
-          window.location.href = 'https://line.me/R/'
+    // 🎯 判斷是否在 LINE APP 內 (包含跨域重定向後的情境)
+    const isLineApp = /Line/i.test(navigator.userAgent) || (typeof liff !== 'undefined' && liff.isInClient?.())
+
+    if (isLineApp) {
+      setTimeout(() => {
+        try {
+          if (typeof liff !== 'undefined' && liff.closeWindow) {
+            liff.closeWindow()
+          }
+        } catch (e) {
+          console.warn('liff.closeWindow 失敗，使用 Scheme 強制跳轉:', e)
         }
-      } catch (e) {
-        window.location.href = 'https://line.me/R/'
-      }
-    }, 200)
+        
+        // 🎯 防護備案：若 closeWindow 被阻擋，呼叫 LINE Scheme 將直接關閉當前 WebView 返回聊天室
+        window.location.href = 'line://'
+      }, 150)
+    } else {
+      router.replace({ query: {} })
+    }
   } else if (route.query.status === 'failed') {
     const errorMsg = (route.query.message as string) || '付款未完成或已取消交易'
     alert(`⚠️ 交易未成功：${errorMsg}\n請確認卡號資訊或重新嘗試結帳。`)
@@ -224,7 +229,7 @@ onMounted(async () => {
   }
 })
 
-// --- 產品清單 ---
+// --- 產品清單與相關設定 ---
 const taiwanDistricts: Record<string, string[]> = {
   '台北市': ['中正區', '大同區', '中山區', '松山區', '大安區', '萬華區', '信義區', '士林區', '北投區', '內湖區', '南港區', '文山區'],
   '新北市': ['板橋區', '三重區', '中和區', '永和區', '新莊區', '新店區', '樹林區', '鶯歌區', '三峽區', '淡水區', '汐止區', '瑞芳區', '土城區', '蘆洲區', '五股區', '泰山區', '林口區', '深坑區', '石碇區', '坪林區', '三芝區', '石門區', '八里區', '平溪區', '雙溪區', '貢寮區', '金山區', '萬里區', '烏來區'],
