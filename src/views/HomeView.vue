@@ -5,10 +5,6 @@ import { useRoute } from 'vue-router'
 import { useCartStore } from '../stores/cart'
 import liff from '@line/liff'
 
-// 🎯 引入 Logo 靜態圖檔
-// @ts-ignore
-import logoImg from '../assets/logo.png'
-
 // --- 🎯 型別宣告 ---
 interface Product {
   id: number | string
@@ -141,10 +137,12 @@ const selectDate = (dayItem: { dateStr: string; isDisabled: boolean }) => {
   showDatePickerModal.value = false
 }
 
-// 🎯 商品動態讀取
+// 🎯 完全從後端 API 載入真實商品 (不使用任何預設假資料)
 const allProducts = ref<Product[]>([])
 const loadingProducts = ref(true)
-const displayProducts = computed(() => allProducts.value.filter(p => !p.isHidden))
+
+// 只顯示未勾選隱藏 (isHidden !== true) 的真實商品
+const displayProducts = computed(() => allProducts.value.filter(p => p.isHidden !== true))
 
 const fetchProducts = async () => {
   loadingProducts.value = true
@@ -160,7 +158,7 @@ const fetchProducts = async () => {
       }))
     }
   } catch (err) {
-    console.warn('❌ 抓取後端商品失敗:', err)
+    console.error('❌ 抓取後端真實商品失敗:', err)
   } finally {
     loadingProducts.value = false
   }
@@ -358,11 +356,6 @@ const executePayment = async () => {
 
 <template>
   <div class="page-wrapper">
-    <!-- 🌸 品牌 Logo（僅保留中央一個 Logo） -->
-    <div class="brand-header">
-      <img :src="logoImg" alt="Moni Atelier" class="brand-logo" />
-    </div>
-
     <!-- 🌸 步驟導覽列 -->
     <div class="step-indicator">
       <div class="step-item" :class="{ active: currentStep === 1 }" @click="currentStep = 1">
@@ -381,6 +374,7 @@ const executePayment = async () => {
       <section class="products-section">
         <h2 class="section-title">精選花藝作品</h2>
         <div v-if="loadingProducts" class="loading-state">🌸 正在為您載入最新花藝作品...</div>
+        <div v-else-if="displayProducts.length === 0" class="loading-state">目前尚未有上架商品。</div>
         <div v-else class="product-grid">
           <div v-for="item in displayProducts" :key="getProductId(item)" class="product-card">
             <div class="image-wrapper" @click="openProductDetail(item)">
@@ -429,7 +423,7 @@ const executePayment = async () => {
               </div>
             </div>
 
-            <!-- 🎁 會員點數、生日禮金與好友推薦專區（整合於結帳頁） -->
+            <!-- 🎁 會員點數、生日禮金與好友推薦專區 -->
             <div v-if="lineProfile" class="checkout-member-section">
               <div class="member-header">
                 <span>👤 {{ lineProfile.displayName }} 的專屬紅利</span>
@@ -680,17 +674,6 @@ const executePayment = async () => {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-}
-
-/* 🌸 品牌 Logo 設定：保留中央單一 Logo */
-.brand-header {
-  text-align: center;
-  margin: 0.8rem 0;
-}
-.brand-logo {
-  max-width: 150px;
-  height: auto;
-  display: inline-block;
 }
 
 /* 🌸 標題與內文樣式 */
