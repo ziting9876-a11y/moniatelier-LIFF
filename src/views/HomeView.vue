@@ -187,7 +187,14 @@ const cartTotalPrice = computed(() => {
   return total
 })
 
-const shippingFee = computed(() => (cartTotalPrice.value === 0 || cartTotalPrice.value >= 4500) ? 0 : 300)
+// 🚚 動態計算運費（包含專人配送 1 與 2）
+const shippingFee = computed(() => {
+  if (cartTotalPrice.value === 0 || cartTotalPrice.value >= 4500) return 0
+  if (orderForm.value.deliveryMethod === 'express_taipei_2') {
+    return 500 // 專人雙北配送 2 運費 $500
+  }
+  return 300 // 黑貓、店到店、專人雙北配送 1 運費 $300
+})
 
 const actualUsedPoints = computed(() => {
   const maxAllow = Math.min(userPoints.value, cartTotalPrice.value)
@@ -458,9 +465,22 @@ const executePayment = async () => {
               <label>配送方式 *</label>
               <select v-model="orderForm.deliveryMethod" class="styled-select">
                 <option value="black_cat">黑貓宅配 (運費 NT$300 / 滿 NT$4,500 免運)</option>
+                <option value="express_taipei_1">專人雙北配送1 (9:00-18:00不指定 / 運費 NT$300 / 滿 NT$4,500 免運)</option>
+                <option value="express_taipei_2">專人雙北配送2 (9:00-18:00不指定 / 運費 NT$500 / 滿 NT$4,500 免運)</option>
                 <option value="familymart">全家店到店 (運費 NT$300 / 滿 NT$4,500 免運)</option>
                 <option value="seven_eleven">7-11店到店 (運費 NT$300 / 滿 NT$4,500 免運)</option>
               </select>
+              
+              <!-- 🚚 專人雙北配送區域備註說明 -->
+              <div v-if="orderForm.deliveryMethod === 'express_taipei_1'" class="delivery-note">
+                📍 <strong>專人雙北配送1 可送區域：</strong><br />
+                松山區、信義區、大安區、中山區、中正區、大同區、萬華區、文山區、南港區、內湖區、士林區、北投區、板橋區、三重區、中和區、永和區、汐止區。
+              </div>
+
+              <div v-if="orderForm.deliveryMethod === 'express_taipei_2'" class="delivery-note">
+                📍 <strong>專人雙北配送2 可送區域：</strong><br />
+                新莊區、新店區、土城區、蘆洲區、樹林區、淡水區、林口區。
+              </div>
             </div>
 
             <div v-if="['seven_eleven', 'familymart'].includes(orderForm.deliveryMethod)" class="form-section store-input-section">
@@ -719,6 +739,9 @@ const executePayment = async () => {
 .member-actions-row { display: flex; gap: 8px; margin-top: 4px; }
 .btn-member-action { flex: 1; background: #FFFFFF; border: 1px solid #34444E; color: #34444E; padding: 8px; border-radius: 6px; font-size: 0.78rem; font-weight: bold; cursor: pointer; }
 
+/* 🚚 專人雙北配送備註說明樣式 */
+.delivery-note { background: #FEF3C7; border: 1px solid #FCD34D; color: #92400E; padding: 0.8rem; border-radius: 6px; font-size: 0.82rem; line-height: 1.5; margin-top: 8px; }
+
 .summary-box { background: #FAF9F6; padding: 12px; border-radius: 8px; margin: 12px 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.88rem; }
 .summary-row { display: flex; justify-content: space-between; color: #4A5568; }
 .discount-row { color: #D97706; font-weight: bold; }
@@ -736,7 +759,7 @@ const executePayment = async () => {
 .submit-btn { width: 100%; background: #34444E; color: #FFF; padding: 1rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 1.5rem; }
 .back-btn { background: none; border: 1px solid #FFF; color: #FFF; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; }
 
-/* 🛒 購物車 Drawer 美化 CSS (徹底修復跑版問題) */
+/* 🛒 購物車 Drawer 美化 CSS */
 .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 9999; }
 .cart-drawer-modal { background: #FFFFFF; border-radius: 16px; padding: 1.2rem; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); }
 .drawer-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.8rem; margin-bottom: 1rem; }
