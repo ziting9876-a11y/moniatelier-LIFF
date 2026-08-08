@@ -269,9 +269,30 @@ const saveBirthday = async () => {
   }
 }
 
-// --- 🎯 頁面初始化 LIFF 與會員資料 ---
+// --- 🎯 頁面初始化 LIFF、會員資料與付款轉址檢查 ---
 onMounted(async () => {
   await fetchProducts()
+
+  // 1. 檢查藍新付款轉址狀態
+  const statusParam = route.query.status as string
+  const orderNoParam = route.query.orderNo as string
+
+  if (statusParam === 'success') {
+    alert(`🎉 付款成功！\n訂單編號：${orderNoParam || ''}\n感謝您的訂購，墨凝花室已收到您的款項並將儘速為您製作！`)
+    // 清空購物車
+    cartStore.cart = {}
+    localStorage.removeItem('cart')
+    // 在 LINE LIFF 環境內自動關閉視窗返回聊天室
+    try {
+      if (liff.isInClient()) {
+        liff.closeWindow()
+      }
+    } catch (e) {
+      console.warn('關閉視窗失敗:', e)
+    }
+  } else if (statusParam === 'failed' || statusParam === 'error') {
+    alert('❌ 付款流程未完成或發生錯誤，請重新嘗試。')
+  }
 
   const addParam = route.query.add as string
   if (addParam) {
