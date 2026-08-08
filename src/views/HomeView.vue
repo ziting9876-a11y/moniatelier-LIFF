@@ -77,10 +77,10 @@ const openPolicyModal = () => {
   showPolicyModal.value = true
 }
 
-// 📅 動態計算最早可選送達日期
+// 📅 動態計算最早可選送達日期（改為 5 天後）
 const minDeliveryDate = computed(() => {
   const d = new Date()
-  d.setDate(d.getDate() + 4)
+  d.setDate(d.getDate() + 5)
   d.setHours(0, 0, 0, 0)
   return d
 })
@@ -867,7 +867,7 @@ const executePayment = async () => {
         </div>
 
         <div class="calendar-footer" style="margin-top: 16px; display: flex; flex-direction: column; gap: 8px; align-items: center;">
-          <span class="tip-text" style="font-size: 0.8rem; color: #64748B;">💡 僅可預約 4 天後至 6 個月內之配送日期</span>
+          <span class="tip-text" style="font-size: 0.8rem; color: #64748B;">💡 僅可預約 5 天後至 6 個月內之配送日期</span>
           <button type="button" class="close-modal-btn" @click="showDatePickerModal = false">關閉</button>
         </div>
       </div>
@@ -1298,6 +1298,13 @@ const executePayment = async () => {
   position: relative;
 }
 
+.detail-image-wrapper img {
+  width: 100%;
+  height: 300px;
+  object-fit: contain;
+  background-color: #FCEFE9;
+}
+
 .close-icon-btn {
   background: none;
   color: #718096;
@@ -1305,12 +1312,6 @@ const executePayment = async () => {
   font-size: 1.2rem;
   cursor: pointer;
   padding: 0.2rem 0.5rem;
-}
-
-.detail-image-wrapper img {
-  width: 100%;
-  height: 240px;
-  object-fit: cover;
 }
 
 .detail-body {
@@ -1425,14 +1426,19 @@ const executePayment = async () => {
 .image-wrapper {
   position: relative;
   cursor: pointer;
-  height: 220px;
+  height: 280px;
   background-color: #FCEFE9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  box-sizing: border-box;
 }
 
 .image-wrapper img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .badge-no {
