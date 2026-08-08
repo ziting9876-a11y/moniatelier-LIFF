@@ -485,7 +485,14 @@ const executePayment = async () => {
               <h4 class="sub-section-title">🏪 填寫門市資訊</h4>
               <div class="form-group">
                 <label>門市名稱 *</label>
-                <input type="text" v-model="storeInput.name" placeholder="例如：7-11 鑫南京門市" required class="styled-input" />
+                <!-- 🎯 直接精準判定全家與 7-11 的提示文字 -->
+                <input 
+                  type="text" 
+                  v-model="storeInput.name" 
+                  :placeholder="orderForm.deliveryMethod === 'familymart' ? '例如：全家 鑫南京店' : '例如：7-11 鑫南京門市'" 
+                  required 
+                  class="styled-input" 
+                />
               </div>
               <div class="form-group">
                 <label>門市地址 *</label>
@@ -640,7 +647,7 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 📜 購物須知與條款 Modal (美化修復版) -->
+    <!-- 📜 購物須知與條款 Modal -->
     <div v-if="showPolicyModal" class="modal-backdrop" @click.self="showPolicyModal = false">
       <div class="policy-modal">
         <div class="policy-modal-header">
@@ -775,7 +782,7 @@ const executePayment = async () => {
 .drawer-footer { border-top: 1px solid #E2E8F0; padding-top: 0.8rem; }
 .confirm-drawer-btn { width: 100%; background: #34444E; color: #FFFFFF; border: none; padding: 0.8rem; border-radius: 8px; font-weight: bold; font-size: 0.95rem; cursor: pointer; }
 
-/* 📜 購物須知 Modal 樣式修正 (重點修復區域) */
+/* 📜 購物須知 Modal 樣式修正 */
 .policy-modal { background: #FFFFFF; border-radius: 16px; padding: 1.5rem; max-width: 400px; width: 90%; color: #333333; display: flex; flex-direction: column; gap: 1rem; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); }
 .policy-modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.8rem; }
 .policy-modal-header h3 { margin: 0; font-size: 1.05rem; font-weight: bold; color: #34444E; }
