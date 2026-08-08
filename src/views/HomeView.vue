@@ -34,7 +34,7 @@ const showReferralInfoModal = ref(false)
 const isCopyReferralSuccess = ref(false)
 
 // --- 🎯 API 後端基礎網址設定 ---
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://moni-atelier-backend.onrender.com'
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'https://moni-atelier-backend.onrender.com').replace(/\/$/, '')
 
 const route = useRoute()
 const cartStore = useCartStore()
@@ -137,31 +137,41 @@ const selectDate = (dayItem: { dateStr: string; isDisabled: boolean }) => {
   showDatePickerModal.value = false
 }
 
-// 🎯 完全從後端 API 載入真實商品 (不使用任何預設假資料)
+// 🎯 從後端 API 載入真實商品
 const allProducts = ref<Product[]>([])
 const loadingProducts = ref(true)
 
-// 只顯示未勾選隱藏 (isHidden !== true) 的真實商品
+// 過濾未勾選隱藏的真實商品
 const displayProducts = computed(() => allProducts.value.filter(p => p.isHidden !== true))
 
 const fetchProducts = async () => {
   loadingProducts.value = true
-  try {
-    let targetBase = (import.meta.env.VITE_API_BASE_URL || API_BASE).replace(/\/$/, '')
-    const res = await fetch(`${targetBase}/api/products`)
-    const data = await res.json()
-    if (data.status === 'success' && Array.isArray(data.products)) {
-      allProducts.value = data.products.map((p: any) => ({
-        ...p,
-        id: p._id || p.id,
-        image: p.imageUrl || p.image
-      }))
+  const targets = [
+    `${API_BASE}/api/products`,
+    'https://moni-atelier-backend.onrender.com/api/products'
+  ]
+
+  let success = false
+  for (const url of targets) {
+    if (success) break
+    try {
+      console.log('🌸 嘗試抓取商品資料網址:', url)
+      const res = await fetch(url)
+      const data = await res.json()
+      if (data.status === 'success' && Array.isArray(data.products)) {
+        allProducts.value = data.products.map((p: any) => ({
+          ...p,
+          id: p._id || p.id,
+          image: p.imageUrl || p.image
+        }))
+        success = true
+        console.log(`✅ 成功抓取 ${allProducts.value.length} 項後端商品！`)
+      }
+    } catch (err) {
+      console.warn(`⚠️ 嘗試連線 ${url} 失敗:`, err)
     }
-  } catch (err) {
-    console.error('❌ 抓取後端真實商品失敗:', err)
-  } finally {
-    loadingProducts.value = false
   }
+  loadingProducts.value = false
 }
 
 const getProductImage = (item: Product) => item.imageUrl || item.image || ''
@@ -201,8 +211,7 @@ const copyReferralLink = () => {
 const saveBirthday = async () => {
   if (!userBirthday.value || !lineProfile.value?.userId) return
   try {
-    let targetBase = (import.meta.env.VITE_API_BASE_URL || API_BASE).replace(/\/$/, '')
-    const res = await fetch(`${targetBase}/api/users/birthday`, {
+    const res = await fetch(`${API_BASE}/api/users/birthday`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lineUserId: lineProfile.value.userId, birthday: userBirthday.value })
@@ -236,8 +245,7 @@ onMounted(async () => {
       lineProfile.value = profile
       if (!orderForm.value.payer.name) orderForm.value.payer.name = profile.displayName
 
-      let targetBase = (import.meta.env.VITE_API_BASE_URL || API_BASE).replace(/\/$/, '')
-      const userRes = await fetch(`${targetBase}/api/users/login`, {
+      const userRes = await fetch(`${API_BASE}/api/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -303,8 +311,7 @@ const executePayment = async () => {
       fullAddress: isStoreDelivery ? `${storeInput.value.name} (${storeInput.value.address})` : `${orderForm.value.recipient.city}${orderForm.value.recipient.district}${orderForm.value.recipient.address}`
     }
 
-    let targetBase = (import.meta.env.VITE_API_BASE_URL || API_BASE).replace(/\/$/, '')
-    const response = await fetch(`${targetBase}/api/orders`, {
+    const response = await fetch(`${API_BASE}/api/orders`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
