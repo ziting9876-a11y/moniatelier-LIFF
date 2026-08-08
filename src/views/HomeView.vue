@@ -531,8 +531,8 @@ const executePayment = async () => {
           🌸 正在為您載入最新花藝作品...
         </div>
 
-        <!-- 商品列表區塊 -->
-<div v-else class="product-grid">
+        <!-- 商品列表區塊 (已修復標籤結構) -->
+        <div v-else class="product-grid">
           <div v-for="item in products" :key="getProductId(item)" class="product-card">
             <div class="image-wrapper" @click="openProductDetail(item)">
               <!-- 左上角編號標籤 -->
@@ -579,6 +579,7 @@ const executePayment = async () => {
             </div>
           </div>
         </div>
+      </section>
 
       <div class="cart-floating-bar" v-if="totalCartItemsCount > 0">
         <div class="bar-info" @click="showCartDrawer = true">
@@ -799,10 +800,19 @@ const executePayment = async () => {
           <p class="detail-desc">{{ selectedProductDetail.description }}</p>
           <div class="detail-footer">
             <div class="modal-price-box">
-              <span v-if="selectedProductDetail.originalPrice" class="modal-old-price">
-                原價 NT$ {{ selectedProductDetail.originalPrice.toLocaleString() }}
-              </span>
-              <span class="detail-price">NT$ {{ selectedProductDetail.price.toLocaleString() }}</span>
+              <template v-if="selectedProductDetail.originalPrice && selectedProductDetail.price && Number(selectedProductDetail.originalPrice) > Number(selectedProductDetail.price)">
+                <span class="modal-old-price">
+                  原價 NT$ {{ Number(selectedProductDetail.originalPrice).toLocaleString() }}
+                </span>
+                <span class="detail-price">
+                  NT$ {{ Number(selectedProductDetail.price).toLocaleString() }}
+                </span>
+              </template>
+              <template v-else>
+                <span class="detail-price">
+                  NT$ {{ Number(selectedProductDetail.price || selectedProductDetail.originalPrice).toLocaleString() }}
+                </span>
+              </template>
             </div>
             <button class="add-btn" @click="cartStore.addToCart(getProductId(selectedProductDetail)); closeProductDetail()">加入購物車</button>
           </div>
@@ -834,21 +844,7 @@ const executePayment = async () => {
             type="button"
             :disabled="day.isDisabled || !day.isCurrentMonth"
             @click="selectDate(day)"
-            :style="{
-              width: '100%',
-              height: '38px',
-              border: 'none',
-              borderRadius: '50%',
-              backgroundColor: day.isSelected ? '#34444E' : 'transparent',
-              color: day.isSelected ? '#FFFFFF' : (day.isDisabled ? '#CBD5E1' : '#2D3748'),
-              cursor: (day.isDisabled || !day.isCurrentMonth) ? 'not-allowed' : 'pointer',
-              fontWeight: day.isSelected ? 'bold' : 'normal',
-              opacity: !day.isCurrentMonth ? 0 : (day.isDisabled ? 0.35 : 1),
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '14px'
-            }"
+            :class="['calendar-day-btn', { selected: day.isSelected, disabled: day.isDisabled || !day.isCurrentMonth }]"
           >
             {{ day.dayNum || '' }}
           </button>
@@ -938,6 +934,33 @@ const executePayment = async () => {
 </template>
 
 <style scoped>
+.calendar-day-btn {
+  width: 100%;
+  height: 38px;
+  border: none;
+  border-radius: 50%;
+  background-color: transparent;
+  color: #2D3748;
+  cursor: pointer;
+  font-weight: normal;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.calendar-day-btn.selected {
+  background-color: #34444E;
+  color: #FFFFFF;
+  font-weight: bold;
+}
+
+.calendar-day-btn.disabled {
+  color: #CBD5E1;
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
 .loading-state {
   text-align: center;
   color: #FFFFFF;
@@ -1468,6 +1491,7 @@ const executePayment = async () => {
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
