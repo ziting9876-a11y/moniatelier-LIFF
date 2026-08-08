@@ -1423,11 +1423,12 @@ const executePayment = async () => {
   border: 1px solid #F3EBE6;
 }
 
+/* 1. 商品列表卡片的圖片容器背景色 */
 .image-wrapper {
   position: relative;
   cursor: pointer;
   height: 280px;
-  background-color: #FCEFE9;
+  background-color: #34444E; /* 👈 將原本的 #FCEFE9 改為墨凝企業色 #34444E (若想用純白可改 #FFFFFF) */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1435,10 +1436,12 @@ const executePayment = async () => {
   box-sizing: border-box;
 }
 
-.image-wrapper img {
+/* 2. 商品詳情 Modal 的圖片背景色 */
+.detail-image-wrapper img {
   width: 100%;
-  height: 100%;
+  height: 300px;
   object-fit: contain;
+  background-color: #34444E; /* 👈 同步改為墨凝企業色 #34444E */
 }
 
 .badge-no {
