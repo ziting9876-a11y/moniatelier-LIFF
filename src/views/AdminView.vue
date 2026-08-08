@@ -294,7 +294,7 @@ const deleteProduct = async (id) => {
 }
 
 // 格式轉換工具
-const formatStatus = (s) => ({ PENDING: '待付款', PAID: '已付款', accepted: '已接單', in_production: '製作中', delivering: '配送中', completed: '已完成' }[s] || s)
+const formatStatus = (s) => ({ PENDING: '待付款', PAID: '已付款 / 待處理', accepted: '已接單', in_production: '製作中', delivering: '配送中', completed: '已完成' }[s] || s)
 const formatDeliveryMethod = (m) => ({ black_cat: '黑貓宅急便', store_pickup: '門市自取', cvs: '超商取貨' }[m] || m || '未指定')
 const formatDate = (d) => d ? new Date(d).toLocaleString('zh-TW') : ''
 const getFullAddress = (o) => o.selectedStore ? `${o.selectedStore.name} (${o.selectedStore.address})` : (o.recipient?.address || '門市自取 / 無地址')
@@ -309,11 +309,12 @@ onMounted(() => {
 .admin-wrapper {
   max-width: 950px;
   margin: 20px auto;
-  padding: 20px;
+  padding: 24px;
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #333333;
 }
 
 .brand-header h2 {
@@ -361,7 +362,116 @@ onMounted(() => {
 }
 
 .btn-add { background: #3a4750; color: #fff; }
-.btn-refresh { background: #edf2f7; color: #4a5568; }
+.btn-refresh { background: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0; }
+
+.state-msg {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+/* 🎯 訂單卡片樣式還原 */
+.order-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 20px;
+  background: #fafafa;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+
+.order-no {
+  font-size: 1.05rem;
+  color: #2d3748;
+}
+
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  background: #e2e8f0;
+  color: #4a5568;
+}
+
+.status-badge.PAID { background: #feebc8; color: #744210; }
+.status-badge.in_production { background: #feebc8; color: #744210; }
+.status-badge.completed { background: #c6f6d5; color: #22543d; }
+
+.card-body p {
+  margin: 6px 0;
+  color: #4a5568;
+}
+
+.delivery-highlight {
+  background-color: #fef3c7;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin: 10px 0;
+  display: inline-block;
+}
+
+.date-tag {
+  color: #d97706;
+  font-weight: bold;
+  font-size: 1.05rem;
+}
+
+.price {
+  color: #e53e3e;
+  font-weight: bold;
+}
+
+.time-text {
+  font-size: 0.85rem;
+  color: #a0aec0;
+  margin-top: 6px;
+}
+
+.btn-detail {
+  width: 100%;
+  margin: 12px 0;
+  padding: 10px;
+  background-color: #3a4750;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+/* 按鈕排列與樣式修正 */
+.action-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.action-buttons button {
+  padding: 8px;
+  background: #ffffff;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #4a5568;
+}
+
+.btn-complete {
+  grid-column: span 3;
+  background: #48bb78 !important;
+  color: #ffffff !important;
+  font-weight: bold;
+  border: none !important;
+}
 
 /* 商品網格 */
 .products-grid {
