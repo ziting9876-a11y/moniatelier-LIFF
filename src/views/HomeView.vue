@@ -77,6 +77,15 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'https://moni-atelier-bac
 const route = useRoute()
 const cartStore = useCartStore()
 
+// --- 🎯 表單與 State 宣告（必須在使用前宣告） ---
+const orderForm = ref({
+  deliveryDate: '',
+  deliveryMethod: 'black_cat',
+  selectedStore: null as any,
+  payer: { name: '', phone: '', email: '' },
+  recipient: { name: '', phone: '', city: '台北市', district: '中正區', address: '' }
+})
+
 // --- 🎯 步驟切換控制 ---
 const currentStep = ref(1)
 
@@ -337,11 +346,10 @@ const fetchMyOrders = async () => {
 
 // 🌸 連動 LINE 自動登入並載入點數（強制帶入 pictureUrl）
 const loginBackendUser = async (profile: { userId: string; displayName: string; pictureUrl?: string }) => {
-  // 🔍 這裡明確將 pictureUrl 取出並組進 payload
   const payload = {
     lineUserId: profile.userId,
     displayName: profile.displayName,
-    pictureUrl: profile.pictureUrl || '', // 👈 確保抓到 LINE 頭像網址
+    pictureUrl: profile.pictureUrl || '',
     referrerId: (route.query.ref as string) || ''
   }
 
@@ -384,26 +392,11 @@ const loginBackendUser = async (profile: { userId: string; displayName: string; 
   }
 }
 
-// --- 🎯 頁面初始化 LIFF、會員資料與付款轉址檢查 ---
+// --- 🌸 頁面初始化 LIFF 、會員資料與付款轉址檢查 ---
 onMounted(async () => {
   await fetchProducts()
 
-  if (route.query.tab === 'member') {
-    activeTab.value = 'member'
-  }
-
-  const statusParam = route.query.status as string
-  const orderNoParam = route.query.orderNo as string
-
-  if (statusParam === 'success') {
-    successOrderNo.value = orderNoParam || ''
-    showSuccessModal.value = true
-    cartStore.cart = {}
-    localStorage.removeItem('cart')
-  } else if (statusParam === 'failed' || statusParam === 'error') {
-    alert('❌ 付款流程未完成或發生錯誤，請重新嘗試。')
-  }
-
+  // 處理網址夾帶的推薦商品加入購物車
   const addParam = route.query.add as string
   if (addParam) {
     const productIds = addParam.split(',').map(id => id.trim()).filter(Boolean)
@@ -413,17 +406,41 @@ onMounted(async () => {
 
   try {
     await liff.init({ liffId: LIFF_ID })
+    
     if (liff.isLoggedIn()) {
       const profile = await liff.getProfile()
       lineProfile.value = profile
-      if (!orderForm.value.payer.name) orderForm.value.payer.name = profile.displayName
+      if (profile && profile.displayName && !orderForm.value.payer.name) {
+        orderForm.value.payer.name = profile.displayName
+      }
       await loginBackendUser(profile)
+    } else {
+      liff.login()
+      return
     }
   } catch (err) {
-    console.warn('LIFF 初始化失敗:', err)
+    console.warn('⚠️ LIFF 初始化或取得 Profile 失敗:', err)
   }
 
-  if (!orderForm.value.deliveryDate) orderForm.value.deliveryDate = minDeliveryDateStr.value
+  if (!orderForm.value.deliveryDate) {
+    orderForm.value.deliveryDate = minDeliveryDateStr.value
+  }
+
+  if (route.query.tab === 'member') {
+    activeTab.value = 'member'
+  }
+
+  const statusParam = route.query.status as string
+  const orderNoParam = route.query.orderNo as string
+
+  if (statusParam === 'success') {
+    activeTab.value = 'member'
+    alert(`🌸 付款成功！您的訂單編號：${orderNoParam || '已成立'} 已完成付款。`)
+    window.history.replaceState({}, document.title, window.location.pathname)
+  } else if (statusParam === 'failed' || statusParam === 'error') {
+    alert('⚠️ 付款程序未完成或發生異常，請重新嘗試。')
+    window.history.replaceState({}, document.title, window.location.pathname)
+  }
 })
 
 const taiwanDistricts: Record<string, string[]> = {
@@ -440,14 +457,6 @@ const handleSameAsPayer = () => {
     orderForm.value.recipient.phone = orderForm.value.payer.phone
   }
 }
-
-const orderForm = ref({
-  deliveryDate: '',
-  deliveryMethod: 'black_cat',
-  selectedStore: null as any,
-  payer: { name: '', phone: '', email: '' },
-  recipient: { name: '', phone: '', city: '台北市', district: '中正區', address: '' }
-})
 
 const storeNamePlaceholder = computed(() => {
   return orderForm.value.deliveryMethod === 'familymart' 
