@@ -159,9 +159,15 @@
           <tbody>
             <tr v-for="user in users" :key="user._id">
               <td>
-                <div class="user-name-cell">
-                  <strong>{{ user.displayName || '未提供名稱' }}</strong>
-                  <span class="sub-id">ID: {{ user.lineUserId }}</span>
+                <div class="user-row-flex">
+                  <!-- 🌸 表格名字前方的頭像與金色框 -->
+                  <div class="table-avatar-box">
+                    <img :src="user.pictureUrl || defaultAvatar" class="table-avatar-img" />
+                  </div>
+                  <div class="user-name-cell">
+                    <strong>{{ user.displayName || '未提供名稱' }}</strong>
+                    <span class="sub-id">ID: {{ user.lineUserId }}</span>
+                  </div>
                 </div>
               </td>
               <td>
@@ -195,10 +201,16 @@
         <hr />
 
         <div class="member-profile-card">
-          <img :src="selectedMemberDetail.pictureUrl || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'" class="modal-avatar" />
+          <!-- 🌸 Modal 內的頭像框與皇冠裝飾 -->
+          <div class="avatar-frame-wrapper">
+            <div class="avatar-box">
+              <img :src="selectedMemberDetail.pictureUrl || defaultAvatar" class="modal-avatar" />
+            </div>
+            <span class="vip-crown">👑</span>
+          </div>
           <div class="modal-user-meta">
             <h4>{{ selectedMemberDetail.displayName || '未提供名稱' }}</h4>
-            <span class="badge-vip">👑 MONI VIP 會員</span>
+            <span class="badge-vip">🌸 MONI VIP 會員</span>
           </div>
         </div>
 
@@ -347,6 +359,7 @@ import { ref, onMounted } from 'vue'
 
 const API_BASE_URL = 'https://moni-atelier-backend.onrender.com'
 const LIFF_ID = '2010913515-HfcsIAK0'
+const defaultAvatar = 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
 
 const currentTab = ref('orders')
 
@@ -593,11 +606,14 @@ onMounted(() => {
 .btn-add { background: #3a4750; color: #fff; }
 .btn-refresh { background: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0; }
 
-/* 👥 會員表格樣式 */
+/* 👥 會員表格樣式與頭像 */
 .table-responsive { overflow-x: auto; margin-top: 10px; }
 .user-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .user-table th, .user-table td { padding: 12px 14px; text-align: left; border-bottom: 1px solid #e2e8f0; }
 .user-table th { background: #f8fafc; color: #4a5568; font-weight: bold; }
+.user-row-flex { display: flex; align-items: center; gap: 10px; }
+.table-avatar-box { width: 38px; height: 38px; border-radius: 50%; overflow: hidden; border: 2px solid #d4af37; background: #fff; flex-shrink: 0; box-shadow: 0 0 6px rgba(212, 175, 55, 0.5); }
+.table-avatar-img { width: 100%; height: 100%; object-fit: cover; }
 .user-name-cell { display: flex; flex-direction: column; }
 .sub-id { font-size: 0.75rem; color: #a0aec0; }
 .points-badge-table { background: #fef3c7; color: #92400e; font-weight: bold; padding: 4px 10px; border-radius: 12px; display: inline-block; }
@@ -608,12 +624,18 @@ onMounted(() => {
 .btn-adjust-points { background: #3a4750; color: #ffffff; border: none; padding: 6px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.8rem; }
 .btn-adjust-points:hover { background: #2d3748; }
 
-/* 🌸 會員完整資料 Modal 樣式 */
+/* 🌸 會員完整資料 Modal 樣式與頭像框 */
 .member-detail-modal { max-width: 540px !important; }
 .modal-header-flex { display: flex; justify-content: space-between; align-items: center; }
 .close-icon-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #718096; }
 .member-profile-card { display: flex; align-items: center; gap: 14px; background: #f8fafc; padding: 14px; border-radius: 10px; margin: 12px 0; }
-.modal-avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid #3a4750; }
+
+/* 👑 尊榮頭像框與皇冠特效 */
+.avatar-frame-wrapper { position: relative; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.avatar-box { width: 52px; height: 52px; border-radius: 50%; border: 2px solid #d4af37; overflow: hidden; background: #ffffff; box-shadow: 0 0 10px rgba(212, 175, 55, 0.6); }
+.modal-avatar { width: 100%; height: 100%; object-fit: cover; }
+.vip-crown { position: absolute; top: -6px; right: -2px; font-size: 1.1rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); z-index: 3; }
+
 .modal-user-meta h4 { margin: 0 0 4px 0; font-size: 1.1rem; color: #2d3748; }
 .badge-vip { background: #edf2f7; color: #b7791f; font-size: 0.75rem; font-weight: bold; padding: 2px 8px; border-radius: 10px; }
 .detail-info-box { background: #faf9f6; padding: 14px; border-radius: 8px; font-size: 0.88rem; line-height: 1.6; color: #4a5568; }
@@ -680,7 +702,7 @@ onMounted(() => {
 
 /* 🎨 樣式自訂區塊樣式 */
 .style-config-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
-.config-title { margin: 0 0 10px 0; font-size: 0.9rem; color: #34444E; }
+.config-title { margin: 0 0 10px 0; font-size: 0.90rem; color: #34444E; }
 .color-picker { width: 100%; height: 36px; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; padding: 2px; }
 .range-slider { width: 100%; cursor: pointer; }
 
