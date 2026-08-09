@@ -34,9 +34,9 @@ const defaultAvatar = 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
 // --- 🎯 頁面 Tab 控制 ('shop' 或 'member') ---
 const activeTab = ref<'shop' | 'member'>('shop')
 
-// --- 🎯 會員紅利點數與系統 State ---
-const userPoints = ref(0)
-const usedPointsInput = ref(0)
+// --- 🎯 會員紅利點數與系統 State (強制預設 100 點) ---
+const userPoints = ref(100)
+const usedPointsInput = ref(100)
 const userBirthday = ref('')
 const hasBirthday = ref(false)
 const showBirthdayModal = ref(false)
@@ -307,7 +307,7 @@ const saveBirthday = async () => {
   if (success && responseData) {
     hasBirthday.value = true
     showBirthdayModal.value = false
-    userPoints.value = responseData.points !== undefined ? responseData.points : userPoints.value
+    userPoints.value = responseData.points !== undefined ? responseData.points : 100
     alert(responseData.message || '生日日期登記成功！')
   } else {
     alert('登記生日失敗，請稍後再試。')
@@ -335,7 +335,7 @@ const fetchMyOrders = async () => {
   }
 }
 
-// 🌸 連動 LINE 自動登入並獲取/建立首購 100 點紅利（含備援連線機制）
+// 🌸 連動 LINE 自動登入並載入點數（保底 100 點）
 const loginBackendUser = async (profile: { userId: string; displayName: string }) => {
   const payload = {
     lineUserId: profile.userId,
@@ -359,7 +359,6 @@ const loginBackendUser = async (profile: { userId: string; displayName: string }
       })
       const data = await res.json()
       if (res.ok && data.status === 'success' && data.user) {
-        // 🎯 取得後端點數，若後端傳回 0 點，前端直接保護性補滿 100 點！
         userPoints.value = (data.user.points !== undefined && data.user.points > 0) ? data.user.points : 100
         usedPointsInput.value = userPoints.value
         
@@ -375,8 +374,7 @@ const loginBackendUser = async (profile: { userId: string; displayName: string }
     }
   }
 
-  // 🛡️ 防護保險機制：若連線異常或資料庫傳回 0 點，直接在前端賦予預設首購 100 點
-  if (!success || userPoints.value === 0) {
+  if (!success || userPoints.value <= 0) {
     userPoints.value = 100
     usedPointsInput.value = 100
   }
@@ -386,12 +384,10 @@ const loginBackendUser = async (profile: { userId: string; displayName: string }
 onMounted(async () => {
   await fetchProducts()
 
-  // 1. 檢查 URL Tab 參數（若為 ?tab=member 自動開會員專區）
   if (route.query.tab === 'member') {
     activeTab.value = 'member'
   }
 
-  // 2. 檢查藍新付款轉址狀態
   const statusParam = route.query.status as string
   const orderNoParam = route.query.orderNo as string
 
@@ -411,7 +407,6 @@ onMounted(async () => {
     currentStep.value = 2
   }
 
-  // 3. 初始化 LINE LIFF 並自動連動 LINE 會員發送 100 點
   try {
     await liff.init({ liffId: LIFF_ID })
     if (liff.isLoggedIn()) {
@@ -770,7 +765,7 @@ const executePayment = async () => {
                 </div>
               </div>
 
-              <!-- 會員紅利折抵 -->
+              <!-- 會員紅利折抵 (已移除推薦好友按鈕) -->
               <div class="checkout-member-card">
                 <div class="member-info-header">
                   <span class="user-label">👤 {{ lineProfile?.displayName || '會員' }} 的專屬紅利</span>
@@ -783,12 +778,9 @@ const executePayment = async () => {
                   <span class="points-tip">折抵 NT$ {{ actualUsedPoints }} 元</span>
                 </div>
 
-                <div class="member-actions-row">
-                  <button v-if="!hasBirthday" type="button" class="btn-member-action" @click="showBirthdayModal = true">
+                <div class="member-actions-row" v-if="!hasBirthday">
+                  <button type="button" class="btn-member-action" @click="showBirthdayModal = true">
                     🎂 登錄生日領 $100 購物金
-                  </button>
-                  <button type="button" class="btn-member-action" @click="showReferralInfoModal = true">
-                    🔗 推薦好友領 $50 紅利
                   </button>
                 </div>
               </div>
