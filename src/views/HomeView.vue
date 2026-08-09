@@ -335,11 +335,12 @@ const fetchMyOrders = async () => {
   }
 }
 
-// 🌸 連動 LINE 自動登入並載入點數（保底 100 點）
-const loginBackendUser = async (profile: { userId: string; displayName: string }) => {
+// 🌸 連動 LINE 自動登入並載入點數（保底 100 點，並傳送 pictureUrl）
+const loginBackendUser = async (profile: { userId: string; displayName: string; pictureUrl?: string }) => {
   const payload = {
     lineUserId: profile.userId,
     displayName: profile.displayName,
+    pictureUrl: profile.pictureUrl || '', // 👈 確實將 LINE 頭像網址帶入 payload 傳送給後端
     referrerId: (route.query.ref as string) || ''
   }
 
