@@ -344,7 +344,7 @@ const fetchMyOrders = async () => {
   }
 }
 
-// 🌸 連動 LINE 自動登入並載入點數（強制帶入 pictureUrl）
+// 🌸 連動 LINE 自動登入並載入點數（嚴格限制僅限註冊當下發放 100 點）
 const loginBackendUser = async (profile: { userId: string; displayName: string; pictureUrl?: string }) => {
   const payload = {
     lineUserId: profile.userId,
@@ -371,7 +371,8 @@ const loginBackendUser = async (profile: { userId: string; displayName: string; 
       })
       const data = await res.json()
       if (res.ok && data.status === 'success' && data.user) {
-        userPoints.value = (data.user.points !== undefined && data.user.points > 0) ? data.user.points : 100
+        // 直接採用後端回傳的點數，不強制覆蓋
+        userPoints.value = data.user.points !== undefined ? data.user.points : 100
         usedPointsInput.value = userPoints.value
         
         if (data.user.birthday) {
@@ -386,7 +387,7 @@ const loginBackendUser = async (profile: { userId: string; displayName: string; 
     }
   }
 
-  if (!success || userPoints.value <= 0) {
+  if (!success) {
     userPoints.value = 100
     usedPointsInput.value = 100
   }
