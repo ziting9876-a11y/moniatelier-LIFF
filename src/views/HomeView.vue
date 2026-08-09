@@ -337,17 +337,15 @@ const fetchMyOrders = async () => {
 
 // 🌸 連動 LINE 自動登入並載入點數（強制帶入 pictureUrl）
 const loginBackendUser = async (profile: { userId: string; displayName: string; pictureUrl?: string }) => {
-  // 🌸 明確印出檢查，確保在瀏覽器/手機上能看到頭像網址
-  console.log("🔍 [LIFF 取得的完整 profile]:", profile)
-
+  // 🔍 這裡明確將 pictureUrl 取出並組進 payload
   const payload = {
     lineUserId: profile.userId,
     displayName: profile.displayName,
-    pictureUrl: profile.pictureUrl || '', // 👈 確保這行有確實讀取到
+    pictureUrl: profile.pictureUrl || '', // 👈 確保抓到 LINE 頭像網址
     referrerId: (route.query.ref as string) || ''
   }
 
-  console.log("📤 [傳送給後端的 payload]:", payload)
+  console.log("📤 [準備傳送給後端的 payload]:", payload)
 
   const targets = [
     `${API_BASE}/api/users/login`,
