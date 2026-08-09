@@ -151,7 +151,7 @@
             <tr>
               <th>會員姓名 / 暱稱</th>
               <th>目前紅利點數</th>
-              <th>生日月份</th>
+              <th>生日日期</th>
               <th>加入時間</th>
               <th>操作</th>
             </tr>
@@ -170,13 +170,65 @@
               <td>{{ user.birthday || '未填寫' }}</td>
               <td>{{ formatDate(user.createdAt) }}</td>
               <td>
-                <button class="btn-adjust-points" @click="openAdjustPointsModal(user)">
-                  🎁 手動調整/發放紅利
-                </button>
+                <div class="action-cell-btns">
+                  <button class="btn-view-member" @click="openMemberDetailModal(user)">
+                    🔍 查看完整資料
+                  </button>
+                  <button class="btn-adjust-points" @click="openAdjustPointsModal(user)">
+                    🎁 調整紅利
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- 🎯 會員完整資料與歷史訂單 Modal -->
+    <div v-if="selectedMemberDetail" class="modal-overlay" @click.self="selectedMemberDetail = null">
+      <div class="modal-content member-detail-modal">
+        <div class="modal-header-flex">
+          <h3>🌸 會員完整資料</h3>
+          <button class="close-icon-btn" @click="selectedMemberDetail = null">✕</button>
+        </div>
+        <hr />
+
+        <div class="member-profile-card">
+          <img :src="selectedMemberDetail.pictureUrl || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'" class="modal-avatar" />
+          <div class="modal-user-meta">
+            <h4>{{ selectedMemberDetail.displayName || '未提供名稱' }}</h4>
+            <span class="badge-vip">👑 MONI VIP 會員</span>
+          </div>
+        </div>
+
+        <div class="detail-info-box">
+          <p><strong>LINE User ID：</strong><code>{{ selectedMemberDetail.lineUserId }}</code></p>
+          <p><strong>目前紅利點數：</strong>🎁 <span class="highlight-pts">{{ selectedMemberDetail.points || 0 }} 點</span></p>
+          <p><strong>完整生日日期：</strong>🎂 {{ selectedMemberDetail.birthday || '未登記' }}</p>
+          <p><strong>電子信箱：</strong>📧 {{ selectedMemberDetail.email || '未填寫' }}</p>
+          <p><strong>加入時間：</strong>📅 {{ formatDate(selectedMemberDetail.createdAt) }}</p>
+          <p><strong>推薦人 (referredBy)：</strong>🔗 {{ selectedMemberDetail.referredBy || '無 (自行加入)' }}</p>
+        </div>
+
+        <h4 class="sub-title">📦 該會員歷史訂單紀錄 ({{ getMemberOrders(selectedMemberDetail).length }} 筆)</h4>
+        <div class="member-orders-container">
+          <div v-if="getMemberOrders(selectedMemberDetail).length === 0" class="no-order-text">
+            此會員尚無下單紀錄。
+          </div>
+          <div v-else class="admin-sub-order-list">
+            <div v-for="ord in getMemberOrders(selectedMemberDetail)" :key="ord.merchantOrderNo" class="admin-sub-order-item">
+              <div class="sub-order-top">
+                <span><strong>單號：</strong>{{ ord.merchantOrderNo }}</span>
+                <span class="status-tag-sm" :class="ord.status">{{ formatStatus(ord.status) }}</span>
+              </div>
+              <p>📅 送達日：{{ ord.deliveryDate || '未指定' }} | 🚚 {{ formatDeliveryMethod(ord.deliveryMethod) }}</p>
+              <p>💰 金額：<strong>NT$ {{ ord.totalAmount?.toLocaleString() }}</strong> <span v-if="ord.usedPoints > 0">(折抵 {{ ord.usedPoints }} 點)</span></p>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-close" @click="selectedMemberDetail = null">關閉視窗</button>
       </div>
     </div>
 
@@ -330,6 +382,7 @@ const productForm = ref({ ...defaultProductForm })
 const users = ref([])
 const loadingUsers = ref(false)
 const selectedUserForPoints = ref(null)
+const selectedMemberDetail = ref(null) // 🌸 會員完整資料 Modal 控制
 const adjustForm = ref({ pointsChange: 50, actionType: 'add' })
 
 // 🎨 動態計算標籤 Inline Style（顏色與透明度）
@@ -338,7 +391,6 @@ const getBadgeStyle = (product, type) => {
   const bgColor = product.badgeBgColor || '#ffffff'
   const opacity = (product.badgeOpacity !== undefined ? product.badgeOpacity : 100) / 100
 
-  // 將 hex 轉為 rgba 以支援透明度
   let r = 255, g = 255, b = 255
   if (bgColor.startsWith('#') && bgColor.length === 7) {
     r = parseInt(bgColor.slice(1, 3), 16)
@@ -392,6 +444,20 @@ const fetchUsers = async () => {
   } finally {
     loadingUsers.value = false
   }
+}
+
+// 🌸 開啟會員完整資料 Modal
+const openMemberDetailModal = (user) => {
+  selectedMemberDetail.value = user
+}
+
+// 🌸 篩選該會員的歷史訂單
+const getMemberOrders = (user) => {
+  if (!user || !orders.value.length) return []
+  return orders.value.filter(o => 
+    o.lineUserId === user.lineUserId || 
+    (o.payer?.email && o.payer.email === user.email)
+  )
 }
 
 // 開啟手動調整紅利 Modal
@@ -535,8 +601,33 @@ onMounted(() => {
 .user-name-cell { display: flex; flex-direction: column; }
 .sub-id { font-size: 0.75rem; color: #a0aec0; }
 .points-badge-table { background: #fef3c7; color: #92400e; font-weight: bold; padding: 4px 10px; border-radius: 12px; display: inline-block; }
+
+.action-cell-btns { display: flex; gap: 8px; align-items: center; }
+.btn-view-member { background: #3182ce; color: #ffffff; border: none; padding: 6px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.8rem; }
+.btn-view-member:hover { background: #2b6cb0; }
 .btn-adjust-points { background: #3a4750; color: #ffffff; border: none; padding: 6px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.8rem; }
 .btn-adjust-points:hover { background: #2d3748; }
+
+/* 🌸 會員完整資料 Modal 樣式 */
+.member-detail-modal { max-width: 540px !important; }
+.modal-header-flex { display: flex; justify-content: space-between; align-items: center; }
+.close-icon-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #718096; }
+.member-profile-card { display: flex; align-items: center; gap: 14px; background: #f8fafc; padding: 14px; border-radius: 10px; margin: 12px 0; }
+.modal-avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid #3a4750; }
+.modal-user-meta h4 { margin: 0 0 4px 0; font-size: 1.1rem; color: #2d3748; }
+.badge-vip { background: #edf2f7; color: #b7791f; font-size: 0.75rem; font-weight: bold; padding: 2px 8px; border-radius: 10px; }
+.detail-info-box { background: #faf9f6; padding: 14px; border-radius: 8px; font-size: 0.88rem; line-height: 1.6; color: #4a5568; }
+.detail-info-box code { background: #edf2f7; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; color: #2d3748; }
+.highlight-pts { color: #d97706; font-weight: bold; font-size: 1.05rem; }
+.sub-title { margin: 16px 0 8px 0; font-size: 0.95rem; color: #3a4750; }
+.member-orders-container { max-height: 180px; overflow-y: auto; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; }
+.no-order-text { text-align: center; color: #a0aec0; padding: 16px; font-size: 0.85rem; }
+.admin-sub-order-item { background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; margin-bottom: 8px; font-size: 0.82rem; }
+.sub-order-top { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 4px; }
+.status-tag-sm { padding: 1px 6px; border-radius: 8px; font-size: 0.7rem; }
+.status-tag-sm.completed { background: #c6f6d5; color: #22543d; }
+.status-tag-sm.PAID { background: #ebf8ff; color: #2b6cb0; }
+.status-tag-sm.PENDING { background: #feebc8; color: #744210; }
 
 .select-input { width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px; margin-top: 4px; }
 .used-points-tag { color: #d97706; font-weight: bold; font-size: 0.85rem; }
