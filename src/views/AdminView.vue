@@ -392,12 +392,15 @@ const defaultAvatar = 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
 const currentTab = ref('orders')
 
 // 🌸 新增：訂單篩選與批次處理 State
+const loadingOrders = ref(true)
+const orders = ref([])
 const filterStatus = ref('all')
 const selectedOrders = ref([])
 const batchAction = ref('')
 
-// 🌸 新增：篩選邏輯
+// 保留這一個完整的計算屬性即可
 const filteredOrders = computed(() => {
+  if (!orders.value) return []
   if (filterStatus.value === 'all') return orders.value
   return orders.value.filter(o => o.status === filterStatus.value)
 })
