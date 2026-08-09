@@ -162,7 +162,7 @@
                 <div class="user-row-flex">
                   <!-- 🌸 表格名字前方的頭像與金色框 -->
                   <div class="table-avatar-box">
-                    <img :src="user.pictureUrl || defaultAvatar" class="table-avatar-img" />
+                    <img :src="user.pictureUrl || user.avatar || defaultAvatar" class="table-avatar-img" />
                   </div>
                   <div class="user-name-cell">
                     <strong>{{ user.displayName || '未提供名稱' }}</strong>
@@ -204,7 +204,7 @@
           <!-- 🌸 Modal 內的頭像框與皇冠裝飾 -->
           <div class="avatar-frame-wrapper">
             <div class="avatar-box">
-              <img :src="selectedMemberDetail.pictureUrl || defaultAvatar" class="modal-avatar" />
+              <img :src="selectedMemberDetail.pictureUrl || selectedMemberDetail.avatar || defaultAvatar" class="modal-avatar" />
             </div>
             <span class="vip-crown">👑</span>
           </div>
@@ -443,14 +443,17 @@ const fallbackCopyText = (text) => {
   document.body.removeChild(textArea)
 }
 
-// 取得會員列表
+// 取得會員列表（自動對應 pictureUrl）
 const fetchUsers = async () => {
   loadingUsers.value = true
   try {
     const res = await fetch(`${API_BASE_URL}/api/users`)
     const data = await res.json()
     if (data.status === 'success') {
-      users.value = data.users || []
+      users.value = (data.users || []).map(u => ({
+        ...u,
+        pictureUrl: u.pictureUrl || u.avatar || ''
+      }))
     }
   } catch (err) {
     console.error('❌ 抓取會員失敗:', err)
@@ -592,6 +595,7 @@ const getFullAddress = (o) => o.selectedStore ? `${o.selectedStore.name} (${o.se
 onMounted(() => {
   fetchOrders()
   fetchProducts()
+  fetchUsers()
 })
 </script>
 
