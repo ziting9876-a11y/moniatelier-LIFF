@@ -616,7 +616,7 @@ onMounted(() => {
 .user-table th, .user-table td { padding: 12px 14px; text-align: left; border-bottom: 1px solid #e2e8f0; }
 .user-table th { background: #f8fafc; color: #4a5568; font-weight: bold; }
 .user-row-flex { display: flex; align-items: center; gap: 10px; }
-.table-avatar-box { width: 38px; height: 38px; border-radius: 50%; overflow: hidden; border: 2px solid #d4af37; background: #fff; flex-shrink: 0; box-shadow: 0 0 6px rgba(212, 175, 55, 0.5); }
+.table-avatar-box { width: 38px; height: 38px; border-radius: 50%; overflow: hidden; border: 2px solid #C5A059; background: #fff; flex-shrink: 0; box-shadow: 0 0 6px rgba(197, 160, 89, 0.4); }
 .table-avatar-img { width: 100%; height: 100%; object-fit: cover; }
 .user-name-cell { display: flex; flex-direction: column; }
 .sub-id { font-size: 0.75rem; color: #a0aec0; }
@@ -635,10 +635,10 @@ onMounted(() => {
 .member-profile-card { display: flex; align-items: center; gap: 14px; background: #f8fafc; padding: 14px; border-radius: 10px; margin: 12px 0; }
 
 /* 👑 尊榮頭像框與皇冠特效 */
-.avatar-frame-wrapper { position: relative; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.avatar-box { width: 52px; height: 52px; border-radius: 50%; border: 2px solid #d4af37; overflow: hidden; background: #ffffff; box-shadow: 0 0 10px rgba(212, 175, 55, 0.6); }
+.avatar-frame-wrapper { position: relative; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.avatar-box { width: 48px; height: 48px; border-radius: 50%; border: 2px solid #C5A059; overflow: hidden; background: #ffffff; box-shadow: 0 0 8px rgba(197, 160, 89, 0.5); }
 .modal-avatar { width: 100%; height: 100%; object-fit: cover; }
-.vip-crown { position: absolute; top: -6px; right: -2px; font-size: 1.1rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); z-index: 3; }
+.vip-crown { position: absolute; top: -2px; right: -2px; font-size: 0.85rem; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3)); z-index: 3; }
 
 .modal-user-meta h4 { margin: 0 0 4px 0; font-size: 1.1rem; color: #2d3748; }
 .badge-vip { background: #edf2f7; color: #b7791f; font-size: 0.75rem; font-weight: bold; padding: 2px 8px; border-radius: 10px; }
