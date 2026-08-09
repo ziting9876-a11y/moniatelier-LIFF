@@ -93,8 +93,20 @@
         <div v-for="product in products" :key="product._id" class="product-admin-card">
           <div class="thumb-container">
             <img :src="product.imageUrl" :alt="product.name" class="product-thumb" />
-            <span v-if="product.badge" class="badge-tag">{{ product.badge }}</span>
-            <span v-if="product.tag" class="hot-tag">{{ product.tag }}</span>
+            <span 
+              v-if="product.badge" 
+              class="badge-tag" 
+              :style="getBadgeStyle(product, 'badge')"
+            >
+              {{ product.badge }}
+            </span>
+            <span 
+              v-if="product.tag" 
+              class="hot-tag" 
+              :style="getBadgeStyle(product, 'tag')"
+            >
+              {{ product.tag }}
+            </span>
             <span v-if="product.isHidden" class="hidden-badge">🔒 隱藏商品</span>
           </div>
 
@@ -230,6 +242,32 @@
           <div class="form-group" style="flex: 1;"><label>編號標籤：</label><input v-model="productForm.badge" placeholder="例：TOP.01" /></div>
           <div class="form-group" style="flex: 1;"><label>活動標籤：</label><input v-model="productForm.tag" placeholder="例：七夕花禮" /></div>
         </div>
+
+        <!-- 🌸 自訂標籤樣式設定區塊 -->
+        <div class="style-config-box">
+          <h4 class="config-title">🎨 標籤外觀自訂</h4>
+          <div class="form-row" style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex: 1;">
+              <label>編號字體顏色：</label>
+              <input type="color" v-model="productForm.badgeTextColor" class="color-picker" />
+            </div>
+            <div class="form-group" style="flex: 1;">
+              <label>活動字體顏色：</label>
+              <input type="color" v-model="productForm.tagTextColor" class="color-picker" />
+            </div>
+          </div>
+          <div class="form-row" style="display: flex; gap: 10px; align-items: center;">
+            <div class="form-group" style="flex: 1;">
+              <label>標籤背景顏色：</label>
+              <input type="color" v-model="productForm.badgeBgColor" class="color-picker" />
+            </div>
+            <div class="form-group" style="flex: 1;">
+              <label>背景不透明度 ({{ productForm.badgeOpacity }}%)：</label>
+              <input type="range" v-model.number="productForm.badgeOpacity" min="0" max="100" class="range-slider" />
+            </div>
+          </div>
+        </div>
+
         <div class="form-group"><label>商品分類：</label><input v-model="productForm.category" /></div>
         <div class="form-group"><label>商品名稱：</label><input v-model="productForm.name" /></div>
         <div class="form-group"><label>金額 (NT$)：</label><input type="number" v-model="productForm.price" /></div>
@@ -270,13 +308,49 @@ const products = ref([])
 const loadingProducts = ref(true)
 const showProductModal = ref(false)
 const editingProductId = ref(null)
-const productForm = ref({ name: '', category: '', price: null, originalPrice: null, badge: '', tag: '', description: '', imageUrl: '', shortUrl: '', isHidden: false })
+const defaultProductForm = { 
+  name: '', 
+  category: '不凋花 / 永生花', 
+  price: null, 
+  originalPrice: null, 
+  badge: '', 
+  tag: '', 
+  description: '', 
+  imageUrl: '', 
+  shortUrl: '', 
+  isHidden: false,
+  badgeTextColor: '#34444E',
+  tagTextColor: '#34444E',
+  badgeBgColor: '#ffffff',
+  badgeOpacity: 100
+}
+const productForm = ref({ ...defaultProductForm })
 
 // 會員管理 State
 const users = ref([])
 const loadingUsers = ref(false)
 const selectedUserForPoints = ref(null)
 const adjustForm = ref({ pointsChange: 50, actionType: 'add' })
+
+// 🎨 動態計算標籤 Inline Style（顏色與透明度）
+const getBadgeStyle = (product, type) => {
+  const textColor = type === 'badge' ? (product.badgeTextColor || '#34444E') : (product.tagTextColor || '#34444E')
+  const bgColor = product.badgeBgColor || '#ffffff'
+  const opacity = (product.badgeOpacity !== undefined ? product.badgeOpacity : 100) / 100
+
+  // 將 hex 轉為 rgba 以支援透明度
+  let r = 255, g = 255, b = 255
+  if (bgColor.startsWith('#') && bgColor.length === 7) {
+    r = parseInt(bgColor.slice(1, 3), 16)
+    g = parseInt(bgColor.slice(3, 5), 16)
+    b = parseInt(bgColor.slice(5, 7), 16)
+  }
+
+  return {
+    color: textColor,
+    backgroundColor: `rgba(${r}, ${g}, ${b}, ${opacity})`
+  }
+}
 
 // 🔗 複製一鍵導購連結至剪貼簿（優先複製 PicSee 短網址）
 const copyDirectPayLink = (product) => {
@@ -398,10 +472,19 @@ const updateStatus = async (orderNo, status) => {
 const openProductModal = (product = null) => {
   if (product) {
     editingProductId.value = product._id
-    productForm.value = { ...product, shortUrl: product.shortUrl || '', isHidden: product.isHidden || false }
+    productForm.value = { 
+      ...defaultProductForm,
+      ...product, 
+      shortUrl: product.shortUrl || '', 
+      isHidden: product.isHidden || false,
+      badgeTextColor: product.badgeTextColor || '#34444E',
+      tagTextColor: product.tagTextColor || '#34444E',
+      badgeBgColor: product.badgeBgColor || '#ffffff',
+      badgeOpacity: product.badgeOpacity !== undefined ? product.badgeOpacity : 100
+    }
   } else {
     editingProductId.value = null
-    productForm.value = { name: '', category: '不凋花 / 永生花', price: null, originalPrice: null, badge: '', tag: '', description: '', imageUrl: '', shortUrl: '', isHidden: false }
+    productForm.value = { ...defaultProductForm }
   }
   showProductModal.value = true
 }
@@ -476,14 +559,17 @@ onMounted(() => {
 .btn-refund { grid-column: span 3; background: #ed8936 !important; color: #fff !important; font-weight: bold; }
 .btn-cancel-order { grid-column: span 3; background: #e2e8f0 !important; color: #718096 !important; }
 
-/* 🌸 標籤絕對定位修正 */
+/* 🌸 商品列表與標籤樣式 */
 .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
 .product-admin-card { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #fafafa; display: flex; flex-direction: column; position: relative; }
 .thumb-container { position: relative; width: 100%; height: 180px; background: #34444e; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .product-thumb { width: 100%; height: 100%; object-fit: contain; }
 
-.badge-tag { position: absolute; top: 8px; left: 8px; background: #ffffff; color: #333333; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 2; }
-.hot-tag { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: #ffffff; color: #8b5e4c; padding: 2px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); white-space: nowrap; z-index: 2; }
+.badge-tag { position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 2; }
+
+/* 🌸 活動標籤定位至右下角 */
+.hot-tag { position: absolute; bottom: 8px; right: 8px; padding: 2px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); white-space: nowrap; z-index: 2; }
+
 .hidden-badge { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.7); color: #fff; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; z-index: 2; }
 
 .product-details { padding: 12px; flex-grow: 1; display: flex; flex-direction: column; gap: 4px; }
@@ -500,7 +586,14 @@ onMounted(() => {
 .product-actions button { flex: 1; padding: 8px; border: none; cursor: pointer; font-weight: bold; font-size: 0.85rem; }
 .btn-edit { background: #edf2f7; color: #2d3748; }
 .btn-delete { background: #fed7d7; color: #9b2c2c; }
+
+/* 🎨 樣式自訂區塊樣式 */
+.style-config-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+.config-title { margin: 0 0 10px 0; font-size: 0.9rem; color: #34444E; }
+.color-picker { width: 100%; height: 36px; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; padding: 2px; }
+.range-slider { width: 100%; cursor: pointer; }
+
 .form-group { margin-bottom: 12px; }
 .form-group label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; }
-.form-group input, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box; }
+.form-group input[type="text"], .form-group input[type="number"], .form-group textarea { width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box; }
 </style>
