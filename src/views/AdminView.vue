@@ -107,6 +107,13 @@
             </div>
           </div>
           
+          <!-- 新增：一鍵複製 LINE 導購連結按鈕 -->
+          <div class="copy-link-wrapper">
+            <button class="btn-copy-link" @click="copyDirectPayLink(product._id || product.id)">
+              🔗 複製 LINE 導購結帳連結
+            </button>
+          </div>
+
           <div class="product-actions">
             <button class="btn-edit" @click="openProductModal(product)">✏️ 編輯內容</button>
             <button class="btn-delete" @click="deleteProduct(product._id)">🗑️ 刪除</button>
@@ -247,6 +254,7 @@
 import { ref, onMounted } from 'vue'
 
 const API_BASE_URL = 'https://moni-atelier-backend.onrender.com'
+const LIFF_ID = '2010913515-HfcsIAK0'
 
 const currentTab = ref('orders')
 
@@ -267,6 +275,39 @@ const users = ref([])
 const loadingUsers = ref(false)
 const selectedUserForPoints = ref(null)
 const adjustForm = ref({ pointsChange: 50, actionType: 'add' })
+
+// 🔗 複製一鍵導購連結至剪貼簿
+const copyDirectPayLink = (productId) => {
+  if (!productId) return
+  const directLink = `https://liff.line.me/${LIFF_ID}?add=${productId}`
+
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(directLink).then(() => {
+      alert(`✅ 已成功複製 LINE 導購結帳連結！可直接貼給顧客：\n${directLink}`)
+    }).catch(() => {
+      fallbackCopyText(directLink)
+    })
+  } else {
+    fallbackCopyText(directLink)
+  }
+}
+
+const fallbackCopyText = (text) => {
+  const textArea = document.createElement('textarea')
+  textArea.value = text
+  textArea.style.position = 'fixed'
+  textArea.style.left = '-999999px'
+  document.body.appendChild(textArea)
+  textArea.focus()
+  textArea.select()
+  try {
+    document.execCommand('copy')
+    alert(`✅ 已成功複製 LINE 導購結帳連結！可直接貼給顧客：\n${text}`)
+  } catch (err) {
+    alert(`複製失敗，請手動複製以下網址：\n${text}`)
+  }
+  document.body.removeChild(textArea)
+}
 
 // 取得會員列表
 const fetchUsers = async () => {
@@ -428,7 +469,7 @@ onMounted(() => {
 .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
 .btn-save { flex: 2; padding: 10px; background: #3a4750; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
 .btn-cancel { flex: 1; padding: 10px; background: #e2e8f0; border: none; border-radius: 6px; cursor: pointer; }
-.btn-close { width: 100%; padding: 10px; background: #e2e8f0; border: none; border-radius: 6px; cursor: pointer; margin-top: 15px; font-weight: bold; }
+.btn-close { width: 100%; padding: 10px; background: #e2e8f0; border: none; border-radius: 4px; cursor: pointer; margin-top: 15px; font-weight: bold; }
 
 .order-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 16px; background: #fafafa; }
 .order-card.is-completed { background-color: #f0fff4; border-color: #c6f6d5; }
@@ -440,10 +481,17 @@ onMounted(() => {
 .btn-cancel-order { grid-column: span 3; background: #e2e8f0 !important; color: #718096 !important; }
 
 .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-.product-admin-card { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #fafafa; }
+.product-admin-card { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #fafafa; display: flex; flex-direction: column; }
 .thumb-container { position: relative; width: 100%; height: 160px; }
 .product-thumb { width: 100%; height: 100%; object-fit: cover; }
 .hidden-badge { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.7); color: #fff; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; }
+
+.product-details { padding: 10px; flex-grow: 1; }
+
+.copy-link-wrapper { padding: 0 10px 10px; }
+.btn-copy-link { width: 100%; background: #34444E; color: #ffffff; border: none; padding: 8px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+.btn-copy-link:hover { background: #243B53; }
+
 .product-actions { display: flex; border-top: 1px solid #e2e8f0; }
 .product-actions button { flex: 1; padding: 6px; border: none; cursor: pointer; }
 .btn-edit { background: #edf2f7; }
