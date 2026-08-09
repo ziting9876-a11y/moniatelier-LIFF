@@ -18,12 +18,21 @@ interface Product {
   description: string
   image?: string
   imageUrl?: string
+  shortUrl?: string
+  badgeTextColor?: string
+  tagTextColor?: string
+  badgeBgColor?: string
+  badgeOpacity?: number
   isHidden?: boolean
 }
 
 // --- 🎯 LINE LIFF 設定 ---
 const LIFF_ID = '2010913515-HfcsIAK0'
 const lineProfile = ref<{ userId: string; displayName: string; pictureUrl?: string } | null>(null)
+const defaultAvatar = 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
+
+// --- 🎯 頁面 Tab 控制 ('shop' 或 'member') ---
+const activeTab = ref<'shop' | 'member'>('shop')
 
 // --- 🎯 會員紅利點數與系統 State ---
 const userPoints = ref(0)
@@ -33,18 +42,22 @@ const hasBirthday = ref(false)
 const showBirthdayModal = ref(false)
 const showReferralInfoModal = ref(false)
 const isCopyReferralSuccess = ref(false)
+const showPointsRules = ref(false)
+
+// 🌸 歷史訂單紀錄 State
+const myOrders = ref<any[]>([])
+const loadingOrders = ref(false)
 
 // 🌸 訂單完成 Modal 控制
 const showSuccessModal = ref(false)
 const successOrderNo = ref('')
 
-// 🌸 統一返回 LINE 聊天室控制函式 (支援 LIFF 關閉與外部 Deep Link)
+// 🌸 統一返回 LINE 聊天室控制函式
 const handleReturnToLine = () => {
   try {
     if (liff.isInClient()) {
       liff.closeWindow()
     } else {
-      // 🌐 外部瀏覽器：透過 Deep Link 開啟 LINE 官方帳號聊天室
       window.location.href = 'https://line.me/R/ti/p/@509mafly'
     }
   } catch (e) {
@@ -199,6 +212,22 @@ const fetchProducts = async () => {
 const getProductImage = (item: Product) => item.imageUrl || item.image || ''
 const getProductId = (item: Product) => item._id || item.id
 
+// 🎨 動態計算標籤 Inline Style
+const getBadgeStyle = (product: Product, type: 'badge' | 'tag') => {
+  const textColor = type === 'badge' ? (product.badgeTextColor || '#34444E') : (product.tagTextColor || '#34444E')
+  const bgColor = product.badgeBgColor || '#ffffff'
+  const opacity = (product.badgeOpacity !== undefined ? product.badgeOpacity : 100) / 100
+
+  let r = 255, g = 255, b = 255
+  if (bgColor.startsWith('#') && bgColor.length === 7) {
+    r = parseInt(bgColor.slice(1, 3), 16)
+    g = parseInt(bgColor.slice(3, 5), 16)
+    b = parseInt(bgColor.slice(5, 7), 16)
+  }
+
+  return { color: textColor, backgroundColor: `rgba(${r}, ${g}, ${b}, ${opacity})` }
+}
+
 // 💰 購物車與折扣金額計算
 const cartTotalPrice = computed(() => {
   let total = 0
@@ -230,7 +259,7 @@ const earnedPoints = computed(() => Math.floor(finalTotalPrice.value / 100))
 
 const copyReferralLink = () => {
   if (!lineProfile.value?.userId) return
-  const link = `${window.location.origin}/?ref=${lineProfile.value.userId}`
+  const link = `https://liff.line.me/${LIFF_ID}?ref=${lineProfile.value.userId}`
   navigator.clipboard.writeText(link)
   isCopyReferralSuccess.value = true
   setTimeout(() => { isCopyReferralSuccess.value = false }, 3000)
@@ -242,7 +271,6 @@ const saveBirthday = async () => {
     return
   }
 
-  // 判斷是否為當前月份
   const selectedDate = new Date(userBirthday.value)
   const currentMonth = new Date().getMonth() + 1
   const birthdayMonth = selectedDate.getMonth() + 1
@@ -280,7 +308,6 @@ const saveBirthday = async () => {
   showBirthdayModal.value = false
 
   if (isBirthdayMonth) {
-    // 🎂 生日當月：發放 $100 點數
     if (responseData?.points !== undefined) {
       userPoints.value = responseData.points
     } else {
@@ -288,8 +315,28 @@ const saveBirthday = async () => {
     }
     alert('🎉 生日月份紀錄成功！適逢您的生日當月，已為您發放 $100 元生日購物金！')
   } else {
-    // 📅 非生日當月：僅紀錄月份，不發放點數
     alert(`📅 生日月份已成功紀錄！您的生日為 ${birthdayMonth} 月，當月開啟結帳即可自動領取 $100 購物金優惠！`)
+  }
+}
+
+// 📦 抓取該會員歷史訂單
+const fetchMyOrders = async () => {
+  if (!lineProfile.value?.userId) return
+  loadingOrders.value = true
+  try {
+    const res = await fetch(`${API_BASE}/api/orders`)
+    const data = await res.json()
+    if (data.status === 'success') {
+      const allOrders = data.orders || []
+      myOrders.value = allOrders.filter((o: any) => 
+        o.lineUserId === lineProfile.value?.userId || 
+        (o.payer?.email && o.payer.email === orderForm.value.payer.email)
+      )
+    }
+  } catch (err) {
+    console.warn('無法抓取會員訂單紀錄:', err)
+  } finally {
+    loadingOrders.value = false
   }
 }
 
@@ -297,14 +344,18 @@ const saveBirthday = async () => {
 onMounted(async () => {
   await fetchProducts()
 
-  // 1. 檢查藍新付款轉址狀態
+  // 1. 檢查 URL Tab 參數（若為 ?tab=member 自動開會員專區）
+  if (route.query.tab === 'member') {
+    activeTab.value = 'member'
+  }
+
+  // 2. 檢查藍新付款轉址狀態
   const statusParam = route.query.status as string
   const orderNoParam = route.query.orderNo as string
 
   if (statusParam === 'success') {
     successOrderNo.value = orderNoParam || ''
     showSuccessModal.value = true
-    // 清空購物車
     cartStore.cart = {}
     localStorage.removeItem('cart')
   } else if (statusParam === 'failed' || statusParam === 'error') {
@@ -340,7 +391,9 @@ onMounted(async () => {
         usedPointsInput.value = userPoints.value
         if (userData.user.birthday) {
           hasBirthday.value = true
+          userBirthday.value = userData.user.birthday
         }
+        fetchMyOrders()
       }
     }
   } catch (err) {
@@ -385,6 +438,20 @@ const totalCartItemsCount = computed(() => {
 })
 
 const isLoading = ref(false)
+
+// 工具函式
+const formatDate = (d: any) => d ? new Date(d).toLocaleDateString('zh-TW') : ''
+const truncateId = (id?: string) => id ? (id.length > 12 ? id.slice(0, 6) + '...' + id.slice(-4) : id) : '訪客'
+const formatStatus = (s: string) => ({ PENDING: '待付款', PAID: '已付款', accepted: '已接單', in_production: '製作中', delivering: '配送中', completed: '✓ 已完成', refunded: '↩ 已退款', cancelled: '✕ 已取消' }[s] || s)
+const formatDeliveryMethod = (m: string) => ({ black_cat: '黑貓宅配', express_taipei_1: '專人雙北配送1', express_taipei_2: '專人雙北配送2', store_pickup: '門市自取', seven_eleven: '7-11店到店', familymart: '全家店到店' }[m] || m || '未指定')
+const getCartItemsText = (cartObj: any) => {
+  if (!cartObj) return '精選花藝作品'
+  const items = Object.entries(cartObj).map(([id, qty]) => {
+    const p = allProducts.value.find(item => String(getProductId(item)) === String(id))
+    return `${p?.name || '花藝作品'} x${qty}`
+  })
+  return items.join('，')
+}
 
 // 💳 執行付款與建立訂單
 const executePayment = async () => {
@@ -483,202 +550,347 @@ const executePayment = async () => {
 
 <template>
   <div class="page-wrapper">
-    <!-- 🌸 步驟導覽列 -->
-    <div class="step-indicator">
-      <div class="step-item" :class="{ active: currentStep === 1 }" @click="currentStep = 1">
-        <span class="step-num">1</span>
-        <span class="step-text">選購商品</span>
+    <!-- 🌸 頂部品牌 Header -->
+    <header class="brand-top-bar">
+      <h1 class="brand-title">MONI Atelier 墨凝花室</h1>
+      <button type="button" class="leave-line-btn" @click="handleReturnToLine">✕ 離開</button>
+    </header>
+
+    <!-- 🌸 頂部選單 Tab (選購商品 vs 會員中心) -->
+    <nav class="main-tab-nav">
+      <button 
+        :class="['tab-nav-btn', { active: activeTab === 'shop' }]" 
+        @click="activeTab = 'shop'"
+      >
+        💐 精選花禮選購
+      </button>
+      <button 
+        :class="['tab-nav-btn', { active: activeTab === 'member' }]" 
+        @click="activeTab = 'member'"
+      >
+        👤 會員中心 / 紅利查詢
+      </button>
+    </nav>
+
+    <!-- ==================== TAB 1: 💐 精選花禮選購 ==================== -->
+    <div v-if="activeTab === 'shop'" class="tab-main-container">
+      <!-- 🌸 步驟導覽列 -->
+      <div class="step-indicator">
+        <div class="step-item" :class="{ active: currentStep === 1 }" @click="currentStep = 1">
+          <span class="step-num">1</span>
+          <span class="step-text">選購商品</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step-item" :class="{ active: currentStep === 2 }" @click="cartTotalPrice > 0 && (currentStep = 2)">
+          <span class="step-num">2</span>
+          <span class="step-text">訂單明細與結帳</span>
+        </div>
       </div>
-      <div class="step-line"></div>
-      <div class="step-item" :class="{ active: currentStep === 2 }" @click="cartTotalPrice > 0 && (currentStep = 2)">
-        <span class="step-num">2</span>
-        <span class="step-text">訂單明細與結帳</span>
+
+      <!-- 🌸 步驟一：選購商品 -->
+      <div v-if="currentStep === 1" class="step-content">
+        <section class="products-section">
+          <h2 class="section-title">精選花藝作品</h2>
+          <div v-if="loadingProducts" class="loading-state">🌸 正在為您載入最新花藝作品...</div>
+          <div v-else-if="displayProducts.length === 0" class="loading-state">目前尚未有上架商品。</div>
+          <div v-else class="product-grid">
+            <div v-for="item in displayProducts" :key="getProductId(item)" class="product-card">
+              <div class="image-wrapper" @click="openProductDetail(item)">
+                <span 
+                  v-if="item.badge" 
+                  class="badge-no"
+                  :style="getBadgeStyle(item, 'badge')"
+                >
+                  {{ item.badge }}
+                </span>
+                <img :src="getProductImage(item)" :alt="item.name" />
+                <span 
+                  v-if="item.tag" 
+                  class="tag-hot"
+                  :style="getBadgeStyle(item, 'tag')"
+                >
+                  {{ item.tag }}
+                </span>
+                <div class="view-detail-badge">🔍 查看詳情</div>
+              </div>
+              <div class="product-info">
+                <span class="category">{{ item.category }}</span>
+                <h3 class="product-name" @click="openProductDetail(item)">{{ item.name }}</h3>
+                <p class="description">{{ item.description }}</p>
+                <div class="divider"></div>
+                <div class="card-footer">
+                  <div class="price-box">
+                    <span class="price-val">NT$ {{ Number(item.price || item.originalPrice).toLocaleString() }}</span>
+                  </div>
+                  <button class="add-btn" @click.stop="cartStore.addToCart(getProductId(item))">加入購物車</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div class="cart-floating-bar" v-if="totalCartItemsCount > 0">
+          <div class="bar-info" @click="showCartDrawer = true">
+            <span>🛒 已選購 <strong>{{ totalCartItemsCount }}</strong> 件商品 ✏️</span>
+            <span class="bar-price">小計：新台幣 {{ cartTotalPrice.toLocaleString() }} 元</span>
+          </div>
+          <button class="next-step-btn" @click="currentStep = 2">前往結帳 (下一步) →</button>
+        </div>
+      </div>
+
+      <!-- 🌸 步驟二：訂單明細與結帳 -->
+      <div v-if="currentStep === 2" class="step-content">
+        <button class="back-btn" @click="currentStep = 1">← 返回選購商品</button>
+        <section class="checkout-section">
+          <div class="checkout-card">
+            <h2 class="checkout-title">訂單明細與結帳</h2>
+            
+            <div class="cart-list">
+              <div v-for="(qty, id) in cartStore.cart" :key="id" class="cart-item-row">
+                <span class="item-name">{{ allProducts.find(p => String(getProductId(p)) === String(id))?.name || '精選花藝作品' }} x {{ qty }}</span>
+                <span class="item-price">NT$ {{ ((allProducts.find(p => String(getProductId(p)) === String(id))?.price || 0) * Number(qty)).toLocaleString() }}</span>
+              </div>
+
+              <div class="summary-box">
+                <div class="summary-row"><span>商品小計</span><span>NT$ {{ cartTotalPrice.toLocaleString() }}</span></div>
+                <div class="summary-row"><span>運費</span><span>{{ shippingFee === 0 ? '免運費' : `NT$ ${shippingFee}` }}</span></div>
+                <div v-if="actualUsedPoints > 0" class="summary-row discount-row"><span>紅利折抵</span><span>- NT$ {{ actualUsedPoints }}</span></div>
+              </div>
+              
+              <div class="total-row">
+                <div class="total-label-box">
+                  <span class="main-total-label">實付總金額</span>
+                  <span class="earned-points-tip"> (完成訂單可獲得 🎁 {{ earnedPoints }} 點紅利)</span>
+                </div>
+                <span class="total-price">NT$ {{ finalTotalPrice.toLocaleString() }}</span>
+              </div>
+            </div>
+
+            <hr class="divider" />
+
+            <form @submit.prevent="openPolicyModal" class="order-form">
+              <h3 class="form-subtitle">訂購與配送資訊</h3>
+              <div class="form-group">
+                <label>希望送達日期 *</label>
+                <div class="custom-date-trigger" @click="openCalendar">📅 {{ orderForm.deliveryDate || '點擊選擇希望送達日期' }}</div>
+              </div>
+
+              <div class="form-group">
+                <label>配送方式 *</label>
+                <select v-model="orderForm.deliveryMethod" class="styled-select">
+                  <option value="black_cat">黑貓宅配 (運費 NT$300 / 滿 NT$4,500 免運)</option>
+                  <option value="express_taipei_1">專人雙北配送1 (9:00-18:00不指定 / 運費 NT$300 / 滿 NT$4,500 免運)</option>
+                  <option value="express_taipei_2">專人雙北配送2 (9:00-18:00不指定 / 運費 NT$500 / 滿 NT$4,500 免運)</option>
+                  <option value="familymart">全家店到店 (運費 NT$300 / 滿 NT$4,500 免運)</option>
+                  <option value="seven_eleven">7-11店到店 (運費 NT$300 / 滿 NT$4,500 免運)</option>
+                </select>
+                
+                <div v-if="orderForm.deliveryMethod === 'express_taipei_1'" class="delivery-note">
+                  📍 <strong>專人雙北配送1 可送區域：</strong><br />
+                  松山區、信義區、大安區、中山區、中正區、大同區、萬華區、文山區、南港區、內湖區、士林區、北投區、板橋區、三重區、中和區、永和區、汐止區。
+                </div>
+
+                <div v-if="orderForm.deliveryMethod === 'express_taipei_2'" class="delivery-note">
+                  📍 <strong>專人雙北配送2 可送區域：</strong><br />
+                  新莊區、新店區、土城區、蘆洲區、樹林區、淡水區、林口區。
+                </div>
+              </div>
+
+              <div v-if="['seven_eleven', 'familymart'].includes(orderForm.deliveryMethod)" class="form-section store-input-section">
+                <h4 class="sub-section-title">🏪 填寫門市資訊</h4>
+                <div class="form-group">
+                  <label>門市名稱 *</label>
+                  <input type="text" v-model="storeInput.name" :placeholder="storeNamePlaceholder" required class="styled-input" />
+                </div>
+                <div class="form-group">
+                  <label>門市地址 *</label>
+                  <input type="text" v-model="storeInput.address" placeholder="例如：台北市中山區南京東路二段100號" required class="styled-input" />
+                </div>
+              </div>
+
+              <div class="form-section">
+                <h4 class="sub-section-title">👤 付款人資訊</h4>
+                <div class="form-group"><label>姓名 *</label><input type="text" v-model="orderForm.payer.name" required class="styled-input" /></div>
+                <div class="form-group"><label>聯絡電話 *</label><input type="tel" v-model="orderForm.payer.phone" required class="styled-input" /></div>
+                <div class="form-group"><label>Email *</label><input type="email" v-model="orderForm.payer.email" required class="styled-input" /></div>
+              </div>
+
+              <div class="form-section">
+                <div class="section-header-inline">
+                  <h4 class="sub-section-title">📦 收件人資訊</h4>
+                  <label class="checkbox-label">
+                    <input type="checkbox" v-model="sameAsPayer" @change="handleSameAsPayer" /> 同付款人
+                  </label>
+                </div>
+
+                <div class="form-group">
+                  <label>姓名 *</label>
+                  <input type="text" v-model="orderForm.recipient.name" :disabled="sameAsPayer" required class="styled-input" />
+                </div>
+                <div class="form-group">
+                  <label>聯絡電話 *</label>
+                  <input type="text" v-model="orderForm.recipient.phone" :disabled="sameAsPayer" required class="styled-input" />
+                </div>
+
+                <div v-if="!['seven_eleven', 'familymart'].includes(orderForm.deliveryMethod)" class="form-group">
+                  <label>聯絡地址 *</label>
+                  <div class="address-group">
+                    <select v-model="orderForm.recipient.city" required class="styled-select">
+                      <option v-for="city in taiwanCities" :key="city" :value="city">{{ city }}</option>
+                    </select>
+                    <select v-model="orderForm.recipient.district" required class="styled-select">
+                      <option v-for="dist in taiwanDistricts[orderForm.recipient.city] || []" :key="dist" :value="dist">{{ dist }}</option>
+                    </select>
+                  </div>
+                  <input type="text" v-model="orderForm.recipient.address" placeholder="街道門牌資訊" required class="styled-input" style="margin-top: 8px;" />
+                </div>
+              </div>
+
+              <!-- 會員紅利折抵 -->
+              <div class="checkout-member-card">
+                <div class="member-info-header">
+                  <span class="user-label">👤 {{ lineProfile?.displayName || '會員' }} 的專屬紅利</span>
+                  <span class="points-badge">目前點數：<strong>{{ userPoints }}</strong> 點 ($1點=$1元)</span>
+                </div>
+
+                <div v-if="userPoints > 0" class="points-deduct-row">
+                  <label>折抵紅利：</label>
+                  <input type="number" v-model.number="usedPointsInput" :max="userPoints" min="0" placeholder="0" />
+                  <span class="points-tip">折抵 NT$ {{ actualUsedPoints }} 元</span>
+                </div>
+
+                <div class="member-actions-row">
+                  <button v-if="!hasBirthday" type="button" class="btn-member-action" @click="showBirthdayModal = true">
+                    🎂 登錄生日領 $100 購物金
+                  </button>
+                  <button type="button" class="btn-member-action" @click="showReferralInfoModal = true">
+                    🔗 推薦好友領 $50 紅利
+                  </button>
+                </div>
+              </div>
+
+              <button type="submit" class="submit-btn" :disabled="isLoading || Object.keys(cartStore.cart).length === 0">
+                {{ isLoading ? '處理中...' : `前往付款（NT$ ${finalTotalPrice.toLocaleString()}）` }}
+              </button>
+            </form>
+          </div>
+        </section>
       </div>
     </div>
 
-    <!-- 🌸 步驟一：選購商品 -->
-    <div v-if="currentStep === 1" class="step-content">
-      <!-- 🌸 返回 LINE 按鈕 -->
-      <div style="display: flex; justify-content: flex-end; margin-bottom: 0.5rem;">
-        <button type="button" class="back-btn" @click="handleReturnToLine">
-          ✕ 離開選購，返回 LINE 聊天室
+    <!-- ==================== TAB 2: 👤 獨立會員中心 / 紅利專區 ==================== -->
+    <div v-else-if="activeTab === 'member'" class="tab-main-container member-tab-wrapper">
+      <!-- 💳 個人尊榮會員名片卡 -->
+      <div class="member-card-vip">
+        <div class="card-top">
+          <div class="avatar-box">
+            <img :src="lineProfile?.pictureUrl || defaultAvatar" alt="會員頭像" class="user-avatar" />
+          </div>
+          <div class="user-meta">
+            <h3 class="user-name">{{ lineProfile?.displayName || '墨凝尊榮會員' }}</h3>
+            <span class="vip-badge">🌸 MONI VIP 會員</span>
+          </div>
+        </div>
+        <div class="card-bottom">
+          <span class="card-number">ID: {{ truncateId(lineProfile?.userId) }}</span>
+        </div>
+      </div>
+
+      <!-- 🎁 紅利點數主卡片 -->
+      <div class="points-hero-card">
+        <div class="points-header">
+          <span class="hero-label">目前累積紅利點數</span>
+          <button class="btn-rules-info" @click="showPointsRules = !showPointsRules">💡 紅利說明</button>
+        </div>
+        <div class="points-amount-display">
+          <span class="symbol">$</span>
+          <span class="amount">{{ userPoints || 0 }}</span>
+          <span class="unit">點</span>
+        </div>
+        <p class="points-note">✨ 結帳時 1 點可折抵現金 NT$ 1 元</p>
+
+        <!-- 展開紅利說明 -->
+        <div v-if="showPointsRules" class="points-rules-dropdown">
+          <h4>🌸 墨凝花室紅利回饋機制：</h4>
+          <ul>
+            <li><strong>首購禮：</strong>首次加入 LINE 會員即贈 100 點紅利購物金。</li>
+            <li><strong>生日禮：</strong>登錄生日月份，生日當月享專屬 $100 生日購物金。</li>
+            <li><strong>消費回饋：</strong>單筆實付金額滿 NT$ 100 即可累積 1 點紅利。</li>
+            <li><strong>好友推薦：</strong>成功推薦好友加入註冊下單，可獲得 $50 點獎勵。</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 🎂 生日禮快捷登錄卡片 -->
+      <div class="member-feature-card">
+        <div class="feature-card-header">
+          <h3>🎂 生日禮登錄專區</h3>
+          <span class="bonus-tag">贈 $100 購物金</span>
+        </div>
+        <p class="feature-desc">登記您的生日月份，生日當月將自動發放專屬 $100 紅利購物金！</p>
+        
+        <div v-if="hasBirthday" class="birthday-status-box">
+          <p>已登記生日：<strong>{{ userBirthday }}</strong></p>
+          <span class="registered-tag">✓ 已完成登記</span>
+        </div>
+        <div v-else class="birthday-input-box">
+          <input type="month" v-model="userBirthday" class="date-picker-input" />
+          <button class="btn-save-birthday" @click="saveBirthday">確認登記領取</button>
+        </div>
+      </div>
+
+      <!-- 🔗 推薦好友分享卡片 -->
+      <div class="member-feature-card">
+        <div class="feature-card-header">
+          <h3>🔗 推薦好友獨享禮</h3>
+          <span class="bonus-tag">雙方獲 $50 點</span>
+        </div>
+        <p class="feature-desc">分享您的專屬推薦連結給朋友，好友首購成功後，您與好友皆可獲得 $50 紅利點數！</p>
+        <button class="btn-copy-referral" @click="copyReferralLink">
+          {{ isCopyReferralSuccess ? '已成功複製推薦網址！' : '一鍵複製我的專屬推薦連結 📋' }}
         </button>
       </div>
 
-      <section class="products-section">
-        <h2 class="section-title">精選花藝作品</h2>
-        <div v-if="loadingProducts" class="loading-state">🌸 正在為您載入最新花藝作品...</div>
-        <div v-else-if="displayProducts.length === 0" class="loading-state">目前尚未有上架商品。</div>
-        <div v-else class="product-grid">
-          <div v-for="item in displayProducts" :key="getProductId(item)" class="product-card">
-            <div class="image-wrapper" @click="openProductDetail(item)">
-              <span v-if="item.badge" class="badge-no">{{ item.badge }}</span>
-              <img :src="getProductImage(item)" :alt="item.name" />
-              <span v-if="item.tag" class="tag-hot">{{ item.tag }}</span>
-              <div class="view-detail-badge">🔍 查看詳情</div>
-            </div>
-            <div class="product-info">
-              <span class="category">{{ item.category }}</span>
-              <h3 class="product-name" @click="openProductDetail(item)">{{ item.name }}</h3>
-              <p class="description">{{ item.description }}</p>
-              <div class="divider"></div>
-              <div class="card-footer">
-                <div class="price-box">
-                  <span class="price-val">NT$ {{ Number(item.price || item.originalPrice).toLocaleString() }}</span>
-                </div>
-                <button class="add-btn" @click.stop="cartStore.addToCart(getProductId(item))">加入購物車</button>
-              </div>
-            </div>
-          </div>
+      <!-- 📦 歷史訂單查詢專區 -->
+      <div class="member-orders-section">
+        <div class="section-title-bar">
+          <h3>📦 我的歷史訂單紀錄</h3>
+          <button class="btn-refresh-orders" @click="fetchMyOrders">🔄 重新整理</button>
         </div>
-      </section>
 
-      <div class="cart-floating-bar" v-if="totalCartItemsCount > 0">
-        <div class="bar-info" @click="showCartDrawer = true">
-          <span>🛒 已選購 <strong>{{ totalCartItemsCount }}</strong> 件商品 ✏️</span>
-          <span class="bar-price">小計：新台幣 {{ cartTotalPrice.toLocaleString() }} 元</span>
+        <div v-if="loadingOrders" class="orders-loading">🌸 正在查詢您的歷史訂單...</div>
+        <div v-else-if="myOrders.length === 0" class="orders-empty">
+          <p>您目前尚無歷史訂單紀錄。</p>
+          <button class="btn-go-shop" @click="activeTab = 'shop'">前往挑選花禮 💐</button>
         </div>
-        <button class="next-step-btn" @click="currentStep = 2">前往結帳 (下一步) →</button>
-      </div>
-    </div>
 
-    <!-- 🌸 步驟二：訂單明細與結帳 -->
-    <div v-if="currentStep === 2" class="step-content">
-      <button class="back-btn" @click="currentStep = 1">← 返回選購商品</button>
-      <section class="checkout-section">
-        <div class="checkout-card">
-          <h2 class="checkout-title">訂單明細與結帳</h2>
-          
-          <div class="cart-list">
-            <div v-for="(qty, id) in cartStore.cart" :key="id" class="cart-item-row">
-              <span class="item-name">{{ allProducts.find(p => String(getProductId(p)) === String(id))?.name || '精選花藝作品' }} x {{ qty }}</span>
-              <span class="item-price">NT$ {{ ((allProducts.find(p => String(getProductId(p)) === String(id))?.price || 0) * Number(qty)).toLocaleString() }}</span>
+        <div v-else class="user-orders-list">
+          <div v-for="order in myOrders" :key="order.merchantOrderNo" class="user-order-card">
+            <div class="order-card-header">
+              <span class="order-id">單號：{{ order.merchantOrderNo }}</span>
+              <span class="order-status-badge" :class="order.status">{{ formatStatus(order.status) }}</span>
             </div>
 
-            <div class="summary-box">
-              <div class="summary-row"><span>商品小計</span><span>NT$ {{ cartTotalPrice.toLocaleString() }}</span></div>
-              <div class="summary-row"><span>運費</span><span>{{ shippingFee === 0 ? '免運費' : `NT$ ${shippingFee}` }}</span></div>
-              <div v-if="actualUsedPoints > 0" class="summary-row discount-row"><span>紅利折抵</span><span>- NT$ {{ actualUsedPoints }}</span></div>
-            </div>
-            
-            <div class="total-row">
-              <div class="total-label-box">
-                <span class="main-total-label">實付總金額</span>
-                <span class="earned-points-tip"> (完成訂單可獲得 🎁 {{ earnedPoints }} 點紅利)</span>
-              </div>
-              <span class="total-price">NT$ {{ finalTotalPrice.toLocaleString() }}</span>
-            </div>
-          </div>
-
-          <hr class="divider" />
-
-          <form @submit.prevent="openPolicyModal" class="order-form">
-            <h3 class="form-subtitle">訂購與配送資訊</h3>
-            <div class="form-group">
-              <label>希望送達日期 *</label>
-              <div class="custom-date-trigger" @click="openCalendar">📅 {{ orderForm.deliveryDate || '點擊選擇希望送達日期' }}</div>
-            </div>
-
-            <div class="form-group">
-              <label>配送方式 *</label>
-              <select v-model="orderForm.deliveryMethod" class="styled-select">
-                <option value="black_cat">黑貓宅配 (運費 NT$300 / 滿 NT$4,500 免運)</option>
-                <option value="express_taipei_1">專人雙北配送1 (9:00-18:00不指定 / 運費 NT$300 / 滿 NT$4,500 免運)</option>
-                <option value="express_taipei_2">專人雙北配送2 (9:00-18:00不指定 / 運費 NT$500 / 滿 NT$4,500 免運)</option>
-                <option value="familymart">全家店到店 (運費 NT$300 / 滿 NT$4,500 免運)</option>
-                <option value="seven_eleven">7-11店到店 (運費 NT$300 / 滿 NT$4,500 免運)</option>
-              </select>
+            <div class="order-card-body">
+              <p class="delivery-date">📅 希望送達日：<strong>{{ order.deliveryDate || '未指定' }}</strong></p>
+              <p class="delivery-type">🚚 配送方式：{{ formatDeliveryMethod(order.deliveryMethod) }}</p>
               
-              <div v-if="orderForm.deliveryMethod === 'express_taipei_1'" class="delivery-note">
-                📍 <strong>專人雙北配送1 可送區域：</strong><br />
-                松山區、信義區、大安區、中山區、中正區、大同區、萬華區、文山區、南港區、內湖區、士林區、北投區、板橋區、三重區、中和區、永和區、汐止區。
+              <div class="cart-summary-preview">
+                <p><strong>購買項目：</strong>{{ getCartItemsText(order.cart) }}</p>
               </div>
 
-              <div v-if="orderForm.deliveryMethod === 'express_taipei_2'" class="delivery-note">
-                📍 <strong>專人雙北配送2 可送區域：</strong><br />
-                新莊區、新店區、土城區、蘆洲區、樹林區、淡水區、林口區。
+              <div class="order-price-line">
+                <span>實付總金額：</span>
+                <span class="amount-highlight">NT$ {{ order.totalAmount?.toLocaleString() }}</span>
+                <span v-if="order.usedPoints > 0" class="used-pts">(已折抵 {{ order.usedPoints }} 點)</span>
               </div>
             </div>
-
-            <div v-if="['seven_eleven', 'familymart'].includes(orderForm.deliveryMethod)" class="form-section store-input-section">
-              <h4 class="sub-section-title">🏪 填寫門市資訊</h4>
-              <div class="form-group">
-                <label>門市名稱 *</label>
-                <input type="text" v-model="storeInput.name" :placeholder="storeNamePlaceholder" required class="styled-input" />
-              </div>
-              <div class="form-group">
-                <label>門市地址 *</label>
-                <input type="text" v-model="storeInput.address" placeholder="例如：台北市中山區南京東路二段100號" required class="styled-input" />
-              </div>
+            <div class="order-card-footer">
+              <span class="created-time">下單時間：{{ formatDate(order.createdAt) }}</span>
             </div>
-
-            <div class="form-section">
-              <h4 class="sub-section-title">👤 付款人資訊</h4>
-              <div class="form-group"><label>姓名 *</label><input type="text" v-model="orderForm.payer.name" required class="styled-input" /></div>
-              <div class="form-group"><label>聯絡電話 *</label><input type="tel" v-model="orderForm.payer.phone" required class="styled-input" /></div>
-              <div class="form-group"><label>Email *</label><input type="email" v-model="orderForm.payer.email" required class="styled-input" /></div>
-            </div>
-
-            <div class="form-section">
-              <div class="section-header-inline">
-                <h4 class="sub-section-title">📦 收件人資訊</h4>
-                <label class="checkbox-label">
-                  <input type="checkbox" v-model="sameAsPayer" @change="handleSameAsPayer" /> 同付款人
-                </label>
-              </div>
-
-              <div class="form-group">
-                <label>姓名 *</label>
-                <input type="text" v-model="orderForm.recipient.name" :disabled="sameAsPayer" required class="styled-input" />
-              </div>
-              <div class="form-group">
-                <label>聯絡電話 *</label>
-                <input type="text" v-model="orderForm.recipient.phone" :disabled="sameAsPayer" required class="styled-input" />
-              </div>
-
-              <div v-if="!['seven_eleven', 'familymart'].includes(orderForm.deliveryMethod)" class="form-group">
-                <label>聯絡地址 *</label>
-                <div class="address-group">
-                  <select v-model="orderForm.recipient.city" required class="styled-select">
-                    <option v-for="city in taiwanCities" :key="city" :value="city">{{ city }}</option>
-                  </select>
-                  <select v-model="orderForm.recipient.district" required class="styled-select">
-                    <option v-for="dist in taiwanDistricts[orderForm.recipient.city] || []" :key="dist" :value="dist">{{ dist }}</option>
-                  </select>
-                </div>
-                <input type="text" v-model="orderForm.recipient.address" placeholder="街道門牌資訊" required class="styled-input" style="margin-top: 8px;" />
-              </div>
-            </div>
-
-            <!-- 常駐顯示的會員紅利區塊 -->
-            <div class="checkout-member-card">
-              <div class="member-info-header">
-                <span class="user-label">👤 {{ lineProfile?.displayName || '會員' }} 的專屬紅利</span>
-                <span class="points-badge">目前點數：<strong>{{ userPoints }}</strong> 點 ($1點=$1元)</span>
-              </div>
-
-              <div v-if="userPoints > 0" class="points-deduct-row">
-                <label>折抵紅利：</label>
-                <input type="number" v-model.number="usedPointsInput" :max="userPoints" min="0" placeholder="0" />
-                <span class="points-tip">折抵 NT$ {{ actualUsedPoints }} 元</span>
-              </div>
-
-              <div class="member-actions-row">
-                <button v-if="!hasBirthday" type="button" class="btn-member-action" @click="showBirthdayModal = true">
-                  🎂 登錄生日領 $100 購物金
-                </button>
-                <button type="button" class="btn-member-action" @click="showReferralInfoModal = true">
-                  🔗 推薦好友領 $50 紅利
-                </button>
-              </div>
-            </div>
-
-            <button type="submit" class="submit-btn" :disabled="isLoading || Object.keys(cartStore.cart).length === 0">
-              {{ isLoading ? '處理中...' : `前往付款（NT$ ${finalTotalPrice.toLocaleString()}）` }}
-            </button>
-          </form>
+          </div>
         </div>
-      </section>
+      </div>
     </div>
 
     <!-- 🛒 購物車 Drawer Modal -->
@@ -868,6 +1080,17 @@ const executePayment = async () => {
 
 <style scoped>
 .page-wrapper { display: flex; flex-direction: column; gap: 1rem; }
+
+/* 🌸 頂部品牌 Bar */
+.brand-top-bar { display: flex; justify-content: space-between; align-items: center; background: #34444E; color: #ffffff; padding: 12px 16px; border-radius: 8px; }
+.brand-title { margin: 0; font-size: 1.1rem; font-weight: 300; letter-spacing: 2px; }
+.leave-line-btn { background: rgba(255,255,255,0.15); color: #fff; border: none; padding: 4px 10px; border-radius: 12px; font-size: 0.78rem; cursor: pointer; }
+
+/* 🌸 頂部主選單 Tab */
+.main-tab-nav { display: flex; background: #ffffff; border-radius: 10px; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); gap: 4px; }
+.tab-nav-btn { flex: 1; padding: 10px; border: none; background: transparent; font-weight: bold; font-size: 0.88rem; color: #718096; cursor: pointer; border-radius: 6px; transition: all 0.2s; }
+.tab-nav-btn.active { background: #34444E; color: #ffffff; }
+
 .section-title { color: #FFFFFF; font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem; }
 .loading-state { text-align: center; color: #FFFFFF; padding: 2rem; }
 
@@ -875,9 +1098,12 @@ const executePayment = async () => {
 .product-card { background: #FFFFFF; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
 .image-wrapper { aspect-ratio: 3/4; background: #34444E; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; }
 .image-wrapper img { width: 100%; height: 100%; object-fit: contain; }
-.badge-no { position: absolute; top: 8px; left: 8px; background: #FFF; color: #333; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; }
-.tag-hot { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: #FFF; color: #8B5E4C; padding: 2px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; }
-.view-detail-badge { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: #FFF; font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; }
+
+/* 🌸 標籤樣式 (支援色彩透明度) */
+.badge-no { position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; z-index: 2; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+.tag-hot { position: absolute; bottom: 8px; right: 8px; padding: 2px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; z-index: 2; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+
+.view-detail-badge { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: #FFF; font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; z-index: 2; }
 .product-info { padding: 1rem; display: flex; flex-direction: column; flex-grow: 1; text-align: center; color: #2D3748; }
 .product-name { font-size: 1.05rem; margin: 0.3rem 0; color: #2D3748; }
 .description { font-size: 0.82rem; color: #718096; line-height: 1.4; height: 36px; overflow: hidden; }
@@ -912,25 +1138,88 @@ const executePayment = async () => {
 .member-actions-row { display: flex; gap: 8px; margin-top: 4px; }
 .btn-member-action { flex: 1; background: #FFFFFF; border: 1px solid #34444E; color: #34444E; padding: 8px; border-radius: 6px; font-size: 0.78rem; font-weight: bold; cursor: pointer; }
 
+/* 👤 獨立會員中心樣式 */
+.member-tab-wrapper { display: flex; flex-direction: column; gap: 14px; }
+.member-card-vip { background: linear-gradient(135deg, #34444e 0%, #243b53 100%); color: #ffffff; border-radius: 16px; padding: 20px; box-shadow: 0 6px 16px rgba(36, 59, 83, 0.25); }
+.card-top { display: flex; align-items: center; gap: 14px; }
+.avatar-box { width: 52px; height: 52px; border-radius: 50%; border: 2px solid #ffffff; overflow: hidden; background: #ffffff; }
+.user-avatar { width: 100%; height: 100%; object-fit: cover; }
+.user-meta { display: flex; flex-direction: column; gap: 2px; }
+.user-name { margin: 0; font-size: 1.1rem; }
+.vip-badge { background: #e2e8f0; color: #34444e; font-size: 0.7rem; font-weight: bold; padding: 2px 8px; border-radius: 10px; width: fit-content; }
+.card-bottom { border-top: 1px solid rgba(255,255,255,0.15); margin-top: 14px; padding-top: 8px; text-align: right; font-family: monospace; font-size: 0.8rem; opacity: 0.8; }
+
+.points-hero-card { background: #ffffff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+.points-header { display: flex; justify-content: space-between; align-items: center; }
+.hero-label { font-size: 0.85rem; color: #718096; font-weight: bold; }
+.btn-rules-info { background: #edf2f7; border: none; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; color: #4a5568; cursor: pointer; }
+.points-amount-display { margin: 12px 0 4px 0; display: flex; align-items: baseline; gap: 4px; color: #8b5e4c; }
+.points-amount-display .symbol { font-size: 1.2rem; font-weight: bold; }
+.points-amount-display .amount { font-size: 2.5rem; font-weight: 800; line-height: 1; }
+.points-amount-display .unit { font-size: 0.9rem; color: #718096; }
+.points-note { margin: 0; font-size: 0.8rem; color: #718096; }
+
+.points-rules-dropdown { background: #f8fafc; border-radius: 10px; padding: 12px; margin-top: 12px; font-size: 0.8rem; color: #4a5568; text-align: left; }
+.points-rules-dropdown h4 { margin: 0 0 6px 0; color: #34444e; }
+.points-rules-dropdown ul { margin: 0; padding-left: 18px; }
+.points-rules-dropdown li { margin-bottom: 4px; }
+
+.member-feature-card { background: #ffffff; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; text-align: left; }
+.feature-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.feature-card-header h3 { margin: 0; font-size: 0.95rem; color: #2d3748; }
+.bonus-tag { background: #fef3c7; color: #92400e; font-size: 0.72rem; font-weight: bold; padding: 2px 8px; border-radius: 10px; }
+.feature-desc { font-size: 0.8rem; color: #718096; margin: 0 0 12px 0; line-height: 1.4; }
+
+.birthday-input-box { display: flex; gap: 8px; }
+.date-picker-input { flex: 1; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.85rem; }
+.btn-save-birthday { background: #34444e; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; }
+.birthday-status-box { display: flex; justify-content: space-between; align-items: center; background: #f0fff4; padding: 10px; border-radius: 6px; font-size: 0.85rem; }
+.registered-tag { color: #38a169; font-weight: bold; font-size: 0.8rem; }
+
+.btn-copy-referral { width: 100%; background: #edf2f7; color: #2d3748; border: 1px solid #cbd5e0; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 0.82rem; cursor: pointer; }
+
+/* 📦 歷史訂單專區 */
+.member-orders-section { margin-top: 10px; text-align: left; }
+.section-title-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.section-title-bar h3 { margin: 0; font-size: 1rem; color: #ffffff; }
+.btn-refresh-orders { background: none; border: none; color: #e2e8f0; font-size: 0.8rem; cursor: pointer; }
+
+.user-order-card { background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 14px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); color: #333; }
+.order-card-header { display: flex; justify-content: space-between; font-weight: bold; font-size: 0.85rem; margin-bottom: 8px; }
+.order-status-badge { padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; }
+.order-status-badge.completed { background: #c6f6d5; color: #22543d; }
+.order-status-badge.PAID { background: #ebf8ff; color: #2b6cb0; }
+.order-status-badge.PENDING { background: #feebc8; color: #744210; }
+
+.order-card-body p { margin: 4px 0; font-size: 0.82rem; color: #4a5568; }
+.cart-summary-preview { background: #f8fafc; padding: 8px; border-radius: 6px; margin: 8px 0; font-size: 0.8rem; }
+.order-price-line { margin-top: 8px; font-size: 0.88rem; font-weight: bold; display: flex; align-items: center; gap: 4px; }
+.amount-highlight { color: #8b5e4c; font-size: 1rem; }
+.used-pts { font-size: 0.75rem; color: #d97706; font-weight: normal; }
+.order-card-footer { border-top: 1px dashed #e2e8f0; margin-top: 8px; padding-top: 6px; font-size: 0.72rem; color: #a0aec0; text-align: right; }
+
+.orders-loading, .orders-empty { text-align: center; padding: 30px; background: #ffffff; border-radius: 12px; color: #718096; }
+.btn-go-shop { margin-top: 10px; background: #34444e; color: #fff; border: none; padding: 8px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; }
+
 /* 🚚 專人雙北配送備註說明樣式 */
-.delivery-note { background: #FEF3C7; border: 1px solid #FCD34D; color: #92400E; padding: 0.8rem; border-radius: 6px; font-size: 0.82rem; line-height: 1.5; margin-top: 8px; }
+.delivery-note { background: #FEF3C7; border: 1px solid #FCD34D; color: #92400E; padding: 0.8rem; border-radius: 6px; font-size: 0.82rem; line-height: 1.5; margin-top: 8px; text-align: left; }
 
 .summary-box { background: #FAF9F6; padding: 12px; border-radius: 8px; margin: 12px 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.88rem; }
 .summary-row { display: flex; justify-content: space-between; color: #4A5568; }
 .discount-row { color: #D97706; font-weight: bold; }
 .total-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-top: 2px solid #E2E8F0; margin-top: 8px; }
-.total-label-box { display: flex; flex-direction: column; }
+.total-label-box { display: flex; flex-direction: column; text-align: left; }
 .main-total-label { font-size: 1rem; font-weight: bold; color: #2D3748; }
 .earned-points-tip { font-size: 0.75rem; color: #059669; }
 .total-price { font-size: 1.25rem; font-weight: bold; color: #8B5E4C; }
 
-.form-subtitle { font-size: 1.05rem; color: #34444E; font-weight: bold; margin: 1.2rem 0 0.8rem; }
-.form-group { margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px; font-size: 0.88rem; }
+.form-subtitle { font-size: 1.05rem; color: #34444E; font-weight: bold; margin: 1.2rem 0 0.8rem; text-align: left; }
+.form-group { margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px; font-size: 0.88rem; text-align: left; }
 .styled-input, .styled-select, .custom-date-trigger { width: 100%; padding: 10px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 0.9rem; box-sizing: border-box; }
 .custom-date-trigger { background: #F8FAFC; cursor: pointer; }
 .address-group { display: flex; gap: 8px; }
 .submit-btn { width: 100%; background: #34444E; color: #FFF; padding: 1rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 1.5rem; }
-.back-btn { background: none; border: 1px solid #FFF; color: #FFF; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; }
+.back-btn { background: none; border: 1px solid #FFF; color: #FFF; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; width: fit-content; }
 
 /* Modal 彈窗通用 */
 .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 9999; }
