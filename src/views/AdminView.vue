@@ -66,14 +66,14 @@
             </button>
           </div>
 
-          <!-- 狀態操作按鈕區 -->
+          <!-- 狀態操作按鈕區（當訂單已完成、已退款或已取消時全部禁能） -->
           <div class="action-buttons">
-            <button :class="{ active: order.status === 'accepted' }" @click="updateStatus(order.merchantOrderNo, 'accepted')">已接單</button>
-            <button :class="{ active: order.status === 'in_production' }" @click="updateStatus(order.merchantOrderNo, 'in_production')">製作中</button>
-            <button :class="{ active: order.status === 'delivering' }" @click="updateStatus(order.merchantOrderNo, 'delivering')">配送中</button>
-            <button class="btn-complete" :class="{ 'is-current': order.status === 'completed' }" @click="updateStatus(order.merchantOrderNo, 'completed')">✓ 已完成 (發送LINE通知)</button>
-            <button class="btn-refund" :class="{ 'is-current': order.status === 'refunded' }" @click="updateStatus(order.merchantOrderNo, 'refunded')">↩ 已退款</button>
-            <button class="btn-cancel-order" :class="{ 'is-current': order.status === 'cancelled' }" @click="updateStatus(order.merchantOrderNo, 'cancelled')">✕ 已取消訂單</button>
+            <button :disabled="['completed', 'refunded', 'cancelled'].includes(order.status)" :class="{ active: order.status === 'accepted' }" @click="updateStatus(order.merchantOrderNo, 'accepted')">已接單</button>
+            <button :disabled="['completed', 'refunded', 'cancelled'].includes(order.status)" :class="{ active: order.status === 'in_production' }" @click="updateStatus(order.merchantOrderNo, 'in_production')">製作中</button>
+            <button :disabled="['completed', 'refunded', 'cancelled'].includes(order.status)" :class="{ active: order.status === 'delivering' }" @click="updateStatus(order.merchantOrderNo, 'delivering')">配送中</button>
+            <button :disabled="['completed', 'refunded', 'cancelled'].includes(order.status)" class="btn-complete" :class="{ 'is-current': order.status === 'completed' }" @click="updateStatus(order.merchantOrderNo, 'completed')">✓ 已完成 (發送LINE通知)</button>
+            <button :disabled="['completed', 'refunded', 'cancelled'].includes(order.status)" class="btn-refund" :class="{ 'is-current': order.status === 'refunded' }" @click="updateStatus(order.merchantOrderNo, 'refunded')">↩ 已退款</button>
+            <button :disabled="['completed', 'refunded', 'cancelled'].includes(order.status)" class="btn-cancel-order" :class="{ 'is-current': order.status === 'cancelled' }" @click="updateStatus(order.merchantOrderNo, 'cancelled')">✕ 已取消訂單</button>
           </div>
         </div>
       </div>
@@ -666,12 +666,23 @@ onMounted(() => {
 .btn-cancel { flex: 1; padding: 10px; background: #e2e8f0; border: none; border-radius: 6px; cursor: pointer; }
 .btn-close { width: 100%; padding: 10px; background: #e2e8f0; border: none; border-radius: 4px; cursor: pointer; margin-top: 15px; font-weight: bold; }
 
-.order-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 16px; background: #fafafa; }
-.order-card.is-completed { background-color: #f0fff4; border-color: #c6f6d5; }
-.order-card.is-cancelled { background-color: #f7fafc; opacity: 0.6; }
+.order-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 16px; background: #fafafa; transition: all 0.2s; }
+.order-card.is-completed { background-color: #f1f8f5; border-color: #cbd5e0; opacity: 0.75; } /* 🌸 已完成卡片變暗、降低視覺權重 */
+.order-card.is-cancelled { background-color: #edf2f7; opacity: 0.5; } /* 🌸 已取消 / 已退款卡片變得更暗 */
 .card-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; }
 .action-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
 .action-buttons button { padding: 6px; background: #fff; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; }
+
+/* 🌸 按鈕被禁用（disabled）時的樣式：變灰、無法點擊、不顯示手指游標 */
+.action-buttons button:disabled {
+  background-color: #edf2f7 !important;
+  color: #a0aec0 !important;
+  border-color: #e2e8f0 !important;
+  cursor: not-allowed !important;
+  opacity: 0.6;
+  box-shadow: none !important;
+}
+
 .btn-complete { grid-column: span 3; background: #48bb78 !important; color: #fff !important; font-weight: bold; }
 .btn-refund { grid-column: span 3; background: #ed8936 !important; color: #fff !important; font-weight: bold; }
 .btn-cancel-order { grid-column: span 3; background: #e2e8f0 !important; color: #718096 !important; }
