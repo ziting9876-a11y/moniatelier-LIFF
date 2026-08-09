@@ -383,7 +383,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 
 const API_BASE_URL = 'https://moni-atelier-backend.onrender.com'
 const LIFF_ID = '2010913515-HfcsIAK0'
