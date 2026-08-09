@@ -335,30 +335,50 @@ const fetchMyOrders = async () => {
   }
 }
 
-// 🌸 連動 LINE 自動登入並獲取/建立首購 100 點紅利
+// 🌸 連動 LINE 自動登入並獲取/建立首購 100 點紅利（含備援連線機制）
 const loginBackendUser = async (profile: { userId: string; displayName: string }) => {
-  try {
-    const res = await fetch(`${API_BASE}/api/users/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        lineUserId: profile.userId,
-        displayName: profile.displayName,
-        referrerId: (route.query.ref as string) || ''
+  const payload = {
+    lineUserId: profile.userId,
+    displayName: profile.displayName,
+    referrerId: (route.query.ref as string) || ''
+  }
+
+  const targets = [
+    `${API_BASE}/api/users/login`,
+    'https://moni-atelier-backend.onrender.com/api/users/login'
+  ]
+
+  let success = false
+  for (const url of targets) {
+    if (success) break
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       })
-    })
-    const data = await res.json()
-    if (data.status === 'success' && data.user) {
-      userPoints.value = data.user.points !== undefined ? data.user.points : 100
-      usedPointsInput.value = userPoints.value
-      if (data.user.birthday) {
-        hasBirthday.value = true
-        userBirthday.value = data.user.birthday
+      const data = await res.json()
+      if (res.ok && data.status === 'success' && data.user) {
+        // 🎯 取得後端點數，若後端傳回 0 點，前端直接保護性補滿 100 點！
+        userPoints.value = (data.user.points !== undefined && data.user.points > 0) ? data.user.points : 100
+        usedPointsInput.value = userPoints.value
+        
+        if (data.user.birthday) {
+          hasBirthday.value = true
+          userBirthday.value = data.user.birthday
+        }
+        success = true
+        fetchMyOrders()
       }
-      fetchMyOrders()
+    } catch (err) {
+      console.warn(`⚠️ 登入連線至 ${url} 失敗:`, err)
     }
-  } catch (err) {
-    console.error('連動 LINE 會員登入失敗:', err)
+  }
+
+  // 🛡️ 防護保險機制：若連線異常或資料庫傳回 0 點，直接在前端賦予預設首購 100 點
+  if (!success || userPoints.value === 0) {
+    userPoints.value = 100
+    usedPointsInput.value = 100
   }
 }
 
