@@ -41,7 +41,7 @@
         <div 
           v-for="order in orders" 
           :key="order.merchantOrderNo" 
-          :class="['order-card', { 'is-completed': order.status === 'completed', 'is-cancelled': order.status === 'cancelled' }]"
+          :class="['order-card', { 'is-completed': order.status === 'completed', 'is-cancelled': order.status === 'cancelled' || order.status === 'refunded' }]"
         >
           <div class="card-header">
             <span class="order-no">單號：{{ order.merchantOrderNo }}</span>
@@ -72,6 +72,7 @@
             <button :class="{ active: order.status === 'in_production' }" @click="updateStatus(order.merchantOrderNo, 'in_production')">製作中</button>
             <button :class="{ active: order.status === 'delivering' }" @click="updateStatus(order.merchantOrderNo, 'delivering')">配送中</button>
             <button class="btn-complete" :class="{ 'is-current': order.status === 'completed' }" @click="updateStatus(order.merchantOrderNo, 'completed')">✓ 已完成 (發送LINE通知)</button>
+            <button class="btn-refund" :class="{ 'is-current': order.status === 'refunded' }" @click="updateStatus(order.merchantOrderNo, 'refunded')">↩ 已退款</button>
             <button class="btn-cancel-order" :class="{ 'is-current': order.status === 'cancelled' }" @click="updateStatus(order.merchantOrderNo, 'cancelled')">✕ 已取消訂單</button>
           </div>
         </div>
@@ -107,9 +108,9 @@
             </div>
           </div>
           
-          <!-- 新增：一鍵複製 LINE 導購連結按鈕 -->
+          <!-- 一鍵複製 LINE 導購連結按鈕 -->
           <div class="copy-link-wrapper">
-            <button class="btn-copy-link" @click="copyDirectPayLink(product._id || product.id)">
+            <button class="btn-copy-link" @click="copyDirectPayLink(product)">
               🔗 複製 LINE 導購結帳連結
             </button>
           </div>
@@ -225,17 +226,18 @@
       <div class="modal-content">
         <h3>{{ editingProductId ? '✏️ 編輯花藝作品' : '➕ 新增花藝作品' }}</h3>
         <hr />
-        <div class="form-row">
-          <div class="form-group"><label>編號標籤：</label><input v-model="productForm.badge" placeholder="例：NO.01" /></div>
-          <div class="form-group"><label>活動標籤：</label><input v-model="productForm.tag" placeholder="例：熱銷" /></div>
+        <div class="form-row" style="display: flex; gap: 10px;">
+          <div class="form-group" style="flex: 1;"><label>編號標籤：</label><input v-model="productForm.badge" placeholder="例：TOP.01" /></div>
+          <div class="form-group" style="flex: 1;"><label>活動標籤：</label><input v-model="productForm.tag" placeholder="例：七夕花禮" /></div>
         </div>
         <div class="form-group"><label>商品分類：</label><input v-model="productForm.category" /></div>
         <div class="form-group"><label>商品名稱：</label><input v-model="productForm.name" /></div>
         <div class="form-group"><label>金額 (NT$)：</label><input type="number" v-model="productForm.price" /></div>
         <div class="form-group"><label>圖片網址：</label><input v-model="productForm.imageUrl" /></div>
+        <div class="form-group"><label>PicSee 短網址 (選填)：</label><input v-model="productForm.shortUrl" placeholder="例：https://pse.is/xxxxx" /></div>
         <div class="form-group"><label>文案：</label><textarea v-model="productForm.description" rows="3"></textarea></div>
         <div class="form-group checkbox-group">
-          <label class="checkbox-label">
+          <label class="checkbox-label" style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
             <input type="checkbox" v-model="productForm.isHidden" />
             <span>🔒 設定為隱藏商品</span>
           </label>
@@ -268,7 +270,7 @@ const products = ref([])
 const loadingProducts = ref(true)
 const showProductModal = ref(false)
 const editingProductId = ref(null)
-const productForm = ref({ name: '', category: '', price: null, originalPrice: null, badge: '', tag: '', description: '', imageUrl: '', isHidden: false })
+const productForm = ref({ name: '', category: '', price: null, originalPrice: null, badge: '', tag: '', description: '', imageUrl: '', shortUrl: '', isHidden: false })
 
 // 會員管理 State
 const users = ref([])
@@ -276,20 +278,13 @@ const loadingUsers = ref(false)
 const selectedUserForPoints = ref(null)
 const adjustForm = ref({ pointsChange: 50, actionType: 'add' })
 
-// 🔗 複製一鍵導購連結至剪貼簿
-const copyDirectPayLink = (productId) => {
-  if (!productId) return
-  const directLink = `https://liff.line.me/${LIFF_ID}?add=${productId}`
+// 🔗 複製一鍵導購連結至剪貼簿（優先複製 PicSee 短網址）
+const copyDirectPayLink = (product) => {
+  if (!product) return
+  const rawLiffLink = `https://liff.line.me/${LIFF_ID}?add=${product._id || product.id}`
+  const copyTarget = (product.shortUrl && product.shortUrl.trim()) ? product.shortUrl.trim() : rawLiffLink
 
-  if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(directLink).then(() => {
-      alert(`✅ 已成功複製 LINE 導購結帳連結！可直接貼給顧客：\n${directLink}`)
-    }).catch(() => {
-      fallbackCopyText(directLink)
-    })
-  } else {
-    fallbackCopyText(directLink)
-  }
+  fallbackCopyText(copyTarget)
 }
 
 const fallbackCopyText = (text) => {
@@ -403,10 +398,10 @@ const updateStatus = async (orderNo, status) => {
 const openProductModal = (product = null) => {
   if (product) {
     editingProductId.value = product._id
-    productForm.value = { ...product, isHidden: product.isHidden || false }
+    productForm.value = { ...product, shortUrl: product.shortUrl || '', isHidden: product.isHidden || false }
   } else {
     editingProductId.value = null
-    productForm.value = { name: '', category: '不凋花 / 永生花', price: null, originalPrice: null, badge: '', tag: '', description: '', imageUrl: '', isHidden: false }
+    productForm.value = { name: '', category: '不凋花 / 永生花', price: null, originalPrice: null, badge: '', tag: '', description: '', imageUrl: '', shortUrl: '', isHidden: false }
   }
   showProductModal.value = true
 }
@@ -427,8 +422,8 @@ const deleteProduct = async (id) => {
   try { await fetch(`${API_BASE_URL}/api/products/${id}`, { method: 'DELETE' }); fetchProducts() } catch (err) {}
 }
 
-const formatStatus = (s) => ({ PENDING: '待付款', PAID: '已付款', accepted: '已接單', in_production: '製作中', delivering: '配送中', completed: '✓ 已完成', cancelled: '✕ 已取消' }[s] || s)
-const formatDeliveryMethod = (m) => ({ black_cat: '黑貓宅配', cvs: '超商取貨' }[m] || m || '未指定')
+const formatStatus = (s) => ({ PENDING: '待付款', PAID: '已付款', accepted: '已接單', in_production: '製作中', delivering: '配送中', completed: '✓ 已完成', refunded: '↩ 已退款', cancelled: '✕ 已取消' }[s] || s)
+const formatDeliveryMethod = (m) => ({ black_cat: '黑貓宅配', express_taipei_1: '專人雙北配送1', express_taipei_2: '專人雙北配送2', cvs: '超商取貨', seven_eleven: '7-11店到店', familymart: '全家店到店' }[m] || m || '未指定')
 const formatDate = (d) => d ? new Date(d).toLocaleString('zh-TW') : ''
 const getFullAddress = (o) => o.selectedStore ? `${o.selectedStore.name} (${o.selectedStore.address})` : (o.recipient?.address || '無地址')
 
@@ -478,23 +473,32 @@ onMounted(() => {
 .action-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
 .action-buttons button { padding: 6px; background: #fff; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; }
 .btn-complete { grid-column: span 3; background: #48bb78 !important; color: #fff !important; font-weight: bold; }
+.btn-refund { grid-column: span 3; background: #ed8936 !important; color: #fff !important; font-weight: bold; }
 .btn-cancel-order { grid-column: span 3; background: #e2e8f0 !important; color: #718096 !important; }
 
+/* 🌸 標籤絕對定位修正 */
 .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-.product-admin-card { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #fafafa; display: flex; flex-direction: column; }
-.thumb-container { position: relative; width: 100%; height: 160px; }
-.product-thumb { width: 100%; height: 100%; object-fit: cover; }
-.hidden-badge { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.7); color: #fff; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; }
+.product-admin-card { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #fafafa; display: flex; flex-direction: column; position: relative; }
+.thumb-container { position: relative; width: 100%; height: 180px; background: #34444e; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.product-thumb { width: 100%; height: 100%; object-fit: contain; }
 
-.product-details { padding: 10px; flex-grow: 1; }
+.badge-tag { position: absolute; top: 8px; left: 8px; background: #ffffff; color: #333333; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 2; }
+.hot-tag { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: #ffffff; color: #8b5e4c; padding: 2px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); white-space: nowrap; z-index: 2; }
+.hidden-badge { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.7); color: #fff; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; z-index: 2; }
+
+.product-details { padding: 12px; flex-grow: 1; display: flex; flex-direction: column; gap: 4px; }
+.cat-tag { font-size: 0.75rem; color: #718096; font-weight: bold; }
+.product-details h4 { margin: 4px 0; font-size: 0.95rem; color: #2d3748; line-height: 1.4; }
+.product-details .desc { font-size: 0.8rem; color: #718096; line-height: 1.4; height: 36px; overflow: hidden; margin-bottom: 6px; }
+.price-box { margin-top: auto; font-weight: bold; color: #8b5e4c; font-size: 0.95rem; }
 
 .copy-link-wrapper { padding: 0 10px 10px; }
-.btn-copy-link { width: 100%; background: #34444E; color: #ffffff; border: none; padding: 8px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; transition: background 0.2s; }
-.btn-copy-link:hover { background: #243B53; }
+.btn-copy-link { width: 100%; background: #34444e; color: #ffffff; border: none; padding: 8px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+.btn-copy-link:hover { background: #243b53; }
 
 .product-actions { display: flex; border-top: 1px solid #e2e8f0; }
-.product-actions button { flex: 1; padding: 6px; border: none; cursor: pointer; }
-.btn-edit { background: #edf2f7; }
+.product-actions button { flex: 1; padding: 8px; border: none; cursor: pointer; font-weight: bold; font-size: 0.85rem; }
+.btn-edit { background: #edf2f7; color: #2d3748; }
 .btn-delete { background: #fed7d7; color: #9b2c2c; }
 .form-group { margin-bottom: 12px; }
 .form-group label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; }
