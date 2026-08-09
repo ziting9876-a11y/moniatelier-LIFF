@@ -757,9 +757,9 @@ const executePayment = async () => {
                   <span class="points-badge">目前點數：<strong>{{ userPoints }}</strong> 點 ($1點=$1元)</span>
                 </div>
 
-                <div v-if="userPoints > 0" class="points-deduct-row">
+                <div class="points-deduct-row">
                   <label>折抵紅利：</label>
-                  <input type="number" v-model.number="usedPointsInput" :max="userPoints" min="0" placeholder="0" />
+                  <input type="number" v-model.number="usedPointsInput" :max="userPoints" min="0" :placeholder="userPoints > 0 ? '0' : '餘額不足'" :disabled="userPoints <= 0" />
                   <span class="points-tip">折抵 NT$ {{ actualUsedPoints }} 元</span>
                 </div>
 
