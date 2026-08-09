@@ -265,18 +265,18 @@ const copyReferralLink = () => {
   setTimeout(() => { isCopyReferralSuccess.value = false }, 3000)
 }
 
+// 🎂 儲存完整生日日期（格式：YYYY-MM-DD）
 const saveBirthday = async () => {
   if (!userBirthday.value) {
-    alert('請先選擇您的生日日期！')
+    alert('請先選擇完整的生日日期！')
     return
   }
 
-  const selectedDate = new Date(userBirthday.value)
-  const currentMonth = new Date().getMonth() + 1
-  const birthdayMonth = selectedDate.getMonth() + 1
-  const isBirthdayMonth = currentMonth === birthdayMonth
-
-  const targetUserId = lineProfile.value?.userId || 'GUEST_TEST_USER'
+  const targetUserId = lineProfile.value?.userId
+  if (!targetUserId) {
+    alert('請從 LINE 官方帳號開啟以連線帳號！')
+    return
+  }
 
   const targets = [
     `${API_BASE}/api/users/birthday`,
@@ -304,18 +304,13 @@ const saveBirthday = async () => {
     }
   }
 
-  hasBirthday.value = true
-  showBirthdayModal.value = false
-
-  if (isBirthdayMonth) {
-    if (responseData?.points !== undefined) {
-      userPoints.value = responseData.points
-    } else {
-      userPoints.value += 100
-    }
-    alert('🎉 生日月份紀錄成功！適逢您的生日當月，已為您發放 $100 元生日購物金！')
+  if (success && responseData) {
+    hasBirthday.value = true
+    showBirthdayModal.value = false
+    userPoints.value = responseData.points !== undefined ? responseData.points : userPoints.value
+    alert(responseData.message || '生日日期登記成功！')
   } else {
-    alert(`📅 生日月份已成功紀錄！您的生日為 ${birthdayMonth} 月，當月開啟結帳即可自動領取 $100 購物金優惠！`)
+    alert('登記生日失敗，請稍後再試。')
   }
 }
 
@@ -337,6 +332,33 @@ const fetchMyOrders = async () => {
     console.warn('無法抓取會員訂單紀錄:', err)
   } finally {
     loadingOrders.value = false
+  }
+}
+
+// 🌸 連動 LINE 自動登入並獲取/建立首購 100 點紅利
+const loginBackendUser = async (profile: { userId: string; displayName: string }) => {
+  try {
+    const res = await fetch(`${API_BASE}/api/users/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lineUserId: profile.userId,
+        displayName: profile.displayName,
+        referrerId: (route.query.ref as string) || ''
+      })
+    })
+    const data = await res.json()
+    if (data.status === 'success' && data.user) {
+      userPoints.value = data.user.points !== undefined ? data.user.points : 100
+      usedPointsInput.value = userPoints.value
+      if (data.user.birthday) {
+        hasBirthday.value = true
+        userBirthday.value = data.user.birthday
+      }
+      fetchMyOrders()
+    }
+  } catch (err) {
+    console.error('連動 LINE 會員登入失敗:', err)
   }
 }
 
@@ -369,32 +391,14 @@ onMounted(async () => {
     currentStep.value = 2
   }
 
+  // 3. 初始化 LINE LIFF 並自動連動 LINE 會員發送 100 點
   try {
     await liff.init({ liffId: LIFF_ID })
     if (liff.isLoggedIn()) {
       const profile = await liff.getProfile()
       lineProfile.value = profile
       if (!orderForm.value.payer.name) orderForm.value.payer.name = profile.displayName
-
-      const userRes = await fetch(`${API_BASE}/api/users/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lineUserId: profile.userId,
-          displayName: profile.displayName,
-          referrerId: route.query.ref as string || ''
-        })
-      })
-      const userData = await userRes.json()
-      if (userData.status === 'success' && userData.user) {
-        userPoints.value = userData.user.points || 0
-        usedPointsInput.value = userPoints.value
-        if (userData.user.birthday) {
-          hasBirthday.value = true
-          userBirthday.value = userData.user.birthday
-        }
-        fetchMyOrders()
-      }
+      await loginBackendUser(profile)
     }
   } catch (err) {
     console.warn('LIFF 初始化失敗:', err)
@@ -814,27 +818,27 @@ const executePayment = async () => {
           <h4>🌸 墨凝花室紅利回饋機制：</h4>
           <ul>
             <li><strong>首購禮：</strong>首次加入 LINE 會員即贈 100 點紅利購物金。</li>
-            <li><strong>生日禮：</strong>登錄生日月份，生日當月享專屬 $100 生日購物金。</li>
+            <li><strong>生日禮：</strong>登錄生日日期，生日當月享專屬 $100 生日購物金。</li>
             <li><strong>消費回饋：</strong>單筆實付金額滿 NT$ 100 即可累積 1 點紅利。</li>
             <li><strong>好友推薦：</strong>成功推薦好友加入註冊下單，可獲得 $50 點獎勵。</li>
           </ul>
         </div>
       </div>
 
-      <!-- 🎂 生日禮快捷登錄卡片 -->
+      <!-- 🎂 生日禮快捷登錄卡片 (選擇完整年月日) -->
       <div class="member-feature-card">
         <div class="feature-card-header">
           <h3>🎂 生日禮登錄專區</h3>
           <span class="bonus-tag">贈 $100 購物金</span>
         </div>
-        <p class="feature-desc">登記您的生日月份，生日當月將自動發放專屬 $100 紅利購物金！</p>
+        <p class="feature-desc">登記您的生日完整日期（年月日），生日當月將自動發放專屬 $100 紅利購物金！</p>
         
         <div v-if="hasBirthday" class="birthday-status-box">
           <p>已登記生日：<strong>{{ userBirthday }}</strong></p>
           <span class="registered-tag">✓ 已完成登記</span>
         </div>
         <div v-else class="birthday-input-box">
-          <input type="month" v-model="userBirthday" class="date-picker-input" />
+          <input type="date" v-model="userBirthday" class="date-picker-input" />
           <button class="btn-save-birthday" @click="saveBirthday">確認登記領取</button>
         </div>
       </div>
@@ -1034,13 +1038,13 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 🎂 生日領取紅利 Modal -->
+    <!-- 🎂 生日領取紅利 Modal (完整年月日) -->
     <div v-if="showBirthdayModal" class="modal-backdrop" @click.self="showBirthdayModal = false">
       <div class="calendar-modal">
-        <h3>🎂 紀錄生日月份</h3>
-        <p style="font-size: 0.85rem; color: #666; margin-bottom: 12px;">於生日當月開啟選購，即可自動領取 $100 元生日購物金！</p>
+        <h3>🎂 紀錄生日日期</h3>
+        <p style="font-size: 0.85rem; color: #666; margin-bottom: 12px;">登記您的出生年月日，生日當月開啟選購即可自動領取 $100 元生日購物金！</p>
         <input type="date" v-model="userBirthday" style="width:100%; padding:8px; margin-bottom:12px; border:1px solid #ccc; border-radius:4px;" />
-        <button class="confirm-pay-btn" @click="saveBirthday">儲存生日月份</button>
+        <button class="confirm-pay-btn" @click="saveBirthday">儲存生日日期</button>
       </div>
     </div>
 
