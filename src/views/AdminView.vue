@@ -34,18 +34,46 @@
         <button class="btn-refresh" @click="fetchOrders">🔄 重新整理</button>
       </div>
 
+      <!-- 🌸 快速情境與篩選器 -->
+<div class="quick-select-bar">
+  <span>快速情境：</span>
+  <button class="quick-btn" @click="filterStatus = 'all'">所有訂單</button>
+  <button class="quick-btn urgent" @click="filterStatus = 'in_production'">🔥 製作中</button>
+  <button class="quick-btn delivery" @click="filterStatus = 'delivering'">🚚 配送中</button>
+  <button class="quick-btn closed" @click="filterStatus = 'completed'">✅ 已完成</button>
+</div>
+<div class="status-filters">
+  <button v-for="s in ['all', 'PAID', 'accepted', 'in_production', 'delivering', 'completed', 'cancelled', 'refunded']"
+    :key="s" :class="['filter-btn', { active: filterStatus === s }]" @click="filterStatus = s">
+    {{ s === 'all' ? '全部' : formatStatus(s) }}
+  </button>
+</div>
+
+<!-- 🌸 批次操作工具列 -->
+<div class="batch-action-bar" v-if="orders.length > 0">
+  <label><input type="checkbox" @change="toggleSelectAll" :checked="selectedOrders.length === filteredOrders.length && filteredOrders.length > 0" /> 全選</label>
+  <select v-model="batchAction" class="batch-select">
+    <option value="">-- 選擇批次動作 --</option>
+    <option value="accepted">設為 已接單</option>
+    <option value="in_production">設為 製作中</option>
+    <option value="delivering">設為 配送中</option>
+    <option value="completed">設為 已完成</option>
+  </select>
+  <button class="btn-batch-exec" @click="batchUpdateStatus" :disabled="selectedOrders.length === 0 || !batchAction">執行批次更新</button>
+</div>
+
       <div v-if="loadingOrders" class="state-msg">🌸 正在載入訂單資料...</div>
       <div v-else-if="orders.length === 0" class="state-msg">目前尚無任何訂單紀錄。</div>
 
       <div v-else class="orders-list">
         <div 
-          v-for="order in orders" 
+          v-for="order in filteredOrders" 
           :key="order.merchantOrderNo" 
           :class="['order-card', { 'is-completed': order.status === 'completed', 'is-cancelled': order.status === 'cancelled' || order.status === 'refunded' }]"
         >
           <div class="card-header">
-            <span class="order-no">單號：{{ order.merchantOrderNo }}</span>
-            <span class="status-badge" :class="order.status">{{ formatStatus(order.status) }}</span>
+  <input type="checkbox" :value="order.merchantOrderNo" v-model="selectedOrders" />
+  <span class="order-no">單號：{{ order.merchantOrderNo }}</span>
           </div>
 
           <div class="card-body">
@@ -363,10 +391,39 @@ const defaultAvatar = 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
 
 const currentTab = ref('orders')
 
-// 訂單 State
-const orders = ref([])
-const loadingOrders = ref(true)
-const selectedOrder = ref(null)
+// 🌸 新增：訂單篩選與批次處理 State
+const filterStatus = ref('all')
+const selectedOrders = ref([])
+const batchAction = ref('')
+
+// 🌸 新增：篩選邏輯
+const filteredOrders = computed(() => {
+  if (filterStatus.value === 'all') return orders.value
+  return orders.value.filter(o => o.status === filterStatus.value)
+})
+
+// 🌸 新增：勾選邏輯
+const toggleSelectAll = (e) => {
+  selectedOrders.value = e.target.checked ? filteredOrders.value.map(o => o.merchantOrderNo) : []
+}
+
+// 🌸 新增：批次更新函式
+const batchUpdateStatus = async () => {
+  if (!confirm(`確定要批次將 ${selectedOrders.value.length} 筆訂單改為「${formatStatus(batchAction.value)}」嗎？`)) return
+  try {
+    for (const orderNo of selectedOrders.value) {
+      await fetch(`${API_BASE_URL}/api/orders/update-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderNo, status: batchAction.value })
+      })
+    }
+    alert('批次更新完成！')
+    selectedOrders.value = []
+    batchAction.value = ''
+    fetchOrders()
+  } catch (err) { alert('批次更新發生錯誤') }
+}
 
 // 商品 State
 const products = ref([])
@@ -724,4 +781,12 @@ onMounted(() => {
 .form-group { margin-bottom: 12px; }
 .form-group label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; }
 .form-group input[type="text"], .form-group input[type="number"], .form-group textarea { width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box; }
+.batch-action-bar { background: #f8fafc; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+.status-filters { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; }
+.filter-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; }
+.filter-btn.active { background: #3a4750; color: #fff; }
+.quick-select-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; font-size: 0.85rem; }
+.quick-btn { padding: 5px 10px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fff; cursor: pointer; }
+.btn-batch-exec { background: #3a4750; color: #fff; padding: 6px 12px; border-radius: 4px; border: none; cursor: pointer; }
+.btn-batch-exec:disabled { background: #a0aec0; cursor: not-allowed; }
 </style>
