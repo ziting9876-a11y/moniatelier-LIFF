@@ -839,6 +839,10 @@ onMounted(async () => {
           <span class="unit">點</span>
         </div>
         <p class="points-note">✨ 結帳時 1 點可折抵現金 NT$ 1 元</p>
+        <!-- 在 HomeView.vue 中顯示紅利規則 -->
+<div class="text-xs text-gray-500 mt-1">
+  ✨ 消費滿 NT$ 100 元即可自動獲得 1 點紅利點數回饋！
+</div>
 
         <div v-if="showPointsRules" class="points-rules-dropdown">
           <h4>🌸 墨凝花室紅利回饋機制：</h4>
