@@ -1,11 +1,9 @@
 <template>
   <div class="admin-wrapper">
-    <!-- 頂部品牌區 -->
     <div class="brand-header">
       <h2>🌸 墨凝花室 | 後台管理系統</h2>
     </div>
 
-    <!-- 頂部 Tab 切換 -->
     <div class="tab-navigation">
       <button 
         :class="['tab-btn', { active: currentTab === 'orders' }]" 
@@ -34,7 +32,6 @@
         <button class="btn-refresh" @click="fetchOrders">🔄 重新整理</button>
       </div>
 
-      <!-- 🌸 快速情境與篩選器 -->
       <div class="quick-select-bar">
         <span>快速情境：</span>
         <button class="quick-btn" @click="filterStatus = 'all'">所有訂單</button>
@@ -49,7 +46,6 @@
         </button>
       </div>
 
-      <!-- 🌸 批次操作工具列 -->
       <div class="batch-action-bar" v-if="orders.length > 0">
         <label><input type="checkbox" @change="toggleSelectAll" :checked="selectedOrders.length === filteredOrders.length && filteredOrders.length > 0" /> 全選</label>
         <select v-model="batchAction" class="batch-select">
@@ -140,7 +136,7 @@
           <div class="product-details">
             <div class="tags-row">
               <span class="cat-tag">{{ product.category }}</span>
-              <span class="lead-tag">⏳ 製作期 {{ product.leadTimeDays || 5 }} 天</span>
+              <span class="lead-tag">⏳ 製作期 {{ (product.leadTimeDays !== undefined && product.leadTimeDays !== null && product.leadTimeDays !== '') ? product.leadTimeDays : 5 }} 天</span>
             </div>
             <h4>{{ product.name }}</h4>
             <p class="desc">{{ product.description }}</p>
@@ -339,7 +335,6 @@
           <div class="form-group" style="flex: 1;"><label>活動標籤：</label><input v-model="productForm.tag" placeholder="例：七夕限量預購中" /></div>
         </div>
 
-        <!-- 🌸 自訂標籤樣式設定區塊 -->
         <div class="style-config-box">
           <h4 class="config-title">🎨 標籤外觀自訂</h4>
           <div class="form-row" style="display: flex; gap: 10px;">
@@ -364,14 +359,13 @@
           </div>
         </div>
 
-        <!-- 🌸 1. 分類選擇（已移除永生花選項） -->
         <div class="form-group">
           <label>商品分類：</label>
           <select v-model="categorySelect" class="form-select" @change="onCategorySelectChange">
-            <option value="永生花｜旗艦系列花束">永生花｜旗艦系列花束</option>
-            <option value="永生花｜輕奢系列花束">永生花｜輕奢系列花束</option>
-            <option value="永生花｜珍藏玻璃罩系列">永生花｜珍藏玻璃罩系列</option>
-            <option value="永生花｜懸浮心意系列">永生花｜懸浮心意系列</option>
+            <option value="旗艦系列花束">旗艦系列花束</option>
+            <option value="輕奢系列花束">輕奢系列花束</option>
+            <option value="珍藏玻璃罩系列">珍藏玻璃罩系列</option>
+            <option value="懸浮心意系列">懸浮心意系列</option>
             <option value="custom">✏️ 自訂新分類...</option>
           </select>
           <input 
@@ -384,7 +378,6 @@
 
         <div class="form-group"><label>商品名稱：</label><input v-model="productForm.name" /></div>
         
-        <!-- 🌸 原價與優惠價 -->
         <div class="form-row" style="display: flex; gap: 10px;">
           <div class="form-group" style="flex: 1;">
             <label>原價 (NT$)：</label>
@@ -396,7 +389,6 @@
           </div>
         </div>
 
-        <!-- 🌸 2. 製作/備貨所需天數輸入框 -->
         <div class="form-group">
           <label>製作/備貨所需天數（預設 5 天）：</label>
           <input 
@@ -435,7 +427,6 @@ const defaultAvatar = 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
 
 const currentTab = ref('orders')
 
-// 🌸 訂單篩選與批次處理 State
 const loadingOrders = ref(true)
 const orders = ref([])
 const filterStatus = ref('all')
@@ -469,7 +460,6 @@ const batchUpdateStatus = async () => {
   } catch (err) { alert('批次更新發生錯誤') }
 }
 
-// 🌸 商品 State（四大系列設定）
 const products = ref([])
 const loadingProducts = ref(true)
 const showProductModal = ref(false)
@@ -505,14 +495,12 @@ const onCategorySelectChange = () => {
   }
 }
 
-// 🌸 會員管理 State
 const users = ref([])
 const loadingUsers = ref(false)
 const selectedUserForPoints = ref(null)
 const selectedMemberDetail = ref(null)
 const adjustForm = ref({ pointsChange: 50, actionType: 'add' })
 
-// 🎨 動態計算標籤 Inline Style
 const getBadgeStyle = (product, type) => {
   const textColor = type === 'badge' ? (product.badgeTextColor || '#34444E') : (product.tagTextColor || '#34444E')
   const bgColor = product.badgeBgColor || '#ffffff'
@@ -531,7 +519,6 @@ const getBadgeStyle = (product, type) => {
   }
 }
 
-// 🔗 複製 LINE 導購連結
 const copyDirectPayLink = (product) => {
   if (!product) return
   const rawLiffLink = `https://liff.line.me/${LIFF_ID}?add=${product._id || product.id}`
@@ -556,7 +543,6 @@ const fallbackCopyText = (text) => {
   document.body.removeChild(textArea)
 }
 
-// 取得會員列表
 const fetchUsers = async () => {
   loadingUsers.value = true
   try {
@@ -622,7 +608,6 @@ const submitAdjustPoints = async () => {
   }
 }
 
-// 取得訂單列表
 const fetchOrders = async () => {
   loadingOrders.value = true
   try {
@@ -633,7 +618,6 @@ const fetchOrders = async () => {
   finally { loadingOrders.value = false }
 }
 
-// 取得商品列表
 const fetchProducts = async () => {
   loadingProducts.value = true
   try {
@@ -673,7 +657,7 @@ const openProductModal = (product = null) => {
       ...defaultProductForm,
       ...product, 
       category: currentCat,
-      leadTimeDays: product.leadTimeDays || 5,
+      leadTimeDays: (product.leadTimeDays !== undefined && product.leadTimeDays !== null) ? Number(product.leadTimeDays) : 5,
       shortUrl: product.shortUrl || '', 
       isHidden: product.isHidden || false,
       badgeTextColor: product.badgeTextColor || '#34444E',
@@ -699,13 +683,18 @@ const saveProduct = async () => {
     return
   }
 
+  const submitData = {
+    ...productForm.value,
+    leadTimeDays: Number(productForm.value.leadTimeDays) || 5
+  }
+
   const method = editingProductId.value ? 'PUT' : 'POST'
   const url = editingProductId.value ? `${API_BASE_URL}/api/products/${editingProductId.value}` : `${API_BASE_URL}/api/products`
   try {
     const res = await fetch(url, { 
       method, 
       headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify(productForm.value) 
+      body: JSON.stringify(submitData) 
     })
     const data = await res.json()
     if (data.status === 'success') { 
