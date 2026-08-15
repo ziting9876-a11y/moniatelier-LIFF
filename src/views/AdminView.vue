@@ -364,15 +364,14 @@
           </div>
         </div>
 
-        <!-- 🌸 1. 分類選擇：下拉選單 + 自訂選項 -->
+        <!-- 🌸 1. 分類選擇（已移除永生花選項） -->
         <div class="form-group">
           <label>商品分類：</label>
           <select v-model="categorySelect" class="form-select" @change="onCategorySelectChange">
-            <option value="旗艦系列花束">旗艦系列花束</option>
-            <option value="輕奢系列花束">輕奢系列花束</option>
-            <option value="珍藏玻璃罩系列">珍藏玻璃罩系列</option>
-            <option value="懸浮心意系列">懸浮心意系列</option>
-            <option value="永生花">永生花</option>
+            <option value="永生花｜旗艦系列花束">永生花｜旗艦系列花束</option>
+            <option value="永生花｜輕奢系列花束">永生花｜輕奢系列花束</option>
+            <option value="永生花｜珍藏玻璃罩系列">永生花｜珍藏玻璃罩系列</option>
+            <option value="永生花｜懸浮心意系列">永生花｜懸浮心意系列</option>
             <option value="custom">✏️ 自訂新分類...</option>
           </select>
           <input 
@@ -470,18 +469,18 @@ const batchUpdateStatus = async () => {
   } catch (err) { alert('批次更新發生錯誤') }
 }
 
-// 🌸 商品 State
+// 🌸 商品 State（四大系列設定）
 const products = ref([])
 const loadingProducts = ref(true)
 const showProductModal = ref(false)
 const editingProductId = ref(null)
 
-const standardCategories = ['旗艦系列花束', '輕奢系列花束', '珍藏玻璃罩系列', '懸浮心意系列', '永生花']
-const categorySelect = ref('永生花')
+const standardCategories = ['旗艦系列花束', '輕奢系列花束', '珍藏玻璃罩系列', '懸浮心意系列']
+const categorySelect = ref('旗艦系列花束')
 
 const defaultProductForm = { 
   name: '', 
-  category: '永生花', 
+  category: '旗艦系列花束', 
   price: null, 
   originalPrice: null, 
   leadTimeDays: 5,
@@ -663,7 +662,7 @@ const updateStatus = async (orderNo, status) => {
 const openProductModal = (product = null) => {
   if (product) {
     editingProductId.value = product._id
-    const currentCat = product.category || '永生花'
+    const currentCat = product.category || '旗艦系列花束'
     if (standardCategories.includes(currentCat)) {
       categorySelect.value = currentCat
     } else {
@@ -673,6 +672,7 @@ const openProductModal = (product = null) => {
     productForm.value = { 
       ...defaultProductForm,
       ...product, 
+      category: currentCat,
       leadTimeDays: product.leadTimeDays || 5,
       shortUrl: product.shortUrl || '', 
       isHidden: product.isHidden || false,
@@ -683,7 +683,7 @@ const openProductModal = (product = null) => {
     }
   } else {
     editingProductId.value = null
-    categorySelect.value = '永生花'
+    categorySelect.value = '旗艦系列花束'
     productForm.value = { ...defaultProductForm }
   }
   showProductModal.value = true
@@ -749,7 +749,6 @@ onMounted(() => {
 .btn-add { background: #3a4750; color: #fff; }
 .btn-refresh { background: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0; }
 
-/* 👥 會員表格樣式與頭像 */
 .table-responsive { overflow-x: auto; margin-top: 10px; }
 .user-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .user-table th, .user-table td { padding: 12px 14px; text-align: left; border-bottom: 1px solid #e2e8f0; }
@@ -767,7 +766,6 @@ onMounted(() => {
 .btn-adjust-points { background: #3a4750; color: #ffffff; border: none; padding: 6px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.8rem; }
 .btn-adjust-points:hover { background: #2d3748; }
 
-/* 🌸 會員完整資料 Modal 樣式與頭像框 */
 .member-detail-modal { max-width: 540px !important; }
 .modal-header-flex { display: flex; justify-content: space-between; align-items: center; }
 .close-icon-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #718096; }
@@ -796,7 +794,6 @@ onMounted(() => {
 .select-input, .form-select { width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px; margin-top: 4px; background: #fff; box-sizing: border-box; }
 .used-points-tag { color: #d97706; font-weight: bold; font-size: 0.85rem; }
 
-/* Modal 樣式 */
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 999; }
 .modal-content { background: #fff; padding: 24px; border-radius: 12px; width: 90%; max-width: 480px; max-height: 85vh; overflow-y: auto; color: #333; }
 .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
@@ -824,7 +821,6 @@ onMounted(() => {
 .btn-refund { grid-column: span 3; background: #ed8936 !important; color: #fff !important; font-weight: bold; }
 .btn-cancel-order { grid-column: span 3; background: #e2e8f0 !important; color: #718096 !important; }
 
-/* 🌸 商品列表與標籤樣式 */
 .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
 .product-admin-card { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #fafafa; display: flex; flex-direction: column; position: relative; }
 .thumb-container { position: relative; width: 100%; height: 180px; background: #34444e; display: flex; align-items: center; justify-content: center; overflow: hidden; }
@@ -843,7 +839,7 @@ onMounted(() => {
 .price-box { margin-top: auto; }
 
 .copy-link-wrapper { padding: 0 10px 10px; }
-.btn-copy-link { width: 100%; background: #34444e; color: #ffffff; border: none; padding: 8px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+.btn-copy-link { width: 100%; background: #34444E; color: #ffffff; border: none; padding: 8px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; transition: background 0.2s; }
 .btn-copy-link:hover { background: #243b53; }
 
 .product-actions { display: flex; border-top: 1px solid #e2e8f0; }
