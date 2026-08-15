@@ -416,7 +416,8 @@ const loginBackendUser = async (profile: { userId: string; displayName: string; 
   console.log('🚀 準備發送登入請求，payload:', payload)
 
   try {
-    const res = await fetch(`${API_BASE}/api/users/login`, {
+    // 🌸 直接寫死完整的後端 API 網址，徹底排除變數串接錯誤
+    const res = await fetch('https://moni-atelier-backend.onrender.com/api/users/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
