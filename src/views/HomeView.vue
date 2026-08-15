@@ -660,7 +660,7 @@ const executePayment = async () => {
         <section class="products-section">
           <h2 class="section-title">精選花藝作品</h2>
           
-          <!-- 🌸 新增：分類篩選按鈕列（支援水平滾動） -->
+          <!-- 🌸 分類篩選按鈕列（支援橫向滑動） -->
           <div class="category-filter-bar">
             <button 
               v-for="cat in categories" 
@@ -1328,6 +1328,7 @@ const executePayment = async () => {
 .drawer-footer { border-top: 1px solid #E2E8F0; padding-top: 0.8rem; }
 .confirm-drawer-btn { width: 100%; background: #34444E; color: #FFFFFF; border: none; padding: 0.8rem; border-radius: 8px; font-weight: bold; font-size: 0.95rem; cursor: pointer; }
 
+/* 🌸 商品詳情 Modal 美化 */
 .product-detail-modal { background: #FFF; border-radius: 16px; max-width: 440px; width: 90%; max-height: 85vh; overflow-y: auto; position: relative; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
 .close-detail-btn { position: absolute; top: 12px; right: 12px; z-index: 10; background: rgba(0,0,0,0.5); color: #fff; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
 .detail-image-wrapper { width: 100%; height: 280px; background: #34444E; display: flex; align-items: center; justify-content: center; overflow: hidden; }
@@ -1339,6 +1340,7 @@ const executePayment = async () => {
 .detail-price-box { display: flex; align-items: baseline; gap: 6px; }
 .detail-price { font-size: 1.2rem; font-weight: bold; color: #8B5E4C; }
 
+/* 📜 購物須知 Modal 樣式 */
 .policy-modal { background: #FFFFFF; border-radius: 16px; padding: 1.2rem 1.5rem; max-width: 440px; width: 90%; max-height: 85vh; color: #333333; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); }
 .policy-modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.8rem; flex-shrink: 0; }
 .policy-modal-header h3 { margin: 0; font-size: 1.05rem; font-weight: bold; color: #34444E; }
