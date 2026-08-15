@@ -35,32 +35,32 @@
       </div>
 
       <!-- 🌸 快速情境與篩選器 -->
-<div class="quick-select-bar">
-  <span>快速情境：</span>
-  <button class="quick-btn" @click="filterStatus = 'all'">所有訂單</button>
-  <button class="quick-btn urgent" @click="filterStatus = 'in_production'">🔥 製作中</button>
-  <button class="quick-btn delivery" @click="filterStatus = 'delivering'">🚚 配送中</button>
-  <button class="quick-btn closed" @click="filterStatus = 'completed'">✅ 已完成</button>
-</div>
-<div class="status-filters">
-  <button v-for="s in ['all', 'PAID', 'accepted', 'in_production', 'delivering', 'completed', 'cancelled', 'refunded']"
-    :key="s" :class="['filter-btn', { active: filterStatus === s }]" @click="filterStatus = s">
-    {{ s === 'all' ? '全部' : formatStatus(s) }}
-  </button>
-</div>
+      <div class="quick-select-bar">
+        <span>快速情境：</span>
+        <button class="quick-btn" @click="filterStatus = 'all'">所有訂單</button>
+        <button class="quick-btn urgent" @click="filterStatus = 'in_production'">🔥 製作中</button>
+        <button class="quick-btn delivery" @click="filterStatus = 'delivering'">🚚 配送中</button>
+        <button class="quick-btn closed" @click="filterStatus = 'completed'">✅ 已完成</button>
+      </div>
+      <div class="status-filters">
+        <button v-for="s in ['all', 'PAID', 'accepted', 'in_production', 'delivering', 'completed', 'cancelled', 'refunded']"
+          :key="s" :class="['filter-btn', { active: filterStatus === s }]" @click="filterStatus = s">
+          {{ s === 'all' ? '全部' : formatStatus(s) }}
+        </button>
+      </div>
 
-<!-- 🌸 批次操作工具列 -->
-<div class="batch-action-bar" v-if="orders.length > 0">
-  <label><input type="checkbox" @change="toggleSelectAll" :checked="selectedOrders.length === filteredOrders.length && filteredOrders.length > 0" /> 全選</label>
-  <select v-model="batchAction" class="batch-select">
-    <option value="">-- 選擇批次動作 --</option>
-    <option value="accepted">設為 已接單</option>
-    <option value="in_production">設為 製作中</option>
-    <option value="delivering">設為 配送中</option>
-    <option value="completed">設為 已完成</option>
-  </select>
-  <button class="btn-batch-exec" @click="batchUpdateStatus" :disabled="selectedOrders.length === 0 || !batchAction">執行批次更新</button>
-</div>
+      <!-- 🌸 批次操作工具列 -->
+      <div class="batch-action-bar" v-if="orders.length > 0">
+        <label><input type="checkbox" @change="toggleSelectAll" :checked="selectedOrders.length === filteredOrders.length && filteredOrders.length > 0" /> 全選</label>
+        <select v-model="batchAction" class="batch-select">
+          <option value="">-- 選擇批次動作 --</option>
+          <option value="accepted">設為 已接單</option>
+          <option value="in_production">設為 製作中</option>
+          <option value="delivering">設為 配送中</option>
+          <option value="completed">設為 已完成</option>
+        </select>
+        <button class="btn-batch-exec" @click="batchUpdateStatus" :disabled="selectedOrders.length === 0 || !batchAction">執行批次更新</button>
+      </div>
 
       <div v-if="loadingOrders" class="state-msg">🌸 正在載入訂單資料...</div>
       <div v-else-if="orders.length === 0" class="state-msg">目前尚無任何訂單紀錄。</div>
@@ -72,8 +72,8 @@
           :class="['order-card', { 'is-completed': order.status === 'completed', 'is-cancelled': order.status === 'cancelled' || order.status === 'refunded' }]"
         >
           <div class="card-header">
-  <input type="checkbox" :value="order.merchantOrderNo" v-model="selectedOrders" />
-  <span class="order-no">單號：{{ order.merchantOrderNo }}</span>
+            <input type="checkbox" :value="order.merchantOrderNo" v-model="selectedOrders" />
+            <span class="order-no">單號：{{ order.merchantOrderNo }}</span>
           </div>
 
           <div class="card-body">
@@ -143,8 +143,14 @@
             <h4>{{ product.name }}</h4>
             <p class="desc">{{ product.description }}</p>
 
-            <div class="price-box">
-              <span class="price-text">NT$ {{ (product.price || product.originalPrice)?.toLocaleString() }}</span>
+            <!-- 🌸 修正處：商品卡片支援原價劃線與特價對比 -->
+            <div class="price-box" style="display: flex; align-items: baseline; gap: 8px;">
+              <span v-if="product?.originalPrice && Number(product.originalPrice) > Number(product?.price)" style="text-decoration: line-through; color: #888; font-size: 0.82rem;">
+                NT$ {{ Number(product.originalPrice).toLocaleString() }}
+              </span>
+              <span class="price-text" style="font-weight: bold; color: #8b5e4c;">
+                NT$ {{ Number(product?.price || product?.originalPrice || 0).toLocaleString() }}
+              </span>
             </div>
           </div>
           
@@ -188,7 +194,6 @@
             <tr v-for="user in users" :key="user._id">
               <td>
                 <div class="user-row-flex">
-                  <!-- 🌸 表格名字前方的頭像與金色框 -->
                   <div class="table-avatar-box">
                     <img :src="user.pictureUrl || user.avatar || defaultAvatar" class="table-avatar-img" />
                   </div>
@@ -229,7 +234,6 @@
         <hr />
 
         <div class="member-profile-card">
-          <!-- 🌸 Modal 內的頭像框與皇冠裝飾 -->
           <div class="avatar-frame-wrapper">
             <div class="avatar-box">
               <img :src="selectedMemberDetail.pictureUrl || selectedMemberDetail.avatar || defaultAvatar" class="modal-avatar" />
@@ -363,17 +367,15 @@
         <div class="form-group"><label>商品分類：</label><input v-model="productForm.category" /></div>
         <div class="form-group"><label>商品名稱：</label><input v-model="productForm.name" /></div>
         
-        <!-- 🌸 正確的原價與優惠價輸入欄位 -->
+        <!-- 🌸 後台原價與優惠價輸入欄位 -->
         <div class="form-group">
-  <label>原價 (NT$)：</label>
-  <input type="number" v-model="productForm.originalPrice" placeholder="例：1500 (選填)" />
-</div>
-<div class="form-group">
-  <label>優惠價 / 售價 (NT$)：</label>
-  <input type="number" v-model="productForm.price" placeholder="例：1280 (選填)" />
-</div>
-
-        <div class="form-group"><label>圖片網址：</label><input v-model="productForm.imageUrl" /></div>
+          <label>原價 (NT$)：</label>
+          <input type="number" v-model="productForm.originalPrice" placeholder="例：1500 (選填)" />
+        </div>
+        <div class="form-group">
+          <label>優惠價 / 售價 (NT$)：</label>
+          <input type="number" v-model="productForm.price" placeholder="例：1280 (選填)" />
+        </div>
 
         <div class="form-group"><label>圖片網址：</label><input v-model="productForm.imageUrl" /></div>
         <div class="form-group"><label>PicSee 短網址 (選填)：</label><input v-model="productForm.shortUrl" placeholder="例：https://pse.is/xxxxx" /></div>
@@ -739,13 +741,12 @@ onMounted(() => {
 .btn-close { width: 100%; padding: 10px; background: #e2e8f0; border: none; border-radius: 4px; cursor: pointer; margin-top: 15px; font-weight: bold; }
 
 .order-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 16px; background: #fafafa; transition: all 0.2s; }
-.order-card.is-completed { background-color: #f1f8f5; border-color: #cbd5e0; opacity: 0.75; } /* 🌸 已完成卡片變暗、降低視覺權重 */
-.order-card.is-cancelled { background-color: #edf2f7; opacity: 0.5; } /* 🌸 已取消 / 已退款卡片變得更暗 */
+.order-card.is-completed { background-color: #f1f8f5; border-color: #cbd5e0; opacity: 0.75; }
+.order-card.is-cancelled { background-color: #edf2f7; opacity: 0.5; }
 .card-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; }
 .action-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
 .action-buttons button { padding: 6px; background: #fff; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; }
 
-/* 🌸 按鈕被禁用（disabled）時的樣式：變灰、無法點擊、不顯示手指游標 */
 .action-buttons button:disabled {
   background-color: #edf2f7 !important;
   color: #a0aec0 !important;
@@ -766,17 +767,14 @@ onMounted(() => {
 .product-thumb { width: 100%; height: 100%; object-fit: contain; }
 
 .badge-tag { position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 2; }
-
-/* 🌸 活動標籤定位至右下角 */
 .hot-tag { position: absolute; bottom: 8px; right: 8px; padding: 2px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); white-space: nowrap; z-index: 2; }
-
 .hidden-badge { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.7); color: #fff; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; z-index: 2; }
 
 .product-details { padding: 12px; flex-grow: 1; display: flex; flex-direction: column; gap: 4px; }
 .cat-tag { font-size: 0.75rem; color: #718096; font-weight: bold; }
 .product-details h4 { margin: 4px 0; font-size: 0.95rem; color: #2d3748; line-height: 1.4; }
 .product-details .desc { font-size: 0.8rem; color: #718096; line-height: 1.4; height: 36px; overflow: hidden; margin-bottom: 6px; }
-.price-box { margin-top: auto; font-weight: bold; color: #8b5e4c; font-size: 0.95rem; }
+.price-box { margin-top: auto; }
 
 .copy-link-wrapper { padding: 0 10px 10px; }
 .btn-copy-link { width: 100%; background: #34444e; color: #ffffff; border: none; padding: 8px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; transition: background 0.2s; }
