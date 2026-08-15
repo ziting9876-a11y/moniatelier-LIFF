@@ -829,31 +829,33 @@ onMounted(async () => {
       </div>
 
       <div class="points-hero-card">
-        <div class="points-header">
-          <span class="hero-label">目前累積紅利點數</span>
-          <button class="btn-rules-info" @click="showPointsRules = !showPointsRules">💡 紅利說明</button>
-        </div>
-        <div class="points-amount-display">
-          <span class="symbol">$</span>
-          <span class="amount">{{ userPoints || 0 }}</span>
-          <span class="unit">點</span>
-        </div>
-        <p class="points-note">✨ 結帳時 1 點可折抵現金 NT$ 1 元</p>
-        <!-- 在 HomeView.vue 中顯示紅利規則 -->
-<div class="text-xs text-gray-500 mt-1">
-  ✨ 消費滿 NT$ 100 元即可自動獲得 1 點紅利點數回饋！
-</div>
+  <!-- 頂部標題與優化後的按鈕 -->
+  <div class="points-header">
+    <span class="hero-label">目前累積紅利點數</span>
+    <!-- 💡 加入 ▼ 箭頭，並加入翻轉動畫，讓使用者直覺知道可點擊展開 -->
+    <button class="btn-rules-info" @click="showPointsRules = !showPointsRules" style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+      💡 紅利說明
+      <span style="font-size: 10px; transition: transform 0.3s ease;" :style="{ transform: showPointsRules ? 'rotate(180deg)' : 'rotate(0deg)' }">▼</span>
+    </button>
+  </div>
 
-        <div v-if="showPointsRules" class="points-rules-dropdown">
-          <h4>🌸 墨凝花室紅利回饋機制：</h4>
-          <ul>
-            <li><strong>首購禮：</strong>首次加入 LINE 會員即贈 100 點紅利購物金。</li>
-            <li><strong>生日禮：</strong>登錄生日日期，生日當月享專屬 $100 生日購物金。</li>
-            <li><strong>消費回饋：</strong>單筆實付金額滿 NT$ 100 即可累積 1 點紅利。</li>
-            <li><strong>好友推薦：</strong>成功推薦好友加入註冊下單，可獲得 $50 點獎勵。</li>
-          </ul>
-        </div>
-      </div>
+  <!-- 點數顯示區塊 -->
+  <div class="points-amount-display">
+    <span class="symbol">$</span>
+    <span class="amount">{{ userPoints || 0 }}</span>
+    <span class="unit">點</span>
+  </div>
+  <p class="points-note">✨ 結帳時 1 點可折抵現金 NT$ 1 元</p>
+
+  <!-- 💡 精簡後的規則區塊：刪除重複的生日與推薦，只保留關鍵兩點 -->
+  <div v-if="showPointsRules" class="rules-box" style="margin-top: 16px; padding: 16px; background-color: #fdfaf8; border-radius: 12px; font-size: 13px; line-height: 1.6; color: #666;">
+    <p style="font-weight: 600; color: #8b5a2b; margin-bottom: 8px;">🌸 墨凝花室紅利回饋機制：</p>
+    <ul style="list-style-type: disc; padding-left: 20px; margin-bottom: 0;">
+      <li style="margin-bottom: 4px;"><strong>首購禮：</strong>首次加入 LINE 會員即贈 100 點。</li>
+      <li><strong>消費回饋：</strong>單筆滿 NT$ 100 即自動累積 1 點。</li>
+    </ul>
+  </div>
+</div>>
 
       <div class="member-feature-card">
         <div class="feature-card-header">
