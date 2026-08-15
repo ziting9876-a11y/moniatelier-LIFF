@@ -111,21 +111,30 @@ const deliveryMethodDays: Record<string, number> = {
   familymart: 3
 }
 
+// 📅 動態計算最早送達日期（購物車商品的最高備貨天數 + 配送方式運送天數）
 const minDeliveryDate = computed(() => {
   let maxLeadDays = 5
-  if (cartStore?.cart && allProducts.value.length > 0) {
-    for (const id of Object.keys(cartStore.cart)) {
+  const cartKeys = Object.keys(cartStore.cart || {})
+
+  if (cartKeys.length > 0 && allProducts.value.length > 0) {
+    const leadList: number[] = []
+    for (const id of cartKeys) {
       const product = allProducts.value.find(p => String(getProductId(p)) === String(id))
-      if (product && product.leadTimeDays !== undefined && product.leadTimeDays !== null) {
+      if (product) {
         const lead = Number(product.leadTimeDays)
-        if (!Number.isNaN(lead) && lead > maxLeadDays) {
-          maxLeadDays = lead
-        }
+        leadList.push(!Number.isNaN(lead) && lead > 0 ? lead : 5)
       }
+    }
+    if (leadList.length > 0) {
+      maxLeadDays = Math.max(...leadList)
     }
   }
 
-  const shippingDays = deliveryMethodDays[orderForm.value.deliveryMethod] || 1
+  // 物流天數：專人雙北 0 天、黑貓 1 天、超商 3 天
+  const shippingDays = deliveryMethodDays[orderForm.value.deliveryMethod] !== undefined 
+    ? deliveryMethodDays[orderForm.value.deliveryMethod] 
+    : 1
+
   const totalDays = maxLeadDays + shippingDays
 
   const d = new Date()
