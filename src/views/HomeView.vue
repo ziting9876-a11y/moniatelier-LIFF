@@ -390,7 +390,8 @@ const loginBackendUser = async (profile: { userId: string; displayName: string; 
     })
     const data = await res.json()
     if (res.ok && data.status === 'success' && data.user) {
-      userPoints.value = data.user.points !== undefined ? data.user.points : 100
+      // 🌸 確保確實取得後端回傳的最新點數與生日資訊
+      userPoints.value = data.user.points !== undefined ? Number(data.user.points) : 100
       usedPointsInput.value = userPoints.value
       if (data.user.birthday) {
         hasBirthday.value = true
@@ -399,8 +400,7 @@ const loginBackendUser = async (profile: { userId: string; displayName: string; 
       fetchMyOrders()
     }
   } catch (err) {
-    userPoints.value = 100
-    usedPointsInput.value = 100
+    console.warn('會員登入同步失敗:', err)
   }
 }
 
