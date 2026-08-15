@@ -63,9 +63,14 @@ const selectedCategory = ref('全部作品')
 const displayProducts = computed(() => {
   const visibleList = allProducts.value.filter(p => p.isHidden !== true)
   if (selectedCategory.value === '全部作品') return visibleList
+
+  // 擷取核心關鍵字（例如：輕奢、懸浮、玻璃罩、旗艦）
+  const keyword = selectedCategory.value.replace(/系列|花束|作品/g, '').trim()
+
   return visibleList.filter(p => {
     if (!p.category) return false
-    return p.category === selectedCategory.value || p.category.includes(selectedCategory.value)
+    const cat = p.category.replace(/\s+/g, '')
+    return cat.includes(keyword) || cat.includes(selectedCategory.value.replace(/\s+/g, ''))
   })
 })
 
