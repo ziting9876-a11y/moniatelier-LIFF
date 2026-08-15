@@ -59,18 +59,20 @@ const loadingProducts = ref(true)
 const categories = ['全部作品', '旗艦系列花束', '輕奢系列花束', '珍藏玻璃罩系列', '懸浮心意系列']
 const selectedCategory = ref('全部作品')
 
-// 🌸 彈性比對分類名稱（完全相等或包含「永生花 | 系列名」）
+// 🌸 超強容錯比對：全部作品強制全部呈現，其餘系列雙向模糊比對
 const displayProducts = computed(() => {
   const visibleList = allProducts.value.filter(p => p.isHidden !== true)
-  if (selectedCategory.value === '全部作品') return visibleList
+  if (selectedCategory.value === '全部作品') {
+    return visibleList
+  }
 
-  // 擷取核心關鍵字（例如：輕奢、懸浮、玻璃罩、旗艦）
-  const keyword = selectedCategory.value.replace(/系列|花束|作品/g, '').trim()
+  // 提取關鍵詞：例如 "旗艦"、"輕奢"、"玻璃罩"、"懸浮"
+  const key = selectedCategory.value.replace(/系列|花束|作品/g, '').trim()
 
   return visibleList.filter(p => {
     if (!p.category) return false
-    const cat = p.category.replace(/\s+/g, '')
-    return cat.includes(keyword) || cat.includes(selectedCategory.value.replace(/\s+/g, ''))
+    const cat = p.category.toString()
+    return cat.includes(key) || cat.includes(selectedCategory.value)
   })
 })
 
@@ -114,7 +116,7 @@ const minDeliveryDate = computed(() => {
   if (cartStore?.cart && allProducts.value.length > 0) {
     for (const id of Object.keys(cartStore.cart)) {
       const product = allProducts.value.find(p => String(getProductId(p)) === String(id))
-      if (product && product.leadTimeDays) {
+      if (product && product.leadTimeDays !== undefined && product.leadTimeDays !== null) {
         const lead = Number(product.leadTimeDays)
         if (!Number.isNaN(lead) && lead > maxLeadDays) {
           maxLeadDays = lead
@@ -395,22 +397,32 @@ const loginBackendUser = async (profile: { userId: string; displayName: string; 
 
 const fetchProducts = async () => {
   loadingProducts.value = true
-  try {
-    const res = await fetch(`${API_BASE}/api/products`)
-    const data = await res.json()
-    if (data.status === 'success' && Array.isArray(data.products)) {
-      allProducts.value = data.products.map((p: any) => ({
-        ...p,
-        id: p._id || p.id,
-        image: p.imageUrl || p.image,
-        leadTimeDays: p.leadTimeDays !== undefined && p.leadTimeDays !== null ? Number(p.leadTimeDays) : 5
-      }))
+  const targets = [
+    `${API_BASE}/api/products`,
+    'https://moni-atelier-backend.onrender.com/api/products'
+  ]
+
+  let success = false
+  for (const url of targets) {
+    if (success) break
+    try {
+      const res = await fetch(url)
+      const data = await res.json()
+      const productList = data.products || data.data || []
+      if (Array.isArray(productList) && productList.length > 0) {
+        allProducts.value = productList.map((p: any) => ({
+          ...p,
+          id: p._id || p.id,
+          image: p.imageUrl || p.image,
+          leadTimeDays: p.leadTimeDays !== undefined && p.leadTimeDays !== null ? Number(p.leadTimeDays) : 5
+        }))
+        success = true
+      }
+    } catch (err) {
+      console.warn(`⚠️ 嘗試連線 ${url} 失敗:`, err)
     }
-  } catch (err) {
-    console.warn('抓取商品失敗:', err)
-  } finally {
-    loadingProducts.value = false
   }
+  loadingProducts.value = false
 }
 
 const executePayment = async () => {
