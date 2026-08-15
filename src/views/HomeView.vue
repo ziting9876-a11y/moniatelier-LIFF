@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 // @ts-ignore
 import { useCartStore } from '../stores/cart'
@@ -13,6 +13,7 @@ interface Product {
   category: string
   price: number
   originalPrice?: number | null
+  leadTimeDays?: number
   badge?: string
   tag?: string
   description: string
@@ -33,6 +34,10 @@ const defaultAvatar = 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
 
 // --- 🎯 頁面 Tab 控制 ('shop' 或 'member') ---
 const activeTab = ref<'shop' | 'member'>('shop')
+
+// --- 🌸 分類篩選 State ---
+const categories = ['全部作品', '旗艦系列花束', '輕奢系列花束', '珍藏玻璃罩系列', '懸浮心意系列']
+const selectedCategory = ref('全部作品')
 
 // --- 🎯 會員紅利點數與系統 State (強制預設 100 點) ---
 const userPoints = ref(100)
@@ -77,7 +82,7 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'https://moni-atelier-bac
 const route = useRoute()
 const cartStore = useCartStore()
 
-// --- 🎯 表單與 State 宣告（必須在使用前宣告） ---
+// --- 🎯 表單與 State 宣告 ---
 const orderForm = ref({
   deliveryDate: '',
   deliveryMethod: 'black_cat',
@@ -119,10 +124,32 @@ const openPolicyModal = () => {
   showPolicyModal.value = true
 }
 
-// 📅 日期與月曆控制
+// 🚚 各配送方式所需運送天數
+const deliveryMethodDays: Record<string, number> = {
+  express_taipei_1: 0,
+  express_taipei_2: 0,
+  black_cat: 1,
+  seven_eleven: 3,
+  familymart: 3
+}
+
+// 📅 動態計算最早送達日期（購物車商品最高備貨天數 + 配送方式運送天數）
 const minDeliveryDate = computed(() => {
+  let maxLeadDays = 5
+  for (const id of Object.keys(cartStore.cart || {})) {
+    const product = allProducts.value.find(p => String(getProductId(p)) === String(id))
+    if (product && product.leadTimeDays) {
+      if (Number(product.leadTimeDays) > maxLeadDays) {
+        maxLeadDays = Number(product.leadTimeDays)
+      }
+    }
+  }
+
+  const shippingDays = deliveryMethodDays[orderForm.value.deliveryMethod] || 1
+  const totalDays = maxLeadDays + shippingDays
+
   const d = new Date()
-  d.setDate(d.getDate() + 5)
+  d.setDate(d.getDate() + totalDays)
   d.setHours(0, 0, 0, 0)
   return d
 })
@@ -137,6 +164,13 @@ const maxDeliveryDate = computed(() => {
   d.setMonth(d.getMonth() + 6)
   d.setHours(23, 59, 59, 999)
   return d
+})
+
+// 當切換配送方式或購物車變更導致最早日期延後時，自動調整送達日期
+watch(minDeliveryDateStr, (newMinStr) => {
+  if (!orderForm.value.deliveryDate || orderForm.value.deliveryDate < newMinStr) {
+    orderForm.value.deliveryDate = newMinStr
+  }
 })
 
 const showDatePickerModal = ref(false)
@@ -188,7 +222,12 @@ const selectDate = (dayItem: { dateStr: string; isDisabled: boolean }) => {
 const allProducts = ref<Product[]>([])
 const loadingProducts = ref(true)
 
-const displayProducts = computed(() => allProducts.value.filter(p => p.isHidden !== true))
+// 🌸 結合分類篩選的顯示商品列表
+const displayProducts = computed(() => {
+  const visibleList = allProducts.value.filter(p => p.isHidden !== true)
+  if (selectedCategory.value === '全部作品') return visibleList
+  return visibleList.filter(p => p.category === selectedCategory.value)
+})
 
 const fetchProducts = async () => {
   loadingProducts.value = true
@@ -207,7 +246,8 @@ const fetchProducts = async () => {
         allProducts.value = data.products.map((p: any) => ({
           ...p,
           id: p._id || p.id,
-          image: p.imageUrl || p.image
+          image: p.imageUrl || p.image,
+          leadTimeDays: p.leadTimeDays || 5
         }))
         success = true
       }
@@ -344,7 +384,7 @@ const fetchMyOrders = async () => {
   }
 }
 
-// 🌸 連動 LINE 自動登入並載入點數（嚴格限制僅限註冊當下發放 100 點）
+// 🌸 連動 LINE 自動登入並載入點數
 const loginBackendUser = async (profile: { userId: string; displayName: string; pictureUrl?: string }) => {
   const payload = {
     lineUserId: profile.userId,
@@ -352,8 +392,6 @@ const loginBackendUser = async (profile: { userId: string; displayName: string; 
     pictureUrl: profile.pictureUrl || '',
     referrerId: (route.query.ref as string) || ''
   }
-
-  console.log("📤 [準備傳送給後端的 payload]:", payload)
 
   const targets = [
     `${API_BASE}/api/users/login`,
@@ -392,11 +430,10 @@ const loginBackendUser = async (profile: { userId: string; displayName: string; 
   }
 }
 
-// --- 🌸 頁面初始化 LIFF 、會員資料與付款轉址檢查 ---
+// --- 🌸 頁面初始化 ---
 onMounted(async () => {
   await fetchProducts()
 
-  // 處理網址夾帶的推薦商品加入購物車
   const addParam = route.query.add as string
   if (addParam) {
     const productIds = addParam.split(',').map(id => id.trim()).filter(Boolean)
@@ -471,7 +508,6 @@ const totalCartItemsCount = computed(() => {
 
 const isLoading = ref(false)
 
-// 工具函式
 const formatDate = (d: any) => d ? new Date(d).toLocaleDateString('zh-TW') : ''
 const truncateId = (id?: string) => id ? (id.length > 12 ? id.slice(0, 6) + '...' + id.slice(-4) : id) : '訪客'
 const formatStatus = (s: string) => ({ PENDING: '待付款', PAID: '已付款', accepted: '已接單', in_production: '製作中', delivering: '配送中', completed: '✓ 已完成', refunded: '↩ 已退款', cancelled: '✕ 已取消' }[s] || s)
@@ -623,11 +659,23 @@ const executePayment = async () => {
       <div v-if="currentStep === 1" class="step-content">
         <section class="products-section">
           <h2 class="section-title">精選花藝作品</h2>
+          
+          <!-- 🌸 新增：分類篩選按鈕列（支援水平滾動） -->
+          <div class="category-filter-bar">
+            <button 
+              v-for="cat in categories" 
+              :key="cat" 
+              :class="['cat-filter-btn', { active: selectedCategory === cat }]"
+              @click="selectedCategory = cat"
+            >
+              {{ cat }}
+            </button>
+          </div>
+
           <div v-if="loadingProducts" class="loading-state">🌸 正在為您載入最新花藝作品...</div>
-          <div v-else-if="displayProducts.length === 0" class="loading-state">目前尚未有上架商品。</div>
+          <div v-else-if="displayProducts.length === 0" class="loading-state">此分類目前尚無作品。</div>
           <div v-else class="product-grid">
             <div v-for="item in displayProducts" :key="getProductId(item)" class="product-card">
-              <!-- 🌸 修正圖片容器與標籤定位 -->
               <div class="image-wrapper" @click="openProductDetail(item)">
                 <span 
                   v-if="item.badge" 
@@ -652,7 +700,6 @@ const executePayment = async () => {
                 <p class="description">{{ item.description }}</p>
                 <div class="divider"></div>
                 <div class="card-footer">
-                  <!-- 🌸 修正前台價格：雙價格顯示（劃線原價 + 特價） -->
                   <div class="price-box">
                     <span v-if="item.originalPrice && Number(item.originalPrice) > Number(item.price)" class="price-original">
                       NT$ {{ Number(item.originalPrice).toLocaleString() }}
@@ -816,7 +863,6 @@ const executePayment = async () => {
 
     <!-- ==================== TAB 2: 👤 獨立會員中心 / 紅利專區 ==================== -->
     <div v-else-if="activeTab === 'member'" class="tab-main-container member-tab-wrapper">
-      <!-- 💳 個人尊榮會員名片卡 -->
       <div class="member-card-vip">
         <div class="card-top">
           <div class="avatar-box">
@@ -832,7 +878,6 @@ const executePayment = async () => {
         </div>
       </div>
 
-      <!-- 🎁 紅利點數主卡片 -->
       <div class="points-hero-card">
         <div class="points-header">
           <span class="hero-label">目前累積紅利點數</span>
@@ -845,7 +890,6 @@ const executePayment = async () => {
         </div>
         <p class="points-note">✨ 結帳時 1 點可折抵現金 NT$ 1 元</p>
 
-        <!-- 展開紅利說明 -->
         <div v-if="showPointsRules" class="points-rules-dropdown">
           <h4>🌸 墨凝花室紅利回饋機制：</h4>
           <ul>
@@ -857,7 +901,6 @@ const executePayment = async () => {
         </div>
       </div>
 
-      <!-- 🎂 生日禮快捷登錄卡片 -->
       <div class="member-feature-card">
         <div class="feature-card-header">
           <h3>🎂 生日禮登錄專區</h3>
@@ -875,7 +918,6 @@ const executePayment = async () => {
         </div>
       </div>
 
-      <!-- 🔗 推薦好友分享卡片 -->
       <div class="member-feature-card">
         <div class="feature-card-header">
           <h3>🔗 推薦好友獨享禮</h3>
@@ -887,7 +929,6 @@ const executePayment = async () => {
         </button>
       </div>
 
-      <!-- 📦 歷史訂單查詢專區 -->
       <div class="member-orders-section">
         <div class="section-title-bar">
           <h3>📦 我的歷史訂單紀錄</h3>
@@ -958,7 +999,7 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 🔍 修正後的商品詳情 Modal -->
+    <!-- 🔍 商品詳情 Modal -->
     <div v-if="selectedProductDetail" class="modal-backdrop" @click.self="closeProductDetail">
       <div class="product-detail-modal">
         <button type="button" class="close-icon-btn close-detail-btn" @click="closeProductDetail">✕</button>
@@ -1134,17 +1175,21 @@ const executePayment = async () => {
 .tab-nav-btn { flex: 1; padding: 10px; border: none; background: transparent; font-weight: bold; font-size: 0.88rem; color: #718096; cursor: pointer; border-radius: 6px; transition: all 0.2s; }
 .tab-nav-btn.active { background: #34444E; color: #ffffff; }
 
-.section-title { color: #FFFFFF; font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem; }
+.section-title { color: #FFFFFF; font-size: 1.25rem; font-weight: bold; margin-bottom: 0.8rem; }
 .loading-state { text-align: center; color: #FFFFFF; padding: 2rem; }
+
+/* 🌸 分類標籤樣式（支援水平滑動） */
+.category-filter-bar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 16px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.category-filter-bar::-webkit-scrollbar { display: none; }
+.cat-filter-btn { white-space: nowrap; padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.1); color: #E2E8F0; font-size: 0.82rem; cursor: pointer; transition: all 0.2s; }
+.cat-filter-btn.active { background: #ffffff; color: #34444E; border-color: #ffffff; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
 
 .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.2rem; }
 .product-card { background: #FFFFFF; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
 
-/* 🌸 嚴格限制圖片容器大小與絕對定位基準 */
 .image-wrapper { position: relative !important; width: 100%; aspect-ratio: 3/4; background: #34444E; display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer; }
 .image-wrapper img { width: 100%; height: 100%; object-fit: contain; }
 
-/* 🌸 標籤樣式：固定在圖片內部的四角 */
 .badge-no { position: absolute; top: 10px; left: 10px; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; z-index: 5; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 .tag-hot { position: absolute; bottom: 10px; right: 10px; padding: 2px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; z-index: 5; box-shadow: 0 2px 4px rgba(0,0,0,0.2); white-space: nowrap; }
 .view-detail-badge { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.65); color: #FFF; font-size: 0.75rem; padding: 3px 8px; border-radius: 20px; z-index: 5; backdrop-filter: blur(2px); }
@@ -1154,7 +1199,6 @@ const executePayment = async () => {
 .description { font-size: 0.82rem; color: #718096; line-height: 1.4; height: 36px; overflow: hidden; }
 .card-footer { margin-top: auto; display: flex; justify-content: space-between; align-items: center; }
 
-/* 🌸 前台雙價格對比顯示 */
 .price-box { display: flex; align-items: baseline; gap: 6px; text-align: left; }
 .price-original { text-decoration: line-through; color: #a0aec0; font-size: 0.8rem; }
 .price-val { font-size: 1.05rem; font-weight: bold; color: #8B5E4C; }
@@ -1172,7 +1216,6 @@ const executePayment = async () => {
 .bar-price { font-size: 0.78rem; color: #CBD5E1; }
 .next-step-btn { background: #FFFFFF; color: #34444E; border: none; padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold; cursor: pointer; }
 
-/* 🌸 結帳頁面美化樣式 */
 .checkout-card { background: #FFFFFF; padding: 1.5rem; border-radius: 12px; color: #2D3748; }
 .checkout-title { font-size: 1.25rem; color: #34444E; font-weight: bold; margin-bottom: 1.2rem; text-align: center; }
 .cart-item-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 0.95rem; margin-bottom: 12px; color: #2D3748; }
@@ -1187,7 +1230,6 @@ const executePayment = async () => {
 .member-actions-row { display: flex; gap: 8px; margin-top: 4px; }
 .btn-member-action { flex: 1; background: #FFFFFF; border: 1px solid #34444E; color: #34444E; padding: 8px; border-radius: 6px; font-size: 0.78rem; font-weight: bold; cursor: pointer; }
 
-/* 👤 獨立會員中心樣式 */
 .member-tab-wrapper { display: flex; flex-direction: column; gap: 14px; }
 .member-card-vip { background: linear-gradient(135deg, #34444e 0%, #243b53 100%); color: #ffffff; border-radius: 16px; padding: 20px; box-shadow: 0 6px 16px rgba(36, 59, 83, 0.25); }
 .card-top { display: flex; align-items: center; gap: 14px; }
@@ -1227,7 +1269,6 @@ const executePayment = async () => {
 
 .btn-copy-referral { width: 100%; background: #edf2f7; color: #2d3748; border: 1px solid #cbd5e0; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 0.82rem; cursor: pointer; }
 
-/* 📦 歷史訂單專區 */
 .member-orders-section { margin-top: 10px; text-align: left; }
 .section-title-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .section-title-bar h3 { margin: 0; font-size: 1rem; color: #ffffff; }
@@ -1250,7 +1291,6 @@ const executePayment = async () => {
 .orders-loading, .orders-empty { text-align: center; padding: 30px; background: #ffffff; border-radius: 12px; color: #718096; }
 .btn-go-shop { margin-top: 10px; background: #34444e; color: #fff; border: none; padding: 8px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; }
 
-/* 🚚 專人雙北配送備註說明樣式 */
 .delivery-note { background: #FEF3C7; border: 1px solid #FCD34D; color: #92400E; padding: 0.8rem; border-radius: 6px; font-size: 0.82rem; line-height: 1.5; margin-top: 8px; text-align: left; }
 
 .summary-box { background: #FAF9F6; padding: 12px; border-radius: 8px; margin: 12px 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.88rem; }
@@ -1288,7 +1328,6 @@ const executePayment = async () => {
 .drawer-footer { border-top: 1px solid #E2E8F0; padding-top: 0.8rem; }
 .confirm-drawer-btn { width: 100%; background: #34444E; color: #FFFFFF; border: none; padding: 0.8rem; border-radius: 8px; font-weight: bold; font-size: 0.95rem; cursor: pointer; }
 
-/* 🌸 商品詳情 Modal 美化 */
 .product-detail-modal { background: #FFF; border-radius: 16px; max-width: 440px; width: 90%; max-height: 85vh; overflow-y: auto; position: relative; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
 .close-detail-btn { position: absolute; top: 12px; right: 12px; z-index: 10; background: rgba(0,0,0,0.5); color: #fff; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
 .detail-image-wrapper { width: 100%; height: 280px; background: #34444E; display: flex; align-items: center; justify-content: center; overflow: hidden; }
@@ -1300,7 +1339,6 @@ const executePayment = async () => {
 .detail-price-box { display: flex; align-items: baseline; gap: 6px; }
 .detail-price { font-size: 1.2rem; font-weight: bold; color: #8B5E4C; }
 
-/* 📜 購物須知 Modal 樣式 */
 .policy-modal { background: #FFFFFF; border-radius: 16px; padding: 1.2rem 1.5rem; max-width: 440px; width: 90%; max-height: 85vh; color: #333333; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); }
 .policy-modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.8rem; flex-shrink: 0; }
 .policy-modal-header h3 { margin: 0; font-size: 1.05rem; font-weight: bold; color: #34444E; }
