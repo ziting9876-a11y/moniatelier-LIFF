@@ -832,7 +832,6 @@ onMounted(async () => {
   <!-- 頂部標題與優化後的按鈕 -->
   <div class="points-header">
     <span class="hero-label">目前累積紅利點數</span>
-    <!-- 改用 style 直接控制按鈕樣式，確保外觀不受外部 CSS 影響 -->
     <button class="btn-rules-info" @click="showPointsRules = !showPointsRules" style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; background: #f3f4f6; border: none; padding: 4px 10px; border-radius: 20px; font-size: 12px; color: #4b5563;">
       💡 紅利說明
       <span style="font-size: 10px; display: inline-block; transition: transform 0.3s ease;" :style="{ transform: showPointsRules ? 'rotate(180deg)' : 'rotate(0deg)' }">▼</span>
@@ -847,7 +846,7 @@ onMounted(async () => {
   </div>
   <p class="points-note">✨ 結帳時 1 點可折抵現金 NT$ 1 元</p>
 
-  <!-- 💡 改用 v-show 搭配 style，確保點擊按鈕時一定會開關 -->
+  <!-- 精簡後的規則區塊：預設隱藏，點擊按鈕才展開 -->
   <div v-show="showPointsRules" class="rules-box" style="margin-top: 16px; padding: 16px; background-color: #fdfaf8; border-radius: 12px; font-size: 13px; line-height: 1.6; color: #666;">
     <p style="font-weight: 600; color: #8b5a2b; margin-bottom: 8px;">🌸 墨凝花室紅利回饋機制：</p>
     <ul style="list-style-type: disc; padding-left: 20px; margin-bottom: 0;">
