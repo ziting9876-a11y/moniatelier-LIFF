@@ -373,41 +373,6 @@ const fetchMyOrders = async () => {
     loadingOrders.value = false
   }
 }
-
-const loginBackendUser = async (profile: { userId: string; displayName: string; pictureUrl?: string }) => {
-  const payload = {
-    lineUserId: profile.userId,
-    displayName: profile.displayName,
-    pictureUrl: profile.pictureUrl || '',
-    referrerId: (route.query.ref as string) || ''
-  }
-
-  try {
-    const res = await fetch(`${API_BASE}/api/users/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-    const data = await res.json()
-    if (res.ok && data.status === 'success' && data.user) {
-      // 🌸 確保確實取得後端回傳的最新點數與生日資訊
-      userPoints.value = data.user.points !== undefined ? Number(data.user.points) : 100
-      usedPointsInput.value = userPoints.value
-      
-      if (data.user.birthday && data.user.birthday.trim() !== '') {
-        hasBirthday.value = true
-        userBirthday.value = data.user.birthday
-      } else {
-        hasBirthday.value = false
-      }
-      
-      fetchMyOrders()
-    }
-  } catch (err) {
-    console.warn('會員登入同步失敗:', err)
-  }
-}
-
 const fetchProducts = async () => {
   loadingProducts.value = true
   const targets = [
@@ -436,6 +401,45 @@ const fetchProducts = async () => {
     }
   }
   loadingProducts.value = false
+}
+
+const loginBackendUser = async (profile: { userId: string; displayName: string; pictureUrl?: string }) => {
+  const payload = {
+    lineUserId: profile.userId,
+    displayName: profile.displayName,
+    pictureUrl: profile.pictureUrl || '',
+    referrerId: (route.query.ref as string) || ''
+  }
+
+  console.log('🚀 準備發送登入請求，payload:', payload)
+
+  try {
+    const res = await fetch(`${API_BASE}/api/users/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    const data = await res.json()
+    console.log('📥 後端登入 API 完整回傳資料:', data)
+
+    if (res.ok && data.status === 'success' && data.user) {
+      userPoints.value = data.user.points !== undefined ? Number(data.user.points) : 100
+      usedPointsInput.value = userPoints.value
+      
+      if (data.user.birthday && data.user.birthday.trim() !== '') {
+        hasBirthday.value = true
+        userBirthday.value = data.user.birthday
+      } else {
+        hasBirthday.value = false
+      }
+      
+      fetchMyOrders()
+    } else {
+      console.warn('⚠️ 後端回傳狀態不正確或缺少 user 資料')
+    }
+  } catch (err) {
+    console.error('❌ 會員登入同步發生錯誤:', err)
+  }
 }
 
 const executePayment = async () => {
