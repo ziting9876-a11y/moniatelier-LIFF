@@ -94,7 +94,6 @@
             </button>
           </div>
 
-          <!-- 狀態操作按鈕區（當訂單已完成、已退款或已取消時全部禁能） -->
           <div class="action-buttons">
             <button :disabled="['completed', 'refunded', 'cancelled'].includes(order.status)" :class="{ active: order.status === 'accepted' }" @click="updateStatus(order.merchantOrderNo, 'accepted')">已接單</button>
             <button :disabled="['completed', 'refunded', 'cancelled'].includes(order.status)" :class="{ active: order.status === 'in_production' }" @click="updateStatus(order.merchantOrderNo, 'in_production')">製作中</button>
@@ -139,11 +138,13 @@
           </div>
 
           <div class="product-details">
-            <span class="cat-tag">{{ product.category }}</span>
+            <div class="tags-row">
+              <span class="cat-tag">{{ product.category }}</span>
+              <span class="lead-tag">⏳ 製作期 {{ product.leadTimeDays || 5 }} 天</span>
+            </div>
             <h4>{{ product.name }}</h4>
             <p class="desc">{{ product.description }}</p>
 
-            <!-- 🌸 修正處：商品卡片支援原價劃線與特價對比 -->
             <div class="price-box" style="display: flex; align-items: baseline; gap: 8px;">
               <span v-if="product?.originalPrice && Number(product.originalPrice) > Number(product?.price)" style="text-decoration: line-through; color: #888; font-size: 0.82rem;">
                 NT$ {{ Number(product.originalPrice).toLocaleString() }}
@@ -154,7 +155,6 @@
             </div>
           </div>
           
-          <!-- 一鍵複製 LINE 導購連結按鈕 -->
           <div class="copy-link-wrapper">
             <button class="btn-copy-link" @click="copyDirectPayLink(product)">
               🔗 複製 LINE 導購結帳連結
@@ -336,7 +336,7 @@
         <hr />
         <div class="form-row" style="display: flex; gap: 10px;">
           <div class="form-group" style="flex: 1;"><label>編號標籤：</label><input v-model="productForm.badge" placeholder="例：TOP.01" /></div>
-          <div class="form-group" style="flex: 1;"><label>活動標籤：</label><input v-model="productForm.tag" placeholder="例：七夕花禮" /></div>
+          <div class="form-group" style="flex: 1;"><label>活動標籤：</label><input v-model="productForm.tag" placeholder="例：七夕限量預購中" /></div>
         </div>
 
         <!-- 🌸 自訂標籤樣式設定區塊 -->
@@ -364,17 +364,48 @@
           </div>
         </div>
 
-        <div class="form-group"><label>商品分類：</label><input v-model="productForm.category" /></div>
+        <!-- 🌸 1. 分類選擇：下拉選單 + 自訂選項 -->
+        <div class="form-group">
+          <label>商品分類：</label>
+          <select v-model="categorySelect" class="form-select" @change="onCategorySelectChange">
+            <option value="旗艦系列花束">旗艦系列花束</option>
+            <option value="輕奢系列花束">輕奢系列花束</option>
+            <option value="珍藏玻璃罩系列">珍藏玻璃罩系列</option>
+            <option value="懸浮心意系列">懸浮心意系列</option>
+            <option value="永生花">永生花</option>
+            <option value="custom">✏️ 自訂新分類...</option>
+          </select>
+          <input 
+            v-if="categorySelect === 'custom'" 
+            v-model="productForm.category" 
+            placeholder="請輸入自訂分類名稱" 
+            style="margin-top: 6px;" 
+          />
+        </div>
+
         <div class="form-group"><label>商品名稱：</label><input v-model="productForm.name" /></div>
         
-        <!-- 🌸 後台原價與優惠價輸入欄位 -->
-        <div class="form-group">
-          <label>原價 (NT$)：</label>
-          <input type="number" v-model="productForm.originalPrice" placeholder="例：1500 (選填)" />
+        <!-- 🌸 原價與優惠價 -->
+        <div class="form-row" style="display: flex; gap: 10px;">
+          <div class="form-group" style="flex: 1;">
+            <label>原價 (NT$)：</label>
+            <input type="number" v-model.number="productForm.originalPrice" placeholder="例：1500 (選填)" />
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label>優惠價 / 售價 (NT$)：</label>
+            <input type="number" v-model.number="productForm.price" placeholder="例：1280 (選填)" />
+          </div>
         </div>
+
+        <!-- 🌸 2. 製作/備貨所需天數輸入框 -->
         <div class="form-group">
-          <label>優惠價 / 售價 (NT$)：</label>
-          <input type="number" v-model="productForm.price" placeholder="例：1280 (選填)" />
+          <label>製作/備貨所需天數（預設 5 天）：</label>
+          <input 
+            type="number" 
+            v-model.number="productForm.leadTimeDays" 
+            placeholder="例：5（顧客選購此商品時最快配送日將自動順延）" 
+            min="1" 
+          />
         </div>
 
         <div class="form-group"><label>圖片網址：</label><input v-model="productForm.imageUrl" /></div>
@@ -405,26 +436,23 @@ const defaultAvatar = 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
 
 const currentTab = ref('orders')
 
-// 🌸 新增：訂單篩選與批次處理 State
+// 🌸 訂單篩選與批次處理 State
 const loadingOrders = ref(true)
 const orders = ref([])
 const filterStatus = ref('all')
 const selectedOrders = ref([])
 const batchAction = ref('')
 
-// 保留這一個完整的計算屬性即可
 const filteredOrders = computed(() => {
   if (!orders.value) return []
   if (filterStatus.value === 'all') return orders.value
   return orders.value.filter(o => o.status === filterStatus.value)
 })
 
-// 🌸 新增：勾選邏輯
 const toggleSelectAll = (e) => {
   selectedOrders.value = e.target.checked ? filteredOrders.value.map(o => o.merchantOrderNo) : []
 }
 
-// 🌸 新增：批次更新函式
 const batchUpdateStatus = async () => {
   if (!confirm(`確定要批次將 ${selectedOrders.value.length} 筆訂單改為「${formatStatus(batchAction.value)}」嗎？`)) return
   try {
@@ -442,16 +470,21 @@ const batchUpdateStatus = async () => {
   } catch (err) { alert('批次更新發生錯誤') }
 }
 
-// 商品 State
+// 🌸 商品 State
 const products = ref([])
 const loadingProducts = ref(true)
 const showProductModal = ref(false)
 const editingProductId = ref(null)
+
+const standardCategories = ['旗艦系列花束', '輕奢系列花束', '珍藏玻璃罩系列', '懸浮心意系列', '永生花']
+const categorySelect = ref('永生花')
+
 const defaultProductForm = { 
   name: '', 
-  category: '不凋花 / 永生花', 
+  category: '永生花', 
   price: null, 
   originalPrice: null, 
+  leadTimeDays: 5,
   badge: '', 
   tag: '', 
   description: '', 
@@ -465,14 +498,22 @@ const defaultProductForm = {
 }
 const productForm = ref({ ...defaultProductForm })
 
-// 會員管理 State
+const onCategorySelectChange = () => {
+  if (categorySelect.value !== 'custom') {
+    productForm.value.category = categorySelect.value
+  } else {
+    productForm.value.category = ''
+  }
+}
+
+// 🌸 會員管理 State
 const users = ref([])
 const loadingUsers = ref(false)
 const selectedUserForPoints = ref(null)
-const selectedMemberDetail = ref(null) // 🌸 會員完整資料 Modal 控制
+const selectedMemberDetail = ref(null)
 const adjustForm = ref({ pointsChange: 50, actionType: 'add' })
 
-// 🎨 動態計算標籤 Inline Style（顏色與透明度）
+// 🎨 動態計算標籤 Inline Style
 const getBadgeStyle = (product, type) => {
   const textColor = type === 'badge' ? (product.badgeTextColor || '#34444E') : (product.tagTextColor || '#34444E')
   const bgColor = product.badgeBgColor || '#ffffff'
@@ -491,12 +532,11 @@ const getBadgeStyle = (product, type) => {
   }
 }
 
-// 🔗 複製一鍵導購連結至剪貼簿（優先複製 PicSee 短網址）
+// 🔗 複製 LINE 導購連結
 const copyDirectPayLink = (product) => {
   if (!product) return
   const rawLiffLink = `https://liff.line.me/${LIFF_ID}?add=${product._id || product.id}`
   const copyTarget = (product.shortUrl && product.shortUrl.trim()) ? product.shortUrl.trim() : rawLiffLink
-
   fallbackCopyText(copyTarget)
 }
 
@@ -517,7 +557,7 @@ const fallbackCopyText = (text) => {
   document.body.removeChild(textArea)
 }
 
-// 取得會員列表（自動對應 pictureUrl）
+// 取得會員列表
 const fetchUsers = async () => {
   loadingUsers.value = true
   try {
@@ -536,12 +576,10 @@ const fetchUsers = async () => {
   }
 }
 
-// 🌸 開啟會員完整資料 Modal
 const openMemberDetailModal = (user) => {
   selectedMemberDetail.value = user
 }
 
-// 🌸 篩選該會員的歷史訂單
 const getMemberOrders = (user) => {
   if (!user || !orders.value.length) return []
   return orders.value.filter(o => 
@@ -550,13 +588,11 @@ const getMemberOrders = (user) => {
   )
 }
 
-// 開啟手動調整紅利 Modal
 const openAdjustPointsModal = (user) => {
   selectedUserForPoints.value = user
   adjustForm.value = { pointsChange: 50, actionType: 'add' }
 }
 
-// 提交手動調整點數
 const submitAdjustPoints = async () => {
   if (!selectedUserForPoints.value || !adjustForm.value.pointsChange) {
     alert('請輸入欲調整的點數數量！')
@@ -609,7 +645,6 @@ const fetchProducts = async () => {
   finally { loadingProducts.value = false }
 }
 
-// 更新訂單狀態
 const updateStatus = async (orderNo, status) => {
   try {
     const res = await fetch(`${API_BASE_URL}/api/orders/update-status`, {
@@ -628,9 +663,17 @@ const updateStatus = async (orderNo, status) => {
 const openProductModal = (product = null) => {
   if (product) {
     editingProductId.value = product._id
+    const currentCat = product.category || '永生花'
+    if (standardCategories.includes(currentCat)) {
+      categorySelect.value = currentCat
+    } else {
+      categorySelect.value = 'custom'
+    }
+
     productForm.value = { 
       ...defaultProductForm,
       ...product, 
+      leadTimeDays: product.leadTimeDays || 5,
       shortUrl: product.shortUrl || '', 
       isHidden: product.isHidden || false,
       badgeTextColor: product.badgeTextColor || '#34444E',
@@ -640,25 +683,47 @@ const openProductModal = (product = null) => {
     }
   } else {
     editingProductId.value = null
+    categorySelect.value = '永生花'
     productForm.value = { ...defaultProductForm }
   }
   showProductModal.value = true
 }
 
 const saveProduct = async () => {
-  if (!productForm.value.name || !productForm.value.imageUrl) { alert('請填寫商品名稱與圖片！'); return }
+  if (!productForm.value.name || !productForm.value.imageUrl) { 
+    alert('請填寫商品名稱與圖片！')
+    return 
+  }
+  if (!productForm.value.category) {
+    alert('請選擇或填寫商品分類！')
+    return
+  }
+
   const method = editingProductId.value ? 'PUT' : 'POST'
   const url = editingProductId.value ? `${API_BASE_URL}/api/products/${editingProductId.value}` : `${API_BASE_URL}/api/products`
   try {
-    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(productForm.value) })
+    const res = await fetch(url, { 
+      method, 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify(productForm.value) 
+    })
     const data = await res.json()
-    if (data.status === 'success') { alert('🌸 商品已成功儲存！'); showProductModal.value = false; fetchProducts() }
-  } catch (err) { alert('儲存商品失敗') }
+    if (data.status === 'success') { 
+      alert('🌸 商品已成功儲存！')
+      showProductModal.value = false
+      fetchProducts() 
+    }
+  } catch (err) { 
+    alert('儲存商品失敗') 
+  }
 }
 
 const deleteProduct = async (id) => {
   if (!confirm('確定刪除嗎？')) return
-  try { await fetch(`${API_BASE_URL}/api/products/${id}`, { method: 'DELETE' }); fetchProducts() } catch (err) {}
+  try { 
+    await fetch(`${API_BASE_URL}/api/products/${id}`, { method: 'DELETE' })
+    fetchProducts() 
+  } catch (err) {}
 }
 
 const formatStatus = (s) => ({ PENDING: '待付款', PAID: '已付款', accepted: '已接單', in_production: '製作中', delivering: '配送中', completed: '✓ 已完成', refunded: '↩ 已退款', cancelled: '✕ 已取消' }[s] || s)
@@ -708,7 +773,6 @@ onMounted(() => {
 .close-icon-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #718096; }
 .member-profile-card { display: flex; align-items: center; gap: 14px; background: #f8fafc; padding: 14px; border-radius: 10px; margin: 12px 0; }
 
-/* 👑 尊榮頭像框與皇冠特效 */
 .avatar-frame-wrapper { position: relative; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .avatar-box { width: 48px; height: 48px; border-radius: 50%; border: 2px solid #C5A059; overflow: hidden; background: #ffffff; box-shadow: 0 0 8px rgba(197, 160, 89, 0.5); }
 .modal-avatar { width: 100%; height: 100%; object-fit: cover; }
@@ -729,7 +793,7 @@ onMounted(() => {
 .status-tag-sm.PAID { background: #ebf8ff; color: #2b6cb0; }
 .status-tag-sm.PENDING { background: #feebc8; color: #744210; }
 
-.select-input { width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px; margin-top: 4px; }
+.select-input, .form-select { width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px; margin-top: 4px; background: #fff; box-sizing: border-box; }
 .used-points-tag { color: #d97706; font-weight: bold; font-size: 0.85rem; }
 
 /* Modal 樣式 */
@@ -771,7 +835,9 @@ onMounted(() => {
 .hidden-badge { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.7); color: #fff; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; z-index: 2; }
 
 .product-details { padding: 12px; flex-grow: 1; display: flex; flex-direction: column; gap: 4px; }
+.tags-row { display: flex; justify-content: space-between; align-items: center; }
 .cat-tag { font-size: 0.75rem; color: #718096; font-weight: bold; }
+.lead-tag { font-size: 0.72rem; color: #d97706; font-weight: 500; }
 .product-details h4 { margin: 4px 0; font-size: 0.95rem; color: #2d3748; line-height: 1.4; }
 .product-details .desc { font-size: 0.8rem; color: #718096; line-height: 1.4; height: 36px; overflow: hidden; margin-bottom: 6px; }
 .price-box { margin-top: auto; }
@@ -785,7 +851,6 @@ onMounted(() => {
 .btn-edit { background: #edf2f7; color: #2d3748; }
 .btn-delete { background: #fed7d7; color: #9b2c2c; }
 
-/* 🎨 樣式自訂區塊樣式 */
 .style-config-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
 .config-title { margin: 0 0 10px 0; font-size: 0.90rem; color: #34444E; }
 .color-picker { width: 100%; height: 36px; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; padding: 2px; }
@@ -793,7 +858,7 @@ onMounted(() => {
 
 .form-group { margin-bottom: 12px; }
 .form-group label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; }
-.form-group input[type="text"], .form-group input[type="number"], .form-group textarea { width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box; }
+.form-group input[type="text"], .form-group input[type="number"], .form-group textarea, .form-group select { width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box; }
 .batch-action-bar { background: #f8fafc; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
 .status-filters { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; }
 .filter-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; }
