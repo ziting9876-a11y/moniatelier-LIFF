@@ -360,7 +360,8 @@ const fetchMyOrders = async () => {
   if (!lineProfile.value?.userId) return
   loadingOrders.value = true
   try {
-    const res = await fetch(`${API_BASE}/api/orders`)
+    // 🌸 直接寫死完整的後端訂單 API 網址，避免路徑錯誤
+    const res = await fetch('https://moni-atelier-backend.onrender.com/api/orders')
     const data = await res.json()
     if (data.status === 'success') {
       const allOrders = data.orders || []
@@ -375,10 +376,11 @@ const fetchMyOrders = async () => {
     loadingOrders.value = false
   }
 }
+
 const fetchProducts = async () => {
   loadingProducts.value = true
   const targets = [
-    `${API_BASE}/api/products`,
+    'https://moni-atelier-backend.onrender.com/api/products',
     'https://moni-atelier-backend.onrender.com/api/products'
   ]
 
