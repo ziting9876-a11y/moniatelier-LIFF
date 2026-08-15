@@ -828,14 +828,14 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div class="points-hero-card">
+     <div class="points-hero-card">
   <!-- 頂部標題與優化後的按鈕 -->
   <div class="points-header">
     <span class="hero-label">目前累積紅利點數</span>
-    <!-- 💡 加入 ▼ 箭頭，並加入翻轉動畫，讓使用者直覺知道可點擊展開 -->
-    <button class="btn-rules-info" @click="showPointsRules = !showPointsRules" style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+    <!-- 改用 style 直接控制按鈕樣式，確保外觀不受外部 CSS 影響 -->
+    <button class="btn-rules-info" @click="showPointsRules = !showPointsRules" style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; background: #f3f4f6; border: none; padding: 4px 10px; border-radius: 20px; font-size: 12px; color: #4b5563;">
       💡 紅利說明
-      <span style="font-size: 10px; transition: transform 0.3s ease;" :style="{ transform: showPointsRules ? 'rotate(180deg)' : 'rotate(0deg)' }">▼</span>
+      <span style="font-size: 10px; display: inline-block; transition: transform 0.3s ease;" :style="{ transform: showPointsRules ? 'rotate(180deg)' : 'rotate(0deg)' }">▼</span>
     </button>
   </div>
 
@@ -847,15 +847,15 @@ onMounted(async () => {
   </div>
   <p class="points-note">✨ 結帳時 1 點可折抵現金 NT$ 1 元</p>
 
-  <!-- 💡 精簡後的規則區塊：刪除重複的生日與推薦，只保留關鍵兩點 -->
-  <div v-if="showPointsRules" class="rules-box" style="margin-top: 16px; padding: 16px; background-color: #fdfaf8; border-radius: 12px; font-size: 13px; line-height: 1.6; color: #666;">
+  <!-- 💡 改用 v-show 搭配 style，確保點擊按鈕時一定會開關 -->
+  <div v-show="showPointsRules" class="rules-box" style="margin-top: 16px; padding: 16px; background-color: #fdfaf8; border-radius: 12px; font-size: 13px; line-height: 1.6; color: #666;">
     <p style="font-weight: 600; color: #8b5a2b; margin-bottom: 8px;">🌸 墨凝花室紅利回饋機制：</p>
     <ul style="list-style-type: disc; padding-left: 20px; margin-bottom: 0;">
       <li style="margin-bottom: 4px;"><strong>首購禮：</strong>首次加入 LINE 會員即贈 100 點。</li>
       <li><strong>消費回饋：</strong>單筆滿 NT$ 100 即自動累積 1 點。</li>
     </ul>
   </div>
-</div>>
+</div>
 
       <div class="member-feature-card">
         <div class="feature-card-header">
