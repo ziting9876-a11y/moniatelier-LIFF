@@ -27,7 +27,7 @@ interface Product {
   isHidden?: boolean
 }
 
-// --- 🎯 2. 工具函式（必須置於最頂部以防 TDZ 報錯） ---
+// --- 🎯 2. 工具函式 ---
 const getProductId = (item: Product) => item._id || item.id
 const getProductImage = (item: Product) => item.imageUrl || item.image || ''
 const formatDate = (d: any) => d ? new Date(d).toLocaleDateString('zh-TW') : ''
@@ -59,10 +59,14 @@ const loadingProducts = ref(true)
 const categories = ['全部作品', '旗艦系列花束', '輕奢系列花束', '珍藏玻璃罩系列', '懸浮心意系列']
 const selectedCategory = ref('全部作品')
 
+// 🌸 彈性比對分類名稱（完全相等或包含「永生花 | 系列名」）
 const displayProducts = computed(() => {
   const visibleList = allProducts.value.filter(p => p.isHidden !== true)
   if (selectedCategory.value === '全部作品') return visibleList
-  return visibleList.filter(p => p.category === selectedCategory.value)
+  return visibleList.filter(p => {
+    if (!p.category) return false
+    return p.category === selectedCategory.value || p.category.includes(selectedCategory.value)
+  })
 })
 
 // --- 🎯 5. 表單狀態 ---
@@ -106,8 +110,9 @@ const minDeliveryDate = computed(() => {
     for (const id of Object.keys(cartStore.cart)) {
       const product = allProducts.value.find(p => String(getProductId(p)) === String(id))
       if (product && product.leadTimeDays) {
-        if (Number(product.leadTimeDays) > maxLeadDays) {
-          maxLeadDays = Number(product.leadTimeDays)
+        const lead = Number(product.leadTimeDays)
+        if (!Number.isNaN(lead) && lead > maxLeadDays) {
+          maxLeadDays = lead
         }
       }
     }
@@ -393,7 +398,7 @@ const fetchProducts = async () => {
         ...p,
         id: p._id || p.id,
         image: p.imageUrl || p.image,
-        leadTimeDays: p.leadTimeDays || 5
+        leadTimeDays: p.leadTimeDays !== undefined && p.leadTimeDays !== null ? Number(p.leadTimeDays) : 5
       }))
     }
   } catch (err) {
