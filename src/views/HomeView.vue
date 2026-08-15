@@ -393,10 +393,14 @@ const loginBackendUser = async (profile: { userId: string; displayName: string; 
       // 🌸 確保確實取得後端回傳的最新點數與生日資訊
       userPoints.value = data.user.points !== undefined ? Number(data.user.points) : 100
       usedPointsInput.value = userPoints.value
-      if (data.user.birthday) {
+      
+      if (data.user.birthday && data.user.birthday.trim() !== '') {
         hasBirthday.value = true
         userBirthday.value = data.user.birthday
+      } else {
+        hasBirthday.value = false
       }
+      
       fetchMyOrders()
     }
   } catch (err) {
