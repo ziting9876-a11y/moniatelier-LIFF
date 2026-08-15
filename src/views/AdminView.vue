@@ -136,7 +136,7 @@
           <div class="product-details">
             <div class="tags-row">
               <span class="cat-tag">{{ product.category }}</span>
-              <span class="lead-tag">⏳ 製作期 {{ (product.leadTimeDays !== undefined && product.leadTimeDays !== null && product.leadTimeDays !== '') ? product.leadTimeDays : 5 }} 天</span>
+              <span class="lead-tag">⏳ 製作期 {{ Number(product.leadTimeDays) > 0 ? Number(product.leadTimeDays) : 5 }} 天</span>
             </div>
             <h4>{{ product.name }}</h4>
             <p class="desc">{{ product.description }}</p>
@@ -359,19 +359,20 @@
           </div>
         </div>
 
+        <!-- 🌸 1. 分類選擇（支援保留「永生花 |」前綴） -->
         <div class="form-group">
           <label>商品分類：</label>
           <select v-model="categorySelect" class="form-select" @change="onCategorySelectChange">
-            <option value="旗艦系列花束">旗艦系列花束</option>
-            <option value="輕奢系列花束">輕奢系列花束</option>
-            <option value="珍藏玻璃罩系列">珍藏玻璃罩系列</option>
-            <option value="懸浮心意系列">懸浮心意系列</option>
+            <option value="永生花 | 旗艦系列花束">永生花 | 旗艦系列花束</option>
+            <option value="永生花 | 輕奢系列花束">永生花 | 輕奢系列花束</option>
+            <option value="永生花 | 珍藏玻璃罩系列">永生花 | 珍藏玻璃罩系列</option>
+            <option value="永生花 | 懸浮心意系列">永生花 | 懸浮心意系列</option>
             <option value="custom">✏️ 自訂新分類...</option>
           </select>
           <input 
             v-if="categorySelect === 'custom'" 
             v-model="productForm.category" 
-            placeholder="請輸入自訂分類名稱" 
+            placeholder="請輸入自訂分類名稱 (例如：鮮花 | 歐式手綁花束)" 
             style="margin-top: 6px;" 
           />
         </div>
@@ -465,12 +466,17 @@ const loadingProducts = ref(true)
 const showProductModal = ref(false)
 const editingProductId = ref(null)
 
-const standardCategories = ['旗艦系列花束', '輕奢系列花束', '珍藏玻璃罩系列', '懸浮心意系列']
-const categorySelect = ref('旗艦系列花束')
+const standardCategories = [
+  '永生花 | 旗艦系列花束',
+  '永生花 | 輕奢系列花束',
+  '永生花 | 珍藏玻璃罩系列',
+  '永生花 | 懸浮心意系列'
+]
+const categorySelect = ref('永生花 | 旗艦系列花束')
 
 const defaultProductForm = { 
   name: '', 
-  category: '旗艦系列花束', 
+  category: '永生花 | 旗艦系列花束', 
   price: null, 
   originalPrice: null, 
   leadTimeDays: 5,
@@ -646,18 +652,25 @@ const updateStatus = async (orderNo, status) => {
 const openProductModal = (product = null) => {
   if (product) {
     editingProductId.value = product._id
-    const currentCat = product.category || '旗艦系列花束'
-    if (standardCategories.includes(currentCat)) {
-      categorySelect.value = currentCat
+    const currentCat = product.category || '永生花 | 旗艦系列花束'
+    
+    // 比對目前分類是否符合四大系列之一（模糊或完整匹配）
+    const matchedStd = standardCategories.find(c => currentCat.includes(c.replace('永生花 | ', '')) || currentCat === c)
+    if (matchedStd) {
+      categorySelect.value = matchedStd
+      productForm.value.category = matchedStd
     } else {
       categorySelect.value = 'custom'
+      productForm.value.category = currentCat
     }
+
+    const rawLead = product.leadTimeDays !== undefined && product.leadTimeDays !== null ? Number(product.leadTimeDays) : 5
 
     productForm.value = { 
       ...defaultProductForm,
       ...product, 
-      category: currentCat,
-      leadTimeDays: (product.leadTimeDays !== undefined && product.leadTimeDays !== null) ? Number(product.leadTimeDays) : 5,
+      category: productForm.value.category,
+      leadTimeDays: Number.isNaN(rawLead) || rawLead <= 0 ? 5 : rawLead,
       shortUrl: product.shortUrl || '', 
       isHidden: product.isHidden || false,
       badgeTextColor: product.badgeTextColor || '#34444E',
@@ -667,7 +680,7 @@ const openProductModal = (product = null) => {
     }
   } else {
     editingProductId.value = null
-    categorySelect.value = '旗艦系列花束'
+    categorySelect.value = '永生花 | 旗艦系列花束'
     productForm.value = { ...defaultProductForm }
   }
   showProductModal.value = true
@@ -678,13 +691,16 @@ const saveProduct = async () => {
     alert('請填寫商品名稱與圖片！')
     return 
   }
-  if (!productForm.value.category) {
+
+  const finalCategory = categorySelect.value === 'custom' ? productForm.value.category : categorySelect.value
+  if (!finalCategory) {
     alert('請選擇或填寫商品分類！')
     return
   }
 
   const submitData = {
     ...productForm.value,
+    category: finalCategory,
     leadTimeDays: Number(productForm.value.leadTimeDays) || 5
   }
 
