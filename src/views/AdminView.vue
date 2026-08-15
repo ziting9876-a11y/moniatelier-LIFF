@@ -362,7 +362,11 @@
 
         <div class="form-group"><label>商品分類：</label><input v-model="productForm.category" /></div>
         <div class="form-group"><label>商品名稱：</label><input v-model="productForm.name" /></div>
-        <div class="form-group"><label>金額 (NT$)：</label><input type="number" v-model="productForm.price" /></div>
+        
+        <!-- 🌸 將原本單一金額拆分為原價與優惠價（皆可自由選填） -->
+        <div class="form-group"><label>原價 (NT$)：</label><input type="number" v-model="productForm.originalPrice" placeholder="例：1500 (選填)" /></div>
+        <div class="form-group"><label>優惠價 / 售價 (NT$)：</label><input type="number" v-model="productForm.price" placeholder="例：1280 (選填)" /></div>
+
         <div class="form-group"><label>圖片網址：</label><input v-model="productForm.imageUrl" /></div>
         <div class="form-group"><label>PicSee 短網址 (選填)：</label><input v-model="productForm.shortUrl" placeholder="例：https://pse.is/xxxxx" /></div>
         <div class="form-group"><label>文案：</label><textarea v-model="productForm.description" rows="3"></textarea></div>
