@@ -5,7 +5,7 @@ import { useRoute } from 'vue-router'
 import { useCartStore } from '../stores/cart'
 import liff from '@line/liff'
 
-// --- 🎯 型別宣告 ---
+// --- 🎯 1. 型別宣告 ---
 interface Product {
   id: number | string
   _id?: string
@@ -27,62 +27,45 @@ interface Product {
   isHidden?: boolean
 }
 
-// --- 🎯 LINE LIFF 設定 ---
+// --- 🎯 2. 工具函式（必須置於最頂部以防 TDZ 報錯） ---
+const getProductId = (item: Product) => item._id || item.id
+const getProductImage = (item: Product) => item.imageUrl || item.image || ''
+const formatDate = (d: any) => d ? new Date(d).toLocaleDateString('zh-TW') : ''
+const truncateId = (id?: string) => id ? (id.length > 12 ? id.slice(0, 6) + '...' + id.slice(-4) : id) : '訪客'
+const formatStatus = (s: string) => ({ PENDING: '待付款', PAID: '已付款', accepted: '已接單', in_production: '製作中', delivering: '配送中', completed: '✓ 已完成', refunded: '↩ 已退款', cancelled: '✕ 已取消' }[s] || s)
+const formatDeliveryMethod = (m: string) => ({ black_cat: '黑貓宅配', express_taipei_1: '專人雙北配送1', express_taipei_2: '專人雙北配送2', store_pickup: '門市自取', seven_eleven: '7-11店到店', familymart: '全家店到店' }[m] || m || '未指定')
+
+// --- 🎯 3. LINE LIFF 與系統基礎設定 ---
 const LIFF_ID = '2010913515-HfcsIAK0'
 const lineProfile = ref<{ userId: string; displayName: string; pictureUrl?: string } | null>(null)
 const defaultAvatar = 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
-
-// --- 🎯 頁面 Tab 控制 ('shop' 或 'member') ---
-const activeTab = ref<'shop' | 'member'>('shop')
-
-// --- 🌸 分類篩選 State ---
-const categories = ['全部作品', '旗艦系列花束', '輕奢系列花束', '珍藏玻璃罩系列', '懸浮心意系列']
-const selectedCategory = ref('全部作品')
-
-// --- 🎯 會員紅利點數與系統 State (強制預設 100 點) ---
-const userPoints = ref(100)
-const usedPointsInput = ref(100)
-const userBirthday = ref('')
-const hasBirthday = ref(false)
-const showBirthdayModal = ref(false)
-const showReferralInfoModal = ref(false)
-const isCopyReferralSuccess = ref(false)
-const showPointsRules = ref(false)
-
-// 🌸 歷史訂單紀錄 State
-const myOrders = ref<any[]>([])
-const loadingOrders = ref(false)
-
-// 🌸 訂單完成 Modal 控制
-const showSuccessModal = ref(false)
-const successOrderNo = ref('')
-
-// 🌸 統一返回 LINE 聊天室控制函式
-const handleReturnToLine = () => {
-  try {
-    if (liff.isInClient()) {
-      liff.closeWindow()
-    } else {
-      window.location.href = 'https://line.me/R/ti/p/@509mafly'
-    }
-  } catch (e) {
-    console.warn('關閉視窗失敗:', e)
-    window.location.href = 'https://line.me/R/ti/p/@509mafly'
-  }
-}
-
-const closeSuccessAndReturn = () => {
-  showSuccessModal.value = false
-  handleReturnToLine()
-}
-
-// --- 🎯 API 後端基礎網址設定 ---
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'https://moni-atelier-backend.onrender.com').replace(/\/$/, '')
 
 const route = useRoute()
 const cartStore = useCartStore()
 
-// --- 🎯 表單與 State 宣告 ---
+// --- 🎯 4. 基本狀態與商品清單 ---
+const activeTab = ref<'shop' | 'member'>('shop')
+const currentStep = ref(1)
+const showCartDrawer = ref(false)
+const selectedProductDetail = ref<Product | null>(null)
+const showPolicyModal = ref(false)
+const hasAgreedPolicy = ref(false)
+const isLoading = ref(false)
+
+const allProducts = ref<Product[]>([])
+const loadingProducts = ref(true)
+
+const categories = ['全部作品', '旗艦系列花束', '輕奢系列花束', '珍藏玻璃罩系列', '懸浮心意系列']
+const selectedCategory = ref('全部作品')
+
+const displayProducts = computed(() => {
+  const visibleList = allProducts.value.filter(p => p.isHidden !== true)
+  if (selectedCategory.value === '全部作品') return visibleList
+  return visibleList.filter(p => p.category === selectedCategory.value)
+})
+
+// --- 🎯 5. 表單狀態 ---
 const orderForm = ref({
   deliveryDate: '',
   deliveryMethod: 'black_cat',
@@ -91,40 +74,24 @@ const orderForm = ref({
   recipient: { name: '', phone: '', city: '台北市', district: '中正區', address: '' }
 })
 
-// --- 🎯 步驟切換控制 ---
-const currentStep = ref(1)
+const sameAsPayer = ref(false)
+const storeInput = ref({ name: '', address: '' })
 
-// --- 🎯 快捷購物車 Drawer 控制 ---
-const showCartDrawer = ref(false)
+// --- 🎯 6. 會員與紅利狀態 ---
+const userPoints = ref(100)
+const usedPointsInput = ref(100)
+const userBirthday = ref('')
+const hasBirthday = ref(false)
+const showBirthdayModal = ref(false)
+const showReferralInfoModal = ref(false)
+const isCopyReferralSuccess = ref(false)
+const showPointsRules = ref(false)
+const myOrders = ref<any[]>([])
+const loadingOrders = ref(false)
+const showSuccessModal = ref(false)
+const successOrderNo = ref('')
 
-// --- 🎯 商品詳情 Modal 控制 ---
-const selectedProductDetail = ref<Product | null>(null)
-const openProductDetail = (product: Product) => { selectedProductDetail.value = product }
-const closeProductDetail = () => { selectedProductDetail.value = null }
-
-// --- 🎯 購物須知與條款 Modal 控制 ---
-const showPolicyModal = ref(false)
-const hasAgreedPolicy = ref(false)
-
-const openPolicyModal = () => {
-  if (cartTotalPrice.value === 0) { alert('請先選擇至少一項商品！'); return }
-  if (!orderForm.value.deliveryDate) { alert('請選擇希望送達日期！'); return }
-
-  const isStoreDelivery = ['seven_eleven', 'familymart'].includes(orderForm.value.deliveryMethod)
-  if (isStoreDelivery && (!storeInput.value.name.trim() || !storeInput.value.address.trim())) {
-    alert('請填寫完整取件超商門市名稱與門市地址！')
-    return
-  }
-
-  if (!orderForm.value.payer.name || !orderForm.value.payer.phone || !orderForm.value.payer.email) {
-    alert('請完整填寫付款人資訊！')
-    return
-  }
-
-  showPolicyModal.value = true
-}
-
-// 🚚 各配送方式所需運送天數
+// --- 🎯 7. 動態送達日期與物流計算 ---
 const deliveryMethodDays: Record<string, number> = {
   express_taipei_1: 0,
   express_taipei_2: 0,
@@ -133,14 +100,15 @@ const deliveryMethodDays: Record<string, number> = {
   familymart: 3
 }
 
-// 📅 動態計算最早送達日期（購物車商品最高備貨天數 + 配送方式運送天數）
 const minDeliveryDate = computed(() => {
   let maxLeadDays = 5
-  for (const id of Object.keys(cartStore.cart || {})) {
-    const product = allProducts.value.find(p => String(getProductId(p)) === String(id))
-    if (product && product.leadTimeDays) {
-      if (Number(product.leadTimeDays) > maxLeadDays) {
-        maxLeadDays = Number(product.leadTimeDays)
+  if (cartStore?.cart && allProducts.value.length > 0) {
+    for (const id of Object.keys(cartStore.cart)) {
+      const product = allProducts.value.find(p => String(getProductId(p)) === String(id))
+      if (product && product.leadTimeDays) {
+        if (Number(product.leadTimeDays) > maxLeadDays) {
+          maxLeadDays = Number(product.leadTimeDays)
+        }
       }
     }
   }
@@ -166,13 +134,13 @@ const maxDeliveryDate = computed(() => {
   return d
 })
 
-// 當切換配送方式或購物車變更導致最早日期延後時，自動調整送達日期
 watch(minDeliveryDateStr, (newMinStr) => {
   if (!orderForm.value.deliveryDate || orderForm.value.deliveryDate < newMinStr) {
     orderForm.value.deliveryDate = newMinStr
   }
 })
 
+// --- 🎯 8. 月曆邏輯 ---
 const showDatePickerModal = ref(false)
 const calendarViewDate = ref(new Date())
 
@@ -218,66 +186,7 @@ const selectDate = (dayItem: { dateStr: string; isDisabled: boolean }) => {
   showDatePickerModal.value = false
 }
 
-// 🎯 從後端 API 載入真實商品
-const allProducts = ref<Product[]>([])
-const loadingProducts = ref(true)
-
-// 🌸 結合分類篩選的顯示商品列表
-const displayProducts = computed(() => {
-  const visibleList = allProducts.value.filter(p => p.isHidden !== true)
-  if (selectedCategory.value === '全部作品') return visibleList
-  return visibleList.filter(p => p.category === selectedCategory.value)
-})
-
-const fetchProducts = async () => {
-  loadingProducts.value = true
-  const targets = [
-    `${API_BASE}/api/products`,
-    'https://moni-atelier-backend.onrender.com/api/products'
-  ]
-
-  let success = false
-  for (const url of targets) {
-    if (success) break
-    try {
-      const res = await fetch(url)
-      const data = await res.json()
-      if (data.status === 'success' && Array.isArray(data.products)) {
-        allProducts.value = data.products.map((p: any) => ({
-          ...p,
-          id: p._id || p.id,
-          image: p.imageUrl || p.image,
-          leadTimeDays: p.leadTimeDays || 5
-        }))
-        success = true
-      }
-    } catch (err) {
-      console.warn(`⚠️ 嘗試連線 ${url} 失敗:`, err)
-    }
-  }
-  loadingProducts.value = false
-}
-
-const getProductImage = (item: Product) => item.imageUrl || item.image || ''
-const getProductId = (item: Product) => item._id || item.id
-
-// 🎨 動態計算標籤 Inline Style
-const getBadgeStyle = (product: Product, type: 'badge' | 'tag') => {
-  const textColor = type === 'badge' ? (product.badgeTextColor || '#34444E') : (product.tagTextColor || '#34444E')
-  const bgColor = product.badgeBgColor || '#ffffff'
-  const opacity = (product.badgeOpacity !== undefined ? product.badgeOpacity : 100) / 100
-
-  let r = 255, g = 255, b = 255
-  if (bgColor.startsWith('#') && bgColor.length === 7) {
-    r = parseInt(bgColor.slice(1, 3), 16)
-    g = parseInt(bgColor.slice(3, 5), 16)
-    b = parseInt(bgColor.slice(5, 7), 16)
-  }
-
-  return { color: textColor, backgroundColor: `rgba(${r}, ${g}, ${b}, ${opacity})` }
-}
-
-// 💰 購物車與折扣金額計算
+// --- 🎯 9. 購物車與金額計算 ---
 const cartTotalPrice = computed(() => {
   let total = 0
   for (const [id, qty] of Object.entries(cartStore.cart || {})) {
@@ -303,8 +212,58 @@ const actualUsedPoints = computed(() => {
 })
 
 const finalTotalPrice = computed(() => Math.max(0, cartTotalPrice.value + shippingFee.value - actualUsedPoints.value))
-
 const earnedPoints = computed(() => Math.floor(finalTotalPrice.value / 100))
+const totalCartItemsCount = computed(() => {
+  const values = Object.values(cartStore.cart || {}) as number[]
+  return values.reduce((sum: number, qty: number) => sum + Number(qty), 0)
+})
+
+const taiwanDistricts: Record<string, string[]> = {
+  '台北市': ['中正區', '大同區', '中山區', '松山區', '大安區', '萬華區', '信義區', '士林區', '北投區', '內湖區', '南港區', '文山區'],
+  '新北市': ['板橋區', '三重區', '中和區', '永和區', '新莊區', '新店區', '樹林區', '鶯歌區', '三峽區', '淡水區', '汐止區', '瑞芳區', '土城區', '蘆洲區', '五股區', '泰山區', '林口區']
+}
+const taiwanCities = Object.keys(taiwanDistricts)
+
+const handleSameAsPayer = () => {
+  if (sameAsPayer.value) {
+    orderForm.value.recipient.name = orderForm.value.payer.name
+    orderForm.value.recipient.phone = orderForm.value.payer.phone
+  }
+}
+
+const storeNamePlaceholder = computed(() => {
+  return orderForm.value.deliveryMethod === 'familymart' 
+    ? '例如：全家 鑫南京店' 
+    : '例如：7-11 鑫南京門市'
+})
+
+const getBadgeStyle = (product: Product, type: 'badge' | 'tag') => {
+  const textColor = type === 'badge' ? (product.badgeTextColor || '#34444E') : (product.tagTextColor || '#34444E')
+  const bgColor = product.badgeBgColor || '#ffffff'
+  const opacity = (product.badgeOpacity !== undefined ? product.badgeOpacity : 100) / 100
+
+  let r = 255, g = 255, b = 255
+  if (bgColor.startsWith('#') && bgColor.length === 7) {
+    r = parseInt(bgColor.slice(1, 3), 16)
+    g = parseInt(bgColor.slice(3, 5), 16)
+    b = parseInt(bgColor.slice(5, 7), 16)
+  }
+
+  return { color: textColor, backgroundColor: `rgba(${r}, ${g}, ${b}, ${opacity})` }
+}
+
+const getCartItemsText = (cartObj: any) => {
+  if (!cartObj) return '精選花藝作品'
+  const items = Object.entries(cartObj).map(([id, qty]) => {
+    const p = allProducts.value.find(item => String(getProductId(item)) === String(id))
+    return `${p?.name || '花藝作品'} x${qty}`
+  })
+  return items.join('，')
+}
+
+// --- 🎯 10. 互動方法 ---
+const openProductDetail = (product: Product) => { selectedProductDetail.value = product }
+const closeProductDetail = () => { selectedProductDetail.value = null }
 
 const copyReferralLink = () => {
   if (!lineProfile.value?.userId) return
@@ -314,56 +273,66 @@ const copyReferralLink = () => {
   setTimeout(() => { isCopyReferralSuccess.value = false }, 3000)
 }
 
-// 🎂 儲存完整生日日期（格式：YYYY-MM-DD）
-const saveBirthday = async () => {
-  if (!userBirthday.value) {
-    alert('請先選擇完整的生日日期！')
-    return
-  }
-
-  const targetUserId = lineProfile.value?.userId
-  if (!targetUserId) {
-    alert('請從 LINE 官方帳號開啟以連線帳號！')
-    return
-  }
-
-  const targets = [
-    `${API_BASE}/api/users/birthday`,
-    'https://moni-atelier-backend.onrender.com/api/users/birthday'
-  ]
-
-  let success = false
-  let responseData: any = null
-
-  for (const url of targets) {
-    if (success) break
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lineUserId: targetUserId, birthday: userBirthday.value })
-      })
-      const data = await res.json()
-      if (res.ok && data.status === 'success') {
-        success = true
-        responseData = data
-      }
-    } catch (err) {
-      console.warn(`⚠️ 嘗試連線 ${url} 失敗:`, err)
+const handleReturnToLine = () => {
+  try {
+    if (liff.isInClient()) {
+      liff.closeWindow()
+    } else {
+      window.location.href = 'https://line.me/R/ti/p/@509mafly'
     }
+  } catch (e) {
+    window.location.href = 'https://line.me/R/ti/p/@509mafly'
+  }
+}
+
+const closeSuccessAndReturn = () => {
+  showSuccessModal.value = false
+  handleReturnToLine()
+}
+
+const openPolicyModal = () => {
+  if (cartTotalPrice.value === 0) { alert('請先選擇至少一項商品！'); return }
+  if (!orderForm.value.deliveryDate) { alert('請選擇希望送達日期！'); return }
+
+  const isStoreDelivery = ['seven_eleven', 'familymart'].includes(orderForm.value.deliveryMethod)
+  if (isStoreDelivery && (!storeInput.value.name.trim() || !storeInput.value.address.trim())) {
+    alert('請填寫完整取件超商門市名稱與門市地址！')
+    return
   }
 
-  if (success && responseData) {
-    hasBirthday.value = true
-    showBirthdayModal.value = false
-    userPoints.value = responseData.points !== undefined ? responseData.points : 100
-    alert(responseData.message || '生日日期登記成功！')
-  } else {
+  if (!orderForm.value.payer.name || !orderForm.value.payer.phone || !orderForm.value.payer.email) {
+    alert('請完整填寫付款人資訊！')
+    return
+  }
+
+  showPolicyModal.value = true
+}
+
+const saveBirthday = async () => {
+  if (!userBirthday.value) { alert('請先選擇完整的生日日期！'); return }
+  const targetUserId = lineProfile.value?.userId
+  if (!targetUserId) { alert('請從 LINE 官方帳號開啟以連線帳號！'); return }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/users/birthday`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lineUserId: targetUserId, birthday: userBirthday.value })
+    })
+    const data = await res.json()
+    if (res.ok && data.status === 'success') {
+      hasBirthday.value = true
+      showBirthdayModal.value = false
+      userPoints.value = data.points !== undefined ? data.points : 100
+      alert(data.message || '生日日期登記成功！')
+    } else {
+      alert('登記生日失敗，請稍後再試。')
+    }
+  } catch (err) {
     alert('登記生日失敗，請稍後再試。')
   }
 }
 
-// 📦 抓取該會員歷史訂單
 const fetchMyOrders = async () => {
   if (!lineProfile.value?.userId) return
   loadingOrders.value = true
@@ -384,7 +353,6 @@ const fetchMyOrders = async () => {
   }
 }
 
-// 🌸 連動 LINE 自動登入並載入點數
 const loginBackendUser = async (profile: { userId: string; displayName: string; pictureUrl?: string }) => {
   const payload = {
     lineUserId: profile.userId,
@@ -393,135 +361,48 @@ const loginBackendUser = async (profile: { userId: string; displayName: string; 
     referrerId: (route.query.ref as string) || ''
   }
 
-  const targets = [
-    `${API_BASE}/api/users/login`,
-    'https://moni-atelier-backend.onrender.com/api/users/login'
-  ]
-
-  let success = false
-  for (const url of targets) {
-    if (success) break
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-      const data = await res.json()
-      if (res.ok && data.status === 'success' && data.user) {
-        userPoints.value = data.user.points !== undefined ? data.user.points : 100
-        usedPointsInput.value = userPoints.value
-        
-        if (data.user.birthday) {
-          hasBirthday.value = true
-          userBirthday.value = data.user.birthday
-        }
-        success = true
-        fetchMyOrders()
+  try {
+    const res = await fetch(`${API_BASE}/api/users/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    const data = await res.json()
+    if (res.ok && data.status === 'success' && data.user) {
+      userPoints.value = data.user.points !== undefined ? data.user.points : 100
+      usedPointsInput.value = userPoints.value
+      if (data.user.birthday) {
+        hasBirthday.value = true
+        userBirthday.value = data.user.birthday
       }
-    } catch (err) {
-      console.warn(`⚠️ 登入連線至 ${url} 失敗:`, err)
+      fetchMyOrders()
     }
-  }
-
-  if (!success) {
+  } catch (err) {
     userPoints.value = 100
     usedPointsInput.value = 100
   }
 }
 
-// --- 🌸 頁面初始化 ---
-onMounted(async () => {
-  await fetchProducts()
-
-  const addParam = route.query.add as string
-  if (addParam) {
-    const productIds = addParam.split(',').map(id => id.trim()).filter(Boolean)
-    productIds.forEach(id => cartStore.addToCart(id))
-    currentStep.value = 2
-  }
-
+const fetchProducts = async () => {
+  loadingProducts.value = true
   try {
-    await liff.init({ liffId: LIFF_ID })
-    
-    if (liff.isLoggedIn()) {
-      const profile = await liff.getProfile()
-      lineProfile.value = profile
-      if (profile && profile.displayName && !orderForm.value.payer.name) {
-        orderForm.value.payer.name = profile.displayName
-      }
-      await loginBackendUser(profile)
-    } else {
-      liff.login()
-      return
+    const res = await fetch(`${API_BASE}/api/products`)
+    const data = await res.json()
+    if (data.status === 'success' && Array.isArray(data.products)) {
+      allProducts.value = data.products.map((p: any) => ({
+        ...p,
+        id: p._id || p.id,
+        image: p.imageUrl || p.image,
+        leadTimeDays: p.leadTimeDays || 5
+      }))
     }
   } catch (err) {
-    console.warn('⚠️ LIFF 初始化或取得 Profile 失敗:', err)
-  }
-
-  if (!orderForm.value.deliveryDate) {
-    orderForm.value.deliveryDate = minDeliveryDateStr.value
-  }
-
-  if (route.query.tab === 'member') {
-    activeTab.value = 'member'
-  }
-
-  const statusParam = route.query.status as string
-  const orderNoParam = route.query.orderNo as string
-
-  if (statusParam === 'success') {
-    activeTab.value = 'member'
-    alert(`🌸 付款成功！您的訂單編號：${orderNoParam || '已成立'} 已完成付款。`)
-    window.history.replaceState({}, document.title, window.location.pathname)
-  } else if (statusParam === 'failed' || statusParam === 'error') {
-    alert('⚠️ 付款程序未完成或發生異常，請重新嘗試。')
-    window.history.replaceState({}, document.title, window.location.pathname)
-  }
-})
-
-const taiwanDistricts: Record<string, string[]> = {
-  '台北市': ['中正區', '大同區', '中山區', '松山區', '大安區', '萬華區', '信義區', '士林區', '北投區', '內湖區', '南港區', '文山區'],
-  '新北市': ['板橋區', '三重區', '中和區', '永和區', '新莊區', '新店區', '樹林區', '鶯歌區', '三峽區', '淡水區', '汐止區', '瑞芳區', '土城區', '蘆洲區', '五股區', '泰山區', '林口區']
-}
-const taiwanCities = Object.keys(taiwanDistricts)
-const sameAsPayer = ref(false)
-const storeInput = ref({ name: '', address: '' })
-
-const handleSameAsPayer = () => {
-  if (sameAsPayer.value) {
-    orderForm.value.recipient.name = orderForm.value.payer.name
-    orderForm.value.recipient.phone = orderForm.value.payer.phone
+    console.warn('抓取商品失敗:', err)
+  } finally {
+    loadingProducts.value = false
   }
 }
 
-const storeNamePlaceholder = computed(() => {
-  return orderForm.value.deliveryMethod === 'familymart' 
-    ? '例如：全家 鑫南京店' 
-    : '例如：7-11 鑫南京門市'
-})
-
-const totalCartItemsCount = computed(() => {
-  const values = Object.values(cartStore.cart || {}) as number[]
-  return values.reduce((sum: number, qty: number) => sum + Number(qty), 0)
-})
-
-const isLoading = ref(false)
-
-const formatDate = (d: any) => d ? new Date(d).toLocaleDateString('zh-TW') : ''
-const truncateId = (id?: string) => id ? (id.length > 12 ? id.slice(0, 6) + '...' + id.slice(-4) : id) : '訪客'
-const formatStatus = (s: string) => ({ PENDING: '待付款', PAID: '已付款', accepted: '已接單', in_production: '製作中', delivering: '配送中', completed: '✓ 已完成', refunded: '↩ 已退款', cancelled: '✕ 已取消' }[s] || s)
-const formatDeliveryMethod = (m: string) => ({ black_cat: '黑貓宅配', express_taipei_1: '專人雙北配送1', express_taipei_2: '專人雙北配送2', store_pickup: '門市自取', seven_eleven: '7-11店到店', familymart: '全家店到店' }[m] || m || '未指定')
-const getCartItemsText = (cartObj: any) => {
-  if (!cartObj) return '精選花藝作品'
-  const items = Object.entries(cartObj).map(([id, qty]) => {
-    const p = allProducts.value.find(item => String(getProductId(item)) === String(id))
-    return `${p?.name || '花藝作品'} x${qty}`
-  })
-  return items.join('，')
-}
-
-// 💳 執行付款與建立訂單
 const executePayment = async () => {
   showPolicyModal.value = false
   const isStoreDelivery = ['seven_eleven', 'familymart'].includes(orderForm.value.deliveryMethod)
@@ -531,7 +412,6 @@ const executePayment = async () => {
 
   try {
     isLoading.value = true
-
     const city = isStoreDelivery ? '超商門市' : (orderForm.value.recipient.city || '台北市')
     const district = isStoreDelivery ? '門市取件' : (orderForm.value.recipient.district || '中正區')
     const addressDetail = isStoreDelivery ? `${storeInput.value.name} (${storeInput.value.address})` : (orderForm.value.recipient.address || '')
@@ -560,32 +440,14 @@ const executePayment = async () => {
       recipient: recipientData
     }
 
-    const targets = [
-      `${API_BASE}/api/orders`,
-      'https://moni-atelier-backend.onrender.com/api/orders'
-    ]
+    const response = await fetch(`${API_BASE}/api/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    const resData = await response.json()
 
-    let resData: any = null
-    let success = false
-
-    for (const url of targets) {
-      if (success) break
-      try {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        })
-        resData = await response.json()
-        if (response.ok && resData.status === 'success') {
-          success = true
-        }
-      } catch (e) {
-        console.warn(`嘗試發送至 ${url} 失敗:`, e)
-      }
-    }
-
-    if (success && resData && resData.data) {
+    if (response.ok && resData.status === 'success' && resData.data) {
       const data = resData.data
       const PayGateWay = data.PayGateWay || data.payGateWay
       const MerchantID = data.MerchantID || data.merchantId
@@ -614,17 +476,63 @@ const executePayment = async () => {
     isLoading.value = false
   }
 }
+
+onMounted(async () => {
+  await fetchProducts()
+
+  const addParam = route.query.add as string
+  if (addParam) {
+    const productIds = addParam.split(',').map(id => id.trim()).filter(Boolean)
+    productIds.forEach(id => cartStore.addToCart(id))
+    currentStep.value = 2
+  }
+
+  try {
+    await liff.init({ liffId: LIFF_ID })
+    if (liff.isLoggedIn()) {
+      const profile = await liff.getProfile()
+      lineProfile.value = profile
+      if (profile && profile.displayName && !orderForm.value.payer.name) {
+        orderForm.value.payer.name = profile.displayName
+      }
+      await loginBackendUser(profile)
+    } else {
+      liff.login()
+      return
+    }
+  } catch (err) {
+    console.warn('LIFF 初始化失敗:', err)
+  }
+
+  if (!orderForm.value.deliveryDate) {
+    orderForm.value.deliveryDate = minDeliveryDateStr.value
+  }
+
+  if (route.query.tab === 'member') {
+    activeTab.value = 'member'
+  }
+
+  const statusParam = route.query.status as string
+  const orderNoParam = route.query.orderNo as string
+
+  if (statusParam === 'success') {
+    activeTab.value = 'member'
+    alert(`🌸 付款成功！您的訂單編號：${orderNoParam || '已成立'} 已完成付款。`)
+    window.history.replaceState({}, document.title, window.location.pathname)
+  } else if (statusParam === 'failed' || statusParam === 'error') {
+    alert('⚠️ 付款程序未完成或發生異常，請重新嘗試。')
+    window.history.replaceState({}, document.title, window.location.pathname)
+  }
+})
 </script>
 
 <template>
   <div class="page-wrapper">
-    <!-- 🌸 頂部品牌 Header -->
     <header class="brand-top-bar">
       <h1 class="brand-title">MONI Atelier 墨凝花室</h1>
       <button type="button" class="leave-line-btn" @click="handleReturnToLine">✕ 離開</button>
     </header>
 
-    <!-- 🌸 頂部選單 Tab (選購商品 vs 會員中心) -->
     <nav class="main-tab-nav">
       <button 
         :class="['tab-nav-btn', { active: activeTab === 'shop' }]" 
@@ -642,7 +550,6 @@ const executePayment = async () => {
 
     <!-- ==================== TAB 1: 💐 精選花禮選購 ==================== -->
     <div v-if="activeTab === 'shop'" class="tab-main-container">
-      <!-- 🌸 步驟導覽列 -->
       <div class="step-indicator">
         <div class="step-item" :class="{ active: currentStep === 1 }" @click="currentStep = 1">
           <span class="step-num">1</span>
@@ -655,12 +562,11 @@ const executePayment = async () => {
         </div>
       </div>
 
-      <!-- 🌸 步驟一：選購商品 -->
+      <!-- 步驟一：選購商品 -->
       <div v-if="currentStep === 1" class="step-content">
         <section class="products-section">
           <h2 class="section-title">精選花藝作品</h2>
           
-          <!-- 🌸 分類篩選按鈕列（支援橫向滑動） -->
           <div class="category-filter-bar">
             <button 
               v-for="cat in categories" 
@@ -724,7 +630,7 @@ const executePayment = async () => {
         </div>
       </div>
 
-      <!-- 🌸 步驟二：訂單明細與結帳 -->
+      <!-- 步驟二：訂單明細與結帳 -->
       <div v-if="currentStep === 2" class="step-content">
         <button class="back-btn" @click="currentStep = 1">← 返回選購商品</button>
         <section class="checkout-section">
@@ -1310,7 +1216,6 @@ const executePayment = async () => {
 .submit-btn { width: 100%; background: #34444E; color: #FFF; padding: 1rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 1.5rem; }
 .back-btn { background: none; border: 1px solid #FFF; color: #FFF; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; width: fit-content; }
 
-/* Modal 彈窗通用 */
 .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; z-index: 9999; }
 .cart-drawer-modal { background: #FFFFFF; border-radius: 16px; padding: 1.2rem; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); }
 .drawer-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.8rem; margin-bottom: 1rem; }
@@ -1328,7 +1233,6 @@ const executePayment = async () => {
 .drawer-footer { border-top: 1px solid #E2E8F0; padding-top: 0.8rem; }
 .confirm-drawer-btn { width: 100%; background: #34444E; color: #FFFFFF; border: none; padding: 0.8rem; border-radius: 8px; font-weight: bold; font-size: 0.95rem; cursor: pointer; }
 
-/* 🌸 商品詳情 Modal 美化 */
 .product-detail-modal { background: #FFF; border-radius: 16px; max-width: 440px; width: 90%; max-height: 85vh; overflow-y: auto; position: relative; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
 .close-detail-btn { position: absolute; top: 12px; right: 12px; z-index: 10; background: rgba(0,0,0,0.5); color: #fff; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
 .detail-image-wrapper { width: 100%; height: 280px; background: #34444E; display: flex; align-items: center; justify-content: center; overflow: hidden; }
@@ -1340,7 +1244,6 @@ const executePayment = async () => {
 .detail-price-box { display: flex; align-items: baseline; gap: 6px; }
 .detail-price { font-size: 1.2rem; font-weight: bold; color: #8B5E4C; }
 
-/* 📜 購物須知 Modal 樣式 */
 .policy-modal { background: #FFFFFF; border-radius: 16px; padding: 1.2rem 1.5rem; max-width: 440px; width: 90%; max-height: 85vh; color: #333333; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); }
 .policy-modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.8rem; flex-shrink: 0; }
 .policy-modal-header h3 { margin: 0; font-size: 1.05rem; font-weight: bold; color: #34444E; }
