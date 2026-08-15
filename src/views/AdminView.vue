@@ -363,9 +363,15 @@
         <div class="form-group"><label>商品分類：</label><input v-model="productForm.category" /></div>
         <div class="form-group"><label>商品名稱：</label><input v-model="productForm.name" /></div>
         
-        <!-- 🌸 將原本單一金額拆分為原價與優惠價（皆可自由選填） -->
-        <div class="form-group"><label>原價 (NT$)：</label><input type="number" v-model="productForm.originalPrice" placeholder="例：1500 (選填)" /></div>
-        <div class="form-group"><label>優惠價 / 售價 (NT$)：</label><input type="number" v-model="productForm.price" placeholder="例：1280 (選填)" /></div>
+       <!-- 🌸 支援原價劃線與優惠價同時顯示的排版 -->
+<div class="price-container" style="display: flex; align-items: center; gap: 8px;">
+  <span v-if="product.originalPrice && Number(product.originalPrice) > Number(product.price)" style="text-decoration: line-through; color: #888; font-size: 0.9rem;">
+    NT$ {{ product.originalPrice }}
+  </span>
+  <span class="price" style="font-weight: bold; color: #b25d4e;">
+    NT$ {{ product.price }}
+  </span>
+</div>
 
         <div class="form-group"><label>圖片網址：</label><input v-model="productForm.imageUrl" /></div>
         <div class="form-group"><label>PicSee 短網址 (選填)：</label><input v-model="productForm.shortUrl" placeholder="例：https://pse.is/xxxxx" /></div>
