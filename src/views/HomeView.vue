@@ -39,7 +39,9 @@ const formatDeliveryMethod = (m: string) => ({ black_cat: '黑貓宅配', expres
 const LIFF_ID = '2010913515-HfcsIAK0'
 const lineProfile = ref<{ userId: string; displayName: string; pictureUrl?: string } | null>(null)
 const defaultAvatar = 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'https://moni-atelier-backend.onrender.com').replace(/\/$/, '')
+// 🛡️ 確保絕對乾淨的 API 基礎網址，自動過濾掉結尾斜線、空白與冒號
+const rawApiBase = import.meta.env.VITE_API_BASE_URL || 'https://moni-atelier-backend.onrender.com'
+const API_BASE = rawApiBase.toString().trim().replace(/[:\/]+$/, '').replace(/\/api\/.*$/, '')
 
 const route = useRoute()
 const cartStore = useCartStore()
