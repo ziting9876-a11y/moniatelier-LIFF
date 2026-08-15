@@ -365,13 +365,13 @@
         
         <!-- 🌸 正確的原價與優惠價輸入欄位 -->
         <div class="form-group">
-          <label>原價 (NT$)：</label>
-          <input type="number" v-model="productForm.originalPrice" placeholder="例：1500 (選填)" />
-        </div>
-        <div class="form-group">
-          <label>優惠價 / 售價 (NT$)：</label>
-          <input type="number" v-model="productForm.price" placeholder="例：1280 (選填)" />
-        </div>
+  <label>原價 (NT$)：</label>
+  <input type="number" v-model="productForm.originalPrice" placeholder="例：1500 (選填)" />
+</div>
+<div class="form-group">
+  <label>優惠價 / 售價 (NT$)：</label>
+  <input type="number" v-model="productForm.price" placeholder="例：1280 (選填)" />
+</div>
 
         <div class="form-group"><label>圖片網址：</label><input v-model="productForm.imageUrl" /></div>
 
