@@ -365,11 +365,11 @@
         
        <!-- 🌸 加上 ?. 安全防護，避免舊商品沒有 originalPrice 時崩潰 -->
 <div class="price-container" style="display: flex; align-items: center; gap: 8px;">
-  <span v-if="product?.originalPrice && Number(product.originalPrice) > Number(product.price)" style="text-decoration: line-through; color: #888; font-size: 0.9rem;">
+  <span v-if="product?.originalPrice && Number(product.originalPrice) > Number(product?.price)" style="text-decoration: line-through; color: #888; font-size: 0.9rem;">
     NT$ {{ product.originalPrice }}
   </span>
   <span class="price" style="font-weight: bold; color: #b25d4e;">
-    NT$ {{ product.price }}
+    NT$ {{ product?.price }}
   </span>
 </div>
 
