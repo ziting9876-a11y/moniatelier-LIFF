@@ -371,7 +371,6 @@ const loginBackendUser = async (profile: { userId: string; displayName: string; 
       })
       const data = await res.json()
       if (res.ok && data.status === 'success' && data.user) {
-        // 直接採用後端回傳的點數，不強制覆蓋
         userPoints.value = data.user.points !== undefined ? data.user.points : 100
         usedPointsInput.value = userPoints.value
         
@@ -628,10 +627,11 @@ const executePayment = async () => {
           <div v-else-if="displayProducts.length === 0" class="loading-state">目前尚未有上架商品。</div>
           <div v-else class="product-grid">
             <div v-for="item in displayProducts" :key="getProductId(item)" class="product-card">
+              <!-- 🌸 修正圖片容器與標籤定位 -->
               <div class="image-wrapper" @click="openProductDetail(item)">
                 <span 
                   v-if="item.badge" 
-                  class="badge-no"
+                  class="badge-no" 
                   :style="getBadgeStyle(item, 'badge')"
                 >
                   {{ item.badge }}
@@ -639,7 +639,7 @@ const executePayment = async () => {
                 <img :src="getProductImage(item)" :alt="item.name" />
                 <span 
                   v-if="item.tag" 
-                  class="tag-hot"
+                  class="tag-hot" 
                   :style="getBadgeStyle(item, 'tag')"
                 >
                   {{ item.tag }}
@@ -652,8 +652,14 @@ const executePayment = async () => {
                 <p class="description">{{ item.description }}</p>
                 <div class="divider"></div>
                 <div class="card-footer">
+                  <!-- 🌸 修正前台價格：雙價格顯示（劃線原價 + 特價） -->
                   <div class="price-box">
-                    <span class="price-val">NT$ {{ Number(item.price || item.originalPrice).toLocaleString() }}</span>
+                    <span v-if="item.originalPrice && Number(item.originalPrice) > Number(item.price)" class="price-original">
+                      NT$ {{ Number(item.originalPrice).toLocaleString() }}
+                    </span>
+                    <span class="price-val">
+                      NT$ {{ Number(item.price || item.originalPrice).toLocaleString() }}
+                    </span>
                   </div>
                   <button class="add-btn" @click.stop="cartStore.addToCart(getProductId(item))">加入購物車</button>
                 </div>
@@ -681,7 +687,7 @@ const executePayment = async () => {
             <div class="cart-list">
               <div v-for="(qty, id) in cartStore.cart" :key="id" class="cart-item-row">
                 <span class="item-name">{{ allProducts.find(p => String(getProductId(p)) === String(id))?.name || '精選花藝作品' }} x {{ qty }}</span>
-                <span class="item-price">NT$ {{ ((allProducts.find(p => String(getProductId(p)) === String(id))?.price || 0) * Number(qty)).toLocaleString() }}</span>
+                <span class="item-price">NT$ {{ (((allProducts.find(p => String(getProductId(p)) === String(id))?.price || allProducts.find(p => String(getProductId(p)) === String(id))?.originalPrice || 0)) * Number(qty)).toLocaleString() }}</span>
               </div>
 
               <div class="summary-box">
@@ -779,7 +785,7 @@ const executePayment = async () => {
                 </div>
               </div>
 
-              <!-- 會員紅利折抵 (已移除推薦好友按鈕) -->
+              <!-- 會員紅利折抵 -->
               <div class="checkout-member-card">
                 <div class="member-info-header">
                   <span class="user-label">👤 {{ lineProfile?.displayName || '會員' }} 的專屬紅利</span>
@@ -851,7 +857,7 @@ const executePayment = async () => {
         </div>
       </div>
 
-      <!-- 🎂 生日禮快捷登錄卡片 (選擇完整年月日) -->
+      <!-- 🎂 生日禮快捷登錄卡片 -->
       <div class="member-feature-card">
         <div class="feature-card-header">
           <h3>🎂 生日禮登錄專區</h3>
@@ -936,7 +942,7 @@ const executePayment = async () => {
             <div v-for="(qty, id) in cartStore.cart" :key="id" class="drawer-cart-item">
               <div class="drawer-item-info">
                 <span class="drawer-item-name">{{ allProducts.find(p => String(getProductId(p)) === String(id))?.name || '精選花藝作品' }}</span>
-                <span class="drawer-item-price">NT$ {{ (((allProducts.find(p => String(getProductId(p)) === String(id))?.price || 0)) * Number(qty)).toLocaleString() }}</span>
+                <span class="drawer-item-price">NT$ {{ (((allProducts.find(p => String(getProductId(p)) === String(id))?.price || allProducts.find(p => String(getProductId(p)) === String(id))?.originalPrice || 0)) * Number(qty)).toLocaleString() }}</span>
               </div>
               <div class="quantity-control">
                 <button type="button" class="qty-btn" @click="cartStore.removeFromCart(id)">-</button>
@@ -952,10 +958,10 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 🔍 商品詳情 Modal -->
+    <!-- 🔍 修正後的商品詳情 Modal -->
     <div v-if="selectedProductDetail" class="modal-backdrop" @click.self="closeProductDetail">
       <div class="product-detail-modal">
-        <button type="button" class="close-icon-btn" @click="closeProductDetail">✕</button>
+        <button type="button" class="close-icon-btn close-detail-btn" @click="closeProductDetail">✕</button>
         <div class="detail-image-wrapper">
           <img :src="getProductImage(selectedProductDetail)" :alt="selectedProductDetail.name" />
         </div>
@@ -964,7 +970,14 @@ const executePayment = async () => {
           <h2>{{ selectedProductDetail.name }}</h2>
           <p class="detail-desc">{{ selectedProductDetail.description }}</p>
           <div class="detail-footer">
-            <span class="detail-price">NT$ {{ Number(selectedProductDetail.price || selectedProductDetail.originalPrice).toLocaleString() }}</span>
+            <div class="detail-price-box">
+              <span v-if="selectedProductDetail.originalPrice && Number(selectedProductDetail.originalPrice) > Number(selectedProductDetail.price)" class="price-original">
+                NT$ {{ Number(selectedProductDetail.originalPrice).toLocaleString() }}
+              </span>
+              <span class="detail-price">
+                NT$ {{ Number(selectedProductDetail.price || selectedProductDetail.originalPrice).toLocaleString() }}
+              </span>
+            </div>
             <button class="add-btn" @click="cartStore.addToCart(getProductId(selectedProductDetail)); closeProductDetail()">加入購物車</button>
           </div>
         </div>
@@ -1064,7 +1077,7 @@ const executePayment = async () => {
       </div>
     </div>
 
-    <!-- 🎂 生日領取紅利 Modal (完整年月日) -->
+    <!-- 🎂 生日領取紅利 Modal -->
     <div v-if="showBirthdayModal" class="modal-backdrop" @click.self="showBirthdayModal = false">
       <div class="calendar-modal">
         <h3>🎂 紀錄生日日期</h3>
@@ -1126,19 +1139,25 @@ const executePayment = async () => {
 
 .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.2rem; }
 .product-card { background: #FFFFFF; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
-.image-wrapper { aspect-ratio: 3/4; background: #34444E; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; }
+
+/* 🌸 嚴格限制圖片容器大小與絕對定位基準 */
+.image-wrapper { position: relative !important; width: 100%; aspect-ratio: 3/4; background: #34444E; display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer; }
 .image-wrapper img { width: 100%; height: 100%; object-fit: contain; }
 
-/* 🌸 標籤樣式 (支援色彩透明度) */
-.badge-no { position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; z-index: 2; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-.tag-hot { position: absolute; bottom: 8px; right: 8px; padding: 2px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; z-index: 2; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+/* 🌸 標籤樣式：固定在圖片內部的四角 */
+.badge-no { position: absolute; top: 10px; left: 10px; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; z-index: 5; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+.tag-hot { position: absolute; bottom: 10px; right: 10px; padding: 2px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; z-index: 5; box-shadow: 0 2px 4px rgba(0,0,0,0.2); white-space: nowrap; }
+.view-detail-badge { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.65); color: #FFF; font-size: 0.75rem; padding: 3px 8px; border-radius: 20px; z-index: 5; backdrop-filter: blur(2px); }
 
-.view-detail-badge { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: #FFF; font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; z-index: 2; }
 .product-info { padding: 1rem; display: flex; flex-direction: column; flex-grow: 1; text-align: center; color: #2D3748; }
-.product-name { font-size: 1.05rem; margin: 0.3rem 0; color: #2D3748; }
+.product-name { font-size: 1.05rem; margin: 0.3rem 0; color: #2D3748; cursor: pointer; }
 .description { font-size: 0.82rem; color: #718096; line-height: 1.4; height: 36px; overflow: hidden; }
 .card-footer { margin-top: auto; display: flex; justify-content: space-between; align-items: center; }
-.price-val { font-size: 1rem; font-weight: bold; color: #8B5E4C; }
+
+/* 🌸 前台雙價格對比顯示 */
+.price-box { display: flex; align-items: baseline; gap: 6px; text-align: left; }
+.price-original { text-decoration: line-through; color: #a0aec0; font-size: 0.8rem; }
+.price-val { font-size: 1.05rem; font-weight: bold; color: #8B5E4C; }
 .add-btn { background: #F7F9FA; color: #34444E; border: 1px solid #34444E; padding: 0.4rem 0.8rem; border-radius: 6px; font-weight: bold; cursor: pointer; }
 
 .step-indicator { display: flex; align-items: center; justify-content: center; gap: 1rem; background: #FFFFFF; padding: 0.8rem; border-radius: 8px; }
@@ -1252,7 +1271,7 @@ const executePayment = async () => {
 .back-btn { background: none; border: 1px solid #FFF; color: #FFF; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; width: fit-content; }
 
 /* Modal 彈窗通用 */
-.modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+.modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; z-index: 9999; }
 .cart-drawer-modal { background: #FFFFFF; border-radius: 16px; padding: 1.2rem; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); }
 .drawer-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.8rem; margin-bottom: 1rem; }
 .drawer-header h3 { margin: 0; font-size: 1.1rem; color: #34444E; font-weight: bold; }
@@ -1269,6 +1288,18 @@ const executePayment = async () => {
 .drawer-footer { border-top: 1px solid #E2E8F0; padding-top: 0.8rem; }
 .confirm-drawer-btn { width: 100%; background: #34444E; color: #FFFFFF; border: none; padding: 0.8rem; border-radius: 8px; font-weight: bold; font-size: 0.95rem; cursor: pointer; }
 
+/* 🌸 商品詳情 Modal 美化 */
+.product-detail-modal { background: #FFF; border-radius: 16px; max-width: 440px; width: 90%; max-height: 85vh; overflow-y: auto; position: relative; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+.close-detail-btn { position: absolute; top: 12px; right: 12px; z-index: 10; background: rgba(0,0,0,0.5); color: #fff; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
+.detail-image-wrapper { width: 100%; height: 280px; background: #34444E; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.detail-image-wrapper img { width: 100%; height: 100%; object-fit: contain; }
+.detail-body { padding: 1.2rem; text-align: left; display: flex; flex-direction: column; gap: 8px; }
+.detail-body h2 { margin: 4px 0; font-size: 1.2rem; color: #2D3748; }
+.detail-desc { font-size: 0.88rem; color: #4A5568; line-height: 1.6; white-space: pre-line; margin: 8px 0; }
+.detail-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid #E2E8F0; }
+.detail-price-box { display: flex; align-items: baseline; gap: 6px; }
+.detail-price { font-size: 1.2rem; font-weight: bold; color: #8B5E4C; }
+
 /* 📜 購物須知 Modal 樣式 */
 .policy-modal { background: #FFFFFF; border-radius: 16px; padding: 1.2rem 1.5rem; max-width: 440px; width: 90%; max-height: 85vh; color: #333333; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); }
 .policy-modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.8rem; flex-shrink: 0; }
@@ -1282,7 +1313,7 @@ const executePayment = async () => {
 .agree-checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; font-weight: bold; color: #2D3748; cursor: pointer; user-select: none; }
 .agree-checkbox-label input { width: 18px; height: 18px; cursor: pointer; }
 
-.calendar-modal, .product-detail-modal { background: #FFF; border-radius: 12px; padding: 1.2rem; max-width: 400px; width: 90%; color: #333; }
+.calendar-modal { background: #FFF; border-radius: 12px; padding: 1.2rem; max-width: 400px; width: 90%; color: #333; }
 .confirm-pay-btn { width: 100%; padding: 0.8rem; background: #34444E; color: #FFF; border: none; border-radius: 8px; font-weight: bold; font-size: 0.95rem; cursor: pointer; }
 .confirm-pay-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .close-modal-btn { width: 100%; padding: 6px; background: #E2E8F0; border: none; border-radius: 4px; cursor: pointer; }
