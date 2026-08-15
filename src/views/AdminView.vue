@@ -363,17 +363,17 @@
         <div class="form-group"><label>商品分類：</label><input v-model="productForm.category" /></div>
         <div class="form-group"><label>商品名稱：</label><input v-model="productForm.name" /></div>
         
-       <!-- ❌ 這裡目前是前台顯示的排版，請將它刪除 -->
-<div class="price-container" style="display: flex; align-items: center; gap: 8px;">
-  <!-- 若有填寫原價且大於優惠價時，顯示劃線原價 -->
-  <span v-if="product?.originalPrice && Number(product.originalPrice) > Number(product?.price)" style="text-decoration: line-through; color: #888; font-size: 0.9rem;">
-    NT$ {{ product.originalPrice }}
-  </span>
-  <!-- 優惠價 / 現價 -->
-  <span class="price" style="font-weight: bold; color: #b25d4e;">
-    NT$ {{ product?.price }}
-  </span>
-</div>
+        <!-- 🌸 正確的原價與優惠價輸入欄位 -->
+        <div class="form-group">
+          <label>原價 (NT$)：</label>
+          <input type="number" v-model="productForm.originalPrice" placeholder="例：1500 (選填)" />
+        </div>
+        <div class="form-group">
+          <label>優惠價 / 售價 (NT$)：</label>
+          <input type="number" v-model="productForm.price" placeholder="例：1280 (選填)" />
+        </div>
+
+        <div class="form-group"><label>圖片網址：</label><input v-model="productForm.imageUrl" /></div>
 
         <div class="form-group"><label>圖片網址：</label><input v-model="productForm.imageUrl" /></div>
         <div class="form-group"><label>PicSee 短網址 (選填)：</label><input v-model="productForm.shortUrl" placeholder="例：https://pse.is/xxxxx" /></div>
