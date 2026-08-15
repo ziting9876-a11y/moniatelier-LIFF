@@ -364,10 +364,13 @@
         <div class="form-group"><label>商品名稱：</label><input v-model="productForm.name" /></div>
         
        <!-- 🌸 加上 ?. 安全防護，避免舊商品沒有 originalPrice 時崩潰 -->
+      <!-- 🌸 支援雙價格（原價劃線 + 優惠價）且具備安全防護的排版 -->
 <div class="price-container" style="display: flex; align-items: center; gap: 8px;">
+  <!-- 若有填寫原價且大於優惠價時，顯示劃線原價 -->
   <span v-if="product?.originalPrice && Number(product.originalPrice) > Number(product?.price)" style="text-decoration: line-through; color: #888; font-size: 0.9rem;">
     NT$ {{ product.originalPrice }}
   </span>
+  <!-- 優惠價 / 現價 -->
   <span class="price" style="font-weight: bold; color: #b25d4e;">
     NT$ {{ product?.price }}
   </span>
