@@ -85,7 +85,8 @@ const orderForm = ref({
   deliveryMethod: 'black_cat',
   selectedStore: null as any,
   payer: { name: '', phone: '', email: '' },
-  recipient: { name: '', phone: '', city: '台北市', district: '中正區', address: '' }
+  recipient: { name: '', phone: '', city: '台北市', district: '中正區', address: '' },
+  note: ''//
 })
 
 const sameAsPayer = ref(false)
@@ -455,8 +456,36 @@ const executePayment = async () => {
     orderForm.value.selectedStore = { id: 'CUSTOM', name: storeInput.value.name.trim(), address: storeInput.value.address.trim() }
   }
 
+  // 🌸 結帳時同步更新詳細會員資料至 Supabase
+  try {
+    if (lineProfile.value && lineProfile.value.userId) {
+      const isStoreDelivery = ['seven_eleven', 'familymart'].includes(orderForm.value.deliveryMethod)
+      const fullAddr = isStoreDelivery 
+        ? `${storeInput.value.name} (${storeInput.value.address})` 
+        : `${orderForm.value.recipient.city || ''}${orderForm.value.recipient.district || ''}${orderForm.value.recipient.address || ''}`
+
+      await supabase
+        .from('members')
+        .upsert([
+          { 
+            line_user_id: lineProfile.value.userId, 
+            name: orderForm.value.payer.name,
+            phone: orderForm.value.payer.phone,
+            email: orderForm.value.payer.email,
+            address: fullAddr,
+            birthday: userBirthday.value || null,
+            notes: orderForm.value.note || ''
+          }
+        ], { onConflict: 'line_user_id' })
+      console.log('結帳時同步更新會員詳細資料成功！')
+    }
+  } catch (err) {
+    console.error('更新會員詳細資料發生錯誤：', err)
+  }
+
   try {
     isLoading.value = true
+    // ... 後續原本的產生訂單與藍新金流串接邏輯 ...
     const city = isStoreDelivery ? '超商門市' : (orderForm.value.recipient.city || '台北市')
     const district = isStoreDelivery ? '門市取件' : (orderForm.value.recipient.district || '中正區')
     const addressDetail = isStoreDelivery ? `${storeInput.value.name} (${storeInput.value.address})` : (orderForm.value.recipient.address || '')
@@ -524,7 +553,7 @@ const executePayment = async () => {
 
 
 // --- 1. 在 script setup 內宣告同步函式 ---
-// --- 🌸 同步會員資料到 Supabase 雲端資料庫 ---
+// --- 🌸 完整同步會員資料到 Supabase 雲端資料庫 ---
 const syncUserToSupabase = async (profile: any) => {
   if (!profile || !profile.userId) return
   
@@ -535,14 +564,17 @@ const syncUserToSupabase = async (profile: any) => {
         { 
           line_user_id: profile.userId, 
           name: profile.displayName,
-          points: userPoints.value || 173 
+          picture_url: profile.pictureUrl || '', // 自動抓取 LINE 頭貼
+          points: userPoints.value || 173
+          // 其它欄位（如 phone, email, address, birthday, notes 等）
+          // 會在客人填寫結帳表單或後台編輯時寫入
         }
       ], { onConflict: 'line_user_id' })
 
     if (error) {
-      console.error('同步至 Supabase 失敗：', error.message)
+      console.error('同步會員失敗：', error.message)
     } else {
-      console.log('成功同步會員至 Supabase！', data)
+      console.log('成功同步完整會員輪廓！', data)
     }
   } catch (err) {
     console.error('連線 Supabase 發生例外錯誤：', err)
