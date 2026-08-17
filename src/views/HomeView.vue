@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 // @ts-ignore
 import { useCartStore } from '../stores/cart'
 import liff from '@line/liff'
+import { supabase } from '../supabase'
 
 // --- 🎯 1. 型別宣告 ---
 interface Product {
@@ -521,6 +522,34 @@ const executePayment = async () => {
   }
 }
 
+
+// --- 1. 在 script setup 內宣告同步函式 ---
+// --- 🌸 同步會員資料到 Supabase 雲端資料庫 ---
+const syncUserToSupabase = async (profile: any) => {
+  if (!profile || !profile.userId) return
+  
+  try {
+    const { data, error } = await supabase
+      .from('members')
+      .upsert([
+        { 
+          line_user_id: profile.userId, 
+          name: profile.displayName,
+          points: userPoints.value || 173 
+        }
+      ], { onConflict: 'line_user_id' })
+
+    if (error) {
+      console.error('同步至 Supabase 失敗：', error.message)
+    } else {
+      console.log('成功同步會員至 Supabase！', data)
+    }
+  } catch (err) {
+    console.error('連線 Supabase 發生例外錯誤：', err)
+  }
+}
+
+// --- 2. 完整的 onMounted 區塊 ---
 onMounted(async () => {
   await fetchProducts()
 
@@ -540,6 +569,10 @@ onMounted(async () => {
         orderForm.value.payer.name = profile.displayName
       }
       await loginBackendUser(profile)
+
+      // 🌸 自動同步會員資料到 Supabase 雲端資料庫
+      await syncUserToSupabase(profile)
+
     } else {
       liff.login()
       return
@@ -555,6 +588,7 @@ onMounted(async () => {
   if (route.query.tab === 'member') {
     activeTab.value = 'member'
   }
+
 
   const statusParam = route.query.status as string
   const orderNoParam = route.query.orderNo as string
