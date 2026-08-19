@@ -617,11 +617,27 @@ const submitAdjustPoints = async () => {
 const fetchOrders = async () => {
   loadingOrders.value = true
   try {
-    const res = await fetch(`${API_BASE_URL}/api/orders`)
+    // 確保有抓到當前使用者的 LINE ID
+    if (!lineProfile.value?.userId) {
+      console.warn('⚠️ 尚未取得 LINE 使用者資訊，無法查詢訂單')
+      return
+    }
+
+    // 改為呼叫我們剛建立的安全代理 API，並帶上 lineUserId 參數
+    const res = await fetch(`${API_BASE_URL}/api/my-orders?lineUserId=${lineProfile.value.userId}`)
     const data = await res.json()
-    if (data.status === 'success') { orders.value = data.orders || [] }
-  } catch (err) { console.error('❌ 抓取訂單失敗:', err) }
-  finally { loadingOrders.value = false }
+
+    // 對應後端回傳的 success 與 data 格式
+    if (data.success) { 
+      orders.value = data.data || [] 
+    } else {
+      console.error('❌ 查詢訂單失敗:', data.error)
+    }
+  } catch (err) { 
+    console.error('❌ 抓取訂單連線錯誤:', err) 
+  } finally { 
+    loadingOrders.value = false 
+  }
 }
 
 const fetchProducts = async () => {
