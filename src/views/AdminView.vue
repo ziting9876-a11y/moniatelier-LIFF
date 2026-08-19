@@ -708,23 +708,32 @@ const saveProduct = async () => {
     return 
   }
 
+  // 1. 處理分類與預設天數（保留您原本的設計）
+  const finalCategory = categorySelect.value === 'custom' ? productForm.value.category : categorySelect.value
+  if (!finalCategory) {
+    alert('請選擇或填寫商品分類！')
+    return
+  }
+
+  // 2. 彈出輸入框請您輸入後台管理密碼（安全性驗證）
+  const secretKey = prompt('請輸入後台管理員密碼：')
+  if (!secretKey) return // 如果按取消就中斷
+
+  // 3. 整理要送出的完整商品資料
+  const productPayload = {
+    ...(editingProductId.value && { id: editingProductId.value }),
+    title: productForm.value.name,
+    category: finalCategory,
+    price: productForm.value.price,
+    originalPrice: productForm.value.originalPrice,
+    leadTimeDays: Number(productForm.value.leadTimeDays) || 5,
+    description: productForm.value.description,
+    image_url: productForm.value.imageUrl,
+    is_active: !productForm.value.isHidden
+  }
+
   try {
-    // 1. 彈出輸入框請您輸入後台管理密碼（對應 Render 設定的 ADMIN_SECRET_KEY）
-    const secretKey = prompt('請輸入後台管理員密碼：')
-    if (!secretKey) return // 如果按取消就中斷
-
-    // 2. 整理要送出的商品資料
-    const productPayload = {
-      ...(editingProductId.value && { id: editingProductId.value }),
-      title: productForm.value.name,
-      price: productForm.value.price,
-      originalPrice: productForm.value.originalPrice,
-      description: productForm.value.description,
-      image_url: productForm.value.imageUrl,
-      is_active: !productForm.value.isHidden
-    }
-
-    // 3. 發送請求給您的 Render 後端 API
+    // 4. 發送請求給您的 Render 後端安全 API
     const response = await fetch(`${API_BASE_URL}/api/admin/products`, {
       method: 'POST',
       headers: {
@@ -741,7 +750,7 @@ const saveProduct = async () => {
     if (result.success) {
       alert('🎉 商品成功同步至 Supabase 資料庫！')
       showProductModal.value = false // 關閉彈窗
-      // fetchProducts() // 重新整理後台商品列表
+      // fetchProducts() // 重新整理後台商品列表（如果有這個函式的話）
     } else {
       alert('❌ 同步失敗：' + (result.error || '密碼錯誤或授權失敗'))
     }
@@ -751,36 +760,6 @@ const saveProduct = async () => {
   }
 }
 
-  const finalCategory = categorySelect.value === 'custom' ? productForm.value.category : categorySelect.value
-  if (!finalCategory) {
-    alert('請選擇或填寫商品分類！')
-    return
-  }
-
-  const submitData = {
-    ...productForm.value,
-    category: finalCategory,
-    leadTimeDays: Number(productForm.value.leadTimeDays) || 5
-  }
-
-  const method = editingProductId.value ? 'PUT' : 'POST'
-  const url = editingProductId.value ? `${API_BASE_URL}/api/products/${editingProductId.value}` : `${API_BASE_URL}/api/products`
-  try {
-    const res = await fetch(url, { 
-      method, 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify(submitData) 
-    })
-    const data = await res.json()
-    if (data.status === 'success') { 
-      alert('🌸 商品已成功儲存！')
-      showProductModal.value = false
-      fetchProducts() 
-    }
-  } catch (err) { 
-    alert('儲存商品失敗') 
-  }
-
 const deleteProduct = async (id) => {
   if (!confirm('確定刪除嗎？')) return
   try { 
@@ -788,6 +767,7 @@ const deleteProduct = async (id) => {
     fetchProducts() 
   } catch (err) {}
 }
+
 
 const formatStatus = (s) => ({ PENDING: '待付款', PAID: '已付款', accepted: '已接單', in_production: '製作中', delivering: '配送中', completed: '✓ 已完成', refunded: '↩ 已退款', cancelled: '✕ 已取消' }[s] || s)
 const formatDeliveryMethod = (m) => ({ black_cat: '黑貓宅配', express_taipei_1: '專人雙北配送1', express_taipei_2: '專人雙北配送2', cvs: '超商取貨', seven_eleven: '7-11店到店', familymart: '全家店到店' }[m] || m || '未指定')
