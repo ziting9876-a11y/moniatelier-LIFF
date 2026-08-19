@@ -514,7 +514,7 @@ const executePayment = async () => {
       recipient: recipientData
     }
 
-    const response = await fetch(`${API_BASE}/api/orders`, {
+    const response = await fetch('https://moni-atelier-backend.onrender.com/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
