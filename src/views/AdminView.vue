@@ -708,6 +708,49 @@ const saveProduct = async () => {
     return 
   }
 
+  try {
+    // 1. 彈出輸入框請您輸入後台管理密碼（對應 Render 設定的 ADMIN_SECRET_KEY）
+    const secretKey = prompt('請輸入後台管理員密碼：')
+    if (!secretKey) return // 如果按取消就中斷
+
+    // 2. 整理要送出的商品資料
+    const productPayload = {
+      ...(editingProductId.value && { id: editingProductId.value }),
+      title: productForm.value.name,
+      price: productForm.value.price,
+      originalPrice: productForm.value.originalPrice,
+      description: productForm.value.description,
+      image_url: productForm.value.imageUrl,
+      is_active: !productForm.value.isHidden
+    }
+
+    // 3. 發送請求給您的 Render 後端 API
+    const response = await fetch(`${API_BASE_URL}/api/admin/products`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        secretKey: secretKey,
+        productData: productPayload
+      })
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      alert('🎉 商品成功同步至 Supabase 資料庫！')
+      showProductModal.value = false // 關閉彈窗
+      // fetchProducts() // 重新整理後台商品列表
+    } else {
+      alert('❌ 同步失敗：' + (result.error || '密碼錯誤或授權失敗'))
+    }
+  } catch (err) {
+    console.error('API 呼叫異常：', err)
+    alert('❌ 發生未預期的網路錯誤，請檢查後端連線')
+  }
+}
+
   const finalCategory = categorySelect.value === 'custom' ? productForm.value.category : categorySelect.value
   if (!finalCategory) {
     alert('請選擇或填寫商品分類！')
@@ -737,7 +780,6 @@ const saveProduct = async () => {
   } catch (err) { 
     alert('儲存商品失敗') 
   }
-}
 
 const deleteProduct = async (id) => {
   if (!confirm('確定刪除嗎？')) return
