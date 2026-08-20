@@ -1,6 +1,6 @@
 <template>
   <div class="pos-app">
-    <!-- 頂部狀態列 -->
+    <!-- 頂部狀態列：可自由切換當前值班人員 -->
     <header class="pos-topbar">
       <div class="brand">
         <span class="logo-icon">🌸</span>
@@ -13,8 +13,12 @@
       <div class="clock-badge">{{ currentTime }}</div>
 
       <div class="staff-control">
-        <label>當前值班：</label>
-        <span class="staff-name-tag">👤 {{ currentStaff }}</span>
+        <label for="top-staff-select">當前值班人員：</label>
+        <select id="top-staff-select" v-model="currentStaff" class="top-staff-dropdown">
+          <option value="花藝師-宜萱">花藝師 - 宜萱</option>
+          <option value="花藝師-子庭">花藝師 - 子庭</option>
+          <option value="實習花藝助理">實習花藝助理</option>
+        </select>
       </div>
     </header>
 
@@ -27,7 +31,7 @@
         💐 門市 POS 收銀開單
       </button>
       <button :class="['nav-btn', { active: activeTab === 'settlement' }]" @click="activeTab = 'settlement'">
-        🧾 今日交班對帳
+        🧾 今日交班對帳與留言
       </button>
       <button :class="['nav-btn', { active: activeTab === 'punch' }]" @click="activeTab = 'punch'">
         ⏰ 員工考勤打卡
@@ -39,7 +43,6 @@
 
     <!-- ==================== 1. 製作排程月曆看板 ==================== -->
     <main v-if="activeTab === 'schedule'" class="tab-panel schedule-container">
-      <!-- 置頂今日急單區 -->
       <section v-if="urgentOrders.length > 0" class="urgent-banner">
         <div class="urgent-title">
           <span>🔥 今日急單待辦 ({{ urgentOrders.length }} 筆)</span>
@@ -61,7 +64,6 @@
       </section>
 
       <div class="schedule-split">
-        <!-- 左側：月曆視圖 -->
         <aside class="calendar-view-box">
           <div class="calendar-header">
             <button class="cal-arrow" @click="changeMonth(-1)">◀</button>
@@ -78,14 +80,7 @@
             <div 
               v-for="(day, idx) in calendarDays" 
               :key="idx" 
-              :class="[
-                'cal-day-cell', 
-                { 
-                  'other-month': !day.currentMonth,
-                  'selected': day.dateStr === selectedScheduleDate,
-                  'today': day.dateStr === todayStr
-                }
-              ]"
+              :class="['cal-day-cell', { 'other-month': !day.currentMonth, 'selected': day.dateStr === selectedScheduleDate, 'today': day.dateStr === todayStr }]"
               @click="selectCalendarDate(day.dateStr)"
             >
               <span class="day-num">{{ day.dayNum }}</span>
@@ -96,7 +91,6 @@
           </div>
         </aside>
 
-        <!-- 右側：當日工單清單 -->
         <section class="day-orders-box">
           <div class="day-orders-head">
             <h3>📅 {{ selectedScheduleDate }} 花禮製作工單 ({{ scheduledOrders.length }} 筆)</h3>
@@ -139,15 +133,9 @@
 
     <!-- ==================== 2. 門市 POS 收銀開單 ==================== -->
     <main v-else-if="activeTab === 'pos'" class="tab-panel pos-panel">
-      <!-- 左側：商品選擇 -->
       <section class="products-section">
         <div class="category-tabs">
-          <button 
-            v-for="cat in categories" 
-            :key="cat" 
-            :class="['cat-btn', { active: selectedCat === cat }]" 
-            @click="selectedCat = cat"
-          >
+          <button v-for="cat in categories" :key="cat" :class="['cat-btn', { active: selectedCat === cat }]" @click="selectedCat = cat">
             {{ cat }}
           </button>
         </div>
@@ -162,9 +150,7 @@
         </div>
       </section>
 
-      <!-- 右側：開單購物車與客戶資料 -->
       <aside class="checkout-aside">
-        <!-- 購物車清單 -->
         <div class="cart-list">
           <h4>🛒 購買花禮明細 ({{ cart.reduce((acc, i) => acc + i.qty, 0) }} 件)</h4>
           <div v-if="cart.length === 0" class="empty-cart">尚未選入商品</div>
@@ -180,28 +166,18 @@
           </div>
         </div>
 
-        <!-- 訂購人與會員資料填寫 -->
         <div class="form-section-card">
           <h4>👤 訂購人資訊 (輸入電話自動帶入會員)</h4>
           <div class="form-row-phone">
-            <input 
-              type="text" 
-              v-model="ordererPhone" 
-              placeholder="訂購人手機號碼 *" 
-              @blur="autoLookupMember"
-              @keyup.enter="autoLookupMember"
-            />
+            <input type="text" v-model="ordererPhone" placeholder="訂購人手機號碼 *" @blur="autoLookupMember" @keyup.enter="autoLookupMember" />
             <button class="btn-lookup" @click="autoLookupMember">帶入</button>
           </div>
-
           <div class="form-row-2col">
             <input type="text" v-model="ordererName" placeholder="訂購人姓名 *" />
-            <input type="email" v-model="ordererEmail" placeholder="電子信箱 (發送明細)" />
+            <input type="email" v-model="ordererEmail" placeholder="電子信箱 (選填)" />
           </div>
-
           <div v-if="currentMember" class="member-match-tip">
-            <span>✨ LINE 會員：<strong>{{ currentMember.name || currentMember.displayName }}</strong></span>
-            <span>紅利：<strong class="pts-text">{{ currentMember.points || 0 }} 點</strong></span>
+            <span>✨ 會員：<strong>{{ currentMember.name || currentMember.displayName }}</strong> ({{ currentMember.points || 0 }} 點)</span>
             <div class="pts-input-box">
               <label>折抵：</label>
               <input type="number" v-model.number="pointsToUse" :max="Math.min(currentMember.points || 0, subtotal)" min="0" />
@@ -209,74 +185,52 @@
             </div>
           </div>
           <div v-else-if="ordererPhone && !isCheckingMember" class="new-member-opt">
-            <label>
-              <input type="checkbox" v-model="registerAsMember" /> 現場直接加入會員並享有日後集點優惠
-            </label>
+            <label><input type="checkbox" v-model="registerAsMember" /> 現場直接加入會員並享有集點優惠</label>
           </div>
         </div>
 
-        <!-- 配送與收件人資訊 -->
         <div class="form-section-card">
           <div class="section-title-row">
             <h4>📦 配送與收件人資訊</h4>
-            <label class="same-as-orderer">
-              <input type="checkbox" v-model="sameAsOrderer" @change="syncRecipient" /> 同訂購人
-            </label>
+            <label class="same-as-orderer"><input type="checkbox" v-model="sameAsOrderer" @change="syncRecipient" /> 同訂購人</label>
           </div>
 
           <div class="form-row">
             <label>配送方式 *：</label>
             <select v-model="deliveryMethod">
-              <option value="store_pickup">門市自取 (運費 NT$ 0)</option>
-              <option value="black_cat">黑貓宅配 (運費 NT$300 / 滿 NT$4,500 免運)</option>
-              <option value="express_taipei_1">專人雙北配送1 (9:00-18:00不指定 / 運費 NT$300 / 滿 NT$4,500 免運)</option>
-              <option value="express_taipei_2">專人雙北配送2 (9:00-18:00不指定 / 運費 NT$500 / 滿 NT$4,500 免運)</option>
-              <option value="cvs_familymart">全家店到店 (運費 NT$300 / 滿 NT$4,500 免運)</option>
-              <option value="cvs_711">7-11店到店 (運費 NT$300 / 滿 NT$4,500 免運)</option>
+              <option value="store_pickup">門市自取 (NT$ 0)</option>
+              <option value="black_cat">黑貓宅配 (NT$300 / 滿$4,500免運)</option>
+              <option value="express_taipei_1">專人雙北配送1 (NT$300 / 滿$4,500免運)</option>
+              <option value="express_taipei_2">專人雙北配送2 (NT$500 / 滿$4,500免運)</option>
+              <option value="cvs_familymart">全家店到店 (NT$300 / 滿$4,500免運)</option>
+              <option value="cvs_711">7-11店到店 (NT$300 / 滿$4,500免運)</option>
             </select>
           </div>
 
           <div v-if="deliveryMethod === 'express_taipei_1'" class="region-tip-box">
-            <strong>📍 專人雙北配送 1：</strong>
-            <p>松山、信義、大安、中山、中正、大同、萬華、文山、南港、內湖、士林、北投、板橋、三重、中和、永和、汐止區。</p>
+            <strong>📍 專人雙北 1 區域：</strong>松山、信義、大安、中山、中正、大同、萬華、文山、南港、內湖、士林、北投、板橋、三重、中和、永和、汐止區。
           </div>
           <div v-if="deliveryMethod === 'express_taipei_2'" class="region-tip-box">
-            <strong>📍 專人雙北配送 2：</strong>
-            <p>新莊、新店、土城、蘆洲、樹林、淡水、林口區。</p>
+            <strong>📍 專人雙北 2 區域：</strong>新莊、新店、土城、蘆洲、樹林、淡水、林口區。
           </div>
 
           <div class="form-row-2col">
             <input type="text" v-model="recipientName" placeholder="收件人姓名 *" />
             <input type="text" v-model="recipientPhone" placeholder="收件人電話 *" />
           </div>
-
           <div v-if="deliveryMethod !== 'store_pickup'" class="form-row">
             <input type="text" v-model="recipientAddress" placeholder="收件地址 / 門市名稱 *" />
           </div>
-
           <div class="form-row">
             <textarea v-model="cardMessage" placeholder="代寫卡片心意內容 (選填)" rows="2"></textarea>
           </div>
         </div>
 
-        <!-- 金額結算與付款 -->
         <div class="checkout-footer">
-          <div class="calc-row">
-            <span>商品小計</span>
-            <span>NT$ {{ subtotal.toLocaleString() }}</span>
-          </div>
-          <div class="calc-row">
-            <span>運費 {{ subtotal >= 4500 && deliveryMethod !== 'store_pickup' ? '(滿額免運)' : '' }}</span>
-            <span>NT$ {{ shippingFee.toLocaleString() }}</span>
-          </div>
-          <div v-if="pointsToUse > 0" class="calc-row discount">
-            <span>紅利折抵</span>
-            <span>- NT$ {{ pointsToUse.toLocaleString() }}</span>
-          </div>
-          <div class="calc-row total">
-            <span>實收總額</span>
-            <span class="highlight">NT$ {{ finalAmount.toLocaleString() }}</span>
-          </div>
+          <div class="calc-row"><span>商品小計</span><span>NT$ {{ subtotal.toLocaleString() }}</span></div>
+          <div class="calc-row"><span>運費</span><span>NT$ {{ shippingFee.toLocaleString() }}</span></div>
+          <div v-if="pointsToUse > 0" class="calc-row discount"><span>紅利折抵</span><span>- NT$ {{ pointsToUse.toLocaleString() }}</span></div>
+          <div class="calc-row total"><span>實收總額</span><span class="highlight">NT$ {{ finalAmount.toLocaleString() }}</span></div>
 
           <div class="payment-methods">
             <label>付款方式：</label>
@@ -295,17 +249,24 @@
       </aside>
     </main>
 
-    <!-- ==================== 3. 今日交班對帳分頁 ==================== -->
+    <!-- ==================== 3. 今日交班對帳與留言 ==================== -->
     <main v-else-if="activeTab === 'settlement'" class="tab-panel settlement-panel">
       <div class="settlement-card">
         <div class="settlement-header">
           <h3>🧾 今日值班結算與交班對帳單</h3>
-          <span class="staff-badge">經手值班員：{{ currentStaff }}</span>
+          <div class="staff-selector-box">
+            <label>檢視對帳人員：</label>
+            <select v-model="currentStaff" class="top-staff-dropdown">
+              <option value="花藝師-宜萱">花藝師 - 宜萱</option>
+              <option value="花藝師-子庭">花藝師 - 子庭</option>
+              <option value="實習花藝助理">實習花藝助理</option>
+            </select>
+          </div>
         </div>
 
         <div class="summary-grid">
           <div class="summary-box">
-            <span class="label">今日總經手營業額</span>
+            <span class="label">{{ currentStaff }} 今日經手營業額</span>
             <span class="val">NT$ {{ staffTodayTotal.toLocaleString() }}</span>
           </div>
           <div class="summary-box">
@@ -316,34 +277,23 @@
 
         <h4 class="sub-title">各支付管道金額核對</h4>
         <div class="payment-breakdown-grid">
-          <div class="breakdown-item cash">
-            <span>💵 現金實收</span>
-            <strong>NT$ {{ paymentBreakdown.cash.toLocaleString() }}</strong>
-          </div>
-          <div class="breakdown-item linepay">
-            <span>🟢 LINE Pay</span>
-            <strong>NT$ {{ paymentBreakdown.linepay.toLocaleString() }}</strong>
-          </div>
-          <div class="breakdown-item card">
-            <span>💳 信用卡刷卡</span>
-            <strong>NT$ {{ paymentBreakdown.credit_card.toLocaleString() }}</strong>
-          </div>
-          <div class="breakdown-item transfer">
-            <span>🏦 銀行轉帳</span>
-            <strong>NT$ {{ paymentBreakdown.transfer.toLocaleString() }}</strong>
-          </div>
+          <div class="breakdown-item"><span>💵 現金實收</span><strong>NT$ {{ paymentBreakdown.cash.toLocaleString() }}</strong></div>
+          <div class="breakdown-item"><span>🟢 LINE Pay</span><strong>NT$ {{ paymentBreakdown.linepay.toLocaleString() }}</strong></div>
+          <div class="breakdown-item"><span>💳 信用卡刷卡</span><strong>NT$ {{ paymentBreakdown.credit_card.toLocaleString() }}</strong></div>
+          <div class="breakdown-item"><span>🏦 銀行轉帳</span><strong>NT$ {{ paymentBreakdown.transfer.toLocaleString() }}</strong></div>
+        </div>
+
+        <!-- 交班留言區 -->
+        <div class="handover-memo-box">
+          <h4>📝 給下一位值班人員的交班備忘留言</h4>
+          <textarea v-model="handoverMemo" placeholder="例如：冰箱鮮花已補水、預留玫瑰花束在工作台下方..." rows="3"></textarea>
+          <button class="btn-save-memo" @click="saveHandoverMemo">儲存交班留言</button>
         </div>
 
         <h4 class="sub-title">今日經手明細表</h4>
         <table class="simple-table">
           <thead>
-            <tr>
-              <th>單號</th>
-              <th>時間</th>
-              <th>訂購人</th>
-              <th>付款方式</th>
-              <th>金額</th>
-            </tr>
+            <tr><th>單號</th><th>時間</th><th>訂購人</th><th>付款方式</th><th>金額</th></tr>
           </thead>
           <tbody>
             <tr v-for="order in staffTodayOrders" :key="order.order_no || order.id">
@@ -357,9 +307,7 @@
         </table>
 
         <div class="settle-action-box">
-          <button class="btn-confirm-settle" @click="confirmSettlement">
-            ✅ 確認今日收銀款項無誤 (完成交班)
-          </button>
+          <button class="btn-confirm-settle" @click="confirmSettlement">✅ 確認今日收銀款項無誤 (完成交班)</button>
         </div>
       </div>
     </main>
@@ -380,28 +328,16 @@
               <option value="實習花藝助理">實習花藝助理 (編號: 103)</option>
             </select>
           </div>
-
           <div class="form-row">
             <label>請輸入員工工號：</label>
-            <input 
-              type="password" 
-              v-model="punchStaffCode" 
-              placeholder="請輸入工號 (例: 101, 102, 103)" 
-              @keyup.enter="handlePunchAction('clock_in')"
-            />
+            <input type="password" v-model="punchStaffCode" placeholder="請輸入工號 (101, 102, 103)" @keyup.enter="handlePunchAction('clock_in')" />
           </div>
-
           <div class="punch-btn-group">
-            <button class="btn-clock-in" :disabled="isPunching" @click="handlePunchAction('clock_in')">
-              🟢 上班簽到
-            </button>
-            <button class="btn-clock-out" :disabled="isPunching" @click="handlePunchAction('clock_out')">
-              🔴 下班簽退
-            </button>
+            <button class="btn-clock-in" :disabled="isPunching" @click="handlePunchAction('clock_in')">🟢 上班簽到</button>
+            <button class="btn-clock-out" :disabled="isPunching" @click="handlePunchAction('clock_out')">🔴 下班簽退</button>
           </div>
         </div>
 
-        <!-- 近期打卡記錄 -->
         <div class="recent-punch-records">
           <h4>📋 本日打卡紀錄</h4>
           <div v-if="todayPunchRecords.length === 0" class="no-records">今日尚無打卡紀錄</div>
@@ -422,37 +358,32 @@
         <h3>🔒 主管業績報表驗證</h3>
         <p>此區塊包含門市營業歷史數據，請輸入管理密碼解鎖：</p>
         <div class="auth-input-group">
-          <input 
-            type="password" 
-            v-model="adminKeyInput" 
-            placeholder="預設密碼: moni888" 
-            @keyup.enter="verifyAdminKey"
-          />
+          <input type="password" v-model="adminKeyInput" placeholder="預設密碼: moni888" @keyup.enter="verifyAdminKey" />
           <button class="btn-auth" @click="verifyAdminKey">解鎖查看</button>
         </div>
       </div>
 
       <div v-else class="report-content">
         <div class="report-topbar">
-          <h3>📊 門市營收分析報表</h3>
+          <h3>📊 門市營收分析與員工績效報表</h3>
           <button class="btn-refresh" @click="fetchScheduleOrders">🔄 更新數據</button>
         </div>
 
         <div class="stats-cards-grid">
-          <div class="stat-card">
-            <span class="stat-label">今日營業額</span>
-            <span class="stat-num">NT$ {{ reportStats.todayRevenue.toLocaleString() }}</span>
-            <small>{{ reportStats.todayOrders }} 筆訂單</small>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">本週累計營業額</span>
-            <span class="stat-num">NT$ {{ reportStats.weekRevenue.toLocaleString() }}</span>
-            <small>{{ reportStats.weekOrders }} 筆訂單</small>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">本月累計營業額</span>
-            <span class="stat-num">NT$ {{ reportStats.monthRevenue.toLocaleString() }}</span>
-            <small>{{ reportStats.monthOrders }} 筆訂單</small>
+          <div class="stat-card"><span class="stat-label">今日營業額</span><span class="stat-num">NT$ {{ reportStats.todayRevenue.toLocaleString() }}</span><small>{{ reportStats.todayOrders }} 筆訂單</small></div>
+          <div class="stat-card"><span class="stat-label">本週累計營業額</span><span class="stat-num">NT$ {{ reportStats.weekRevenue.toLocaleString() }}</span><small>{{ reportStats.weekOrders }} 筆訂單</small></div>
+          <div class="stat-card"><span class="stat-label">本月累計營業額</span><span class="stat-num">NT$ {{ reportStats.monthRevenue.toLocaleString() }}</span><small>{{ reportStats.monthOrders }} 筆訂單</small></div>
+        </div>
+
+        <!-- 老闆專屬：各花藝師今日業績統計區塊 -->
+        <div class="boss-staff-summary-box">
+          <h4>👩‍🎨 各值班花藝師今日業績與筆數統計 (老闆專用)</h4>
+          <div class="boss-grid">
+            <div class="boss-card" v-for="(stat, name) in bossStaffStats" :key="name">
+              <strong>{{ name }}</strong>
+              <p class="rev">NT$ {{ stat.revenue.toLocaleString() }}</p>
+              <small>經手開單：{{ stat.count }} 筆</small>
+            </div>
           </div>
         </div>
 
@@ -460,17 +391,7 @@
           <h4>最新 30 筆營收訂單紀錄</h4>
           <table class="report-table">
             <thead>
-              <tr>
-                <th>訂單號</th>
-                <th>下單時間</th>
-                <th>訂購人</th>
-                <th>收件人</th>
-                <th>配送方式</th>
-                <th>付款方式</th>
-                <th>經手人</th>
-                <th>金額</th>
-                <th>狀態</th>
-              </tr>
+              <tr><th>訂單號</th><th>下單時間</th><th>訂購人</th><th>收件人</th><th>配送方式</th><th>付款方式</th><th>經手人</th><th>金額</th><th>狀態</th></tr>
             </thead>
             <tbody>
               <tr v-for="order in allOrdersList.slice(0, 30)" :key="order.order_no || order.id">
@@ -496,14 +417,12 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { supabase } from '../supabase'
 
-// 員工工號對照表
 const STAFF_CODE_MAP = {
   '101': '花藝師-宜萱',
   '102': '花藝師-子庭',
   '103': '實習花藝助理'
 }
 
-// 狀態變數
 const currentStaff = ref('花藝師-宜萱')
 const activeTab = ref('schedule')
 const currentTime = ref('')
@@ -514,7 +433,7 @@ const updateClock = () => {
   currentTime.value = now.toLocaleTimeString('zh-TW', { hour12: false })
 }
 
-// 考勤打卡邏輯
+// 考勤打卡：修復時間對不上問題 (強制轉為台灣本地 ISO 字串)
 const punchStaffSelect = ref('花藝師-宜萱')
 const punchStaffCode = ref('')
 const isPunching = ref(false)
@@ -530,7 +449,7 @@ const fetchTodayPunch = async () => {
       .order('created_at', { ascending: false })
     if (!error) todayPunchRecords.value = data || []
   } catch (err) {
-    console.error('抓取打卡失敗:', err)
+    console.error('打卡讀取失敗:', err)
   }
 }
 
@@ -547,11 +466,15 @@ const handlePunchAction = async (actionType) => {
 
   isPunching.value = true
   const actionText = actionType === 'clock_in' ? '上班簽到' : '下班簽退'
+  
+  // 取得精準台灣時間字串解決資料庫時差問題
+  const localNowIso = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().replace('Z', '+08:00')
+
   try {
     const { error } = await supabase.from('staff_attendance').insert([{
       staff_name: matchedStaff,
       action: actionType,
-      created_at: new Date().toISOString()
+      created_at: localNowIso
     }])
     if (error) throw error
     currentStaff.value = matchedStaff
@@ -559,13 +482,13 @@ const handlePunchAction = async (actionType) => {
     punchStaffCode.value = ''
     fetchTodayPunch()
   } catch (err) {
-    alert('打卡連線失敗，請重試')
+    alert('打卡連線失敗')
   } finally {
     isPunching.value = false
   }
 }
 
-// 月曆排程視圖邏輯
+// 排程月曆
 const todayStr = new Date().toISOString().slice(0, 10)
 const selectedScheduleDate = ref(todayStr)
 const calYear = ref(new Date().getFullYear())
@@ -583,13 +506,8 @@ const setTodayCal = () => {
 
 const changeMonth = (delta) => {
   calMonth.value += delta
-  if (calMonth.value < 0) {
-    calMonth.value = 11
-    calYear.value -= 1
-  } else if (calMonth.value > 11) {
-    calMonth.value = 0
-    calYear.value += 1
-  }
+  if (calMonth.value < 0) { calMonth.value = 11; calYear.value -= 1 }
+  else if (calMonth.value > 11) { calMonth.value = 0; calYear.value += 1 }
 }
 
 const calendarDays = computed(() => {
@@ -598,78 +516,47 @@ const calendarDays = computed(() => {
   const totalDays = new Date(calYear.value, calMonth.value + 1, 0).getDate()
   const prevMonthTotalDays = new Date(calYear.value, calMonth.value, 0).getDate()
 
-  // 上個月填補
   for (let i = firstDay - 1; i >= 0; i--) {
     const d = prevMonthTotalDays - i
     const m = calMonth.value === 0 ? 12 : calMonth.value
     const y = calMonth.value === 0 ? calYear.value - 1 : calYear.value
-    const dStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-    days.push({ dayNum: d, dateStr: dStr, currentMonth: false })
+    days.push({ dayNum: d, dateStr: `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`, currentMonth: false })
   }
-  // 當月
   for (let i = 1; i <= totalDays; i++) {
-    const dStr = `${calYear.value}-${String(calMonth.value + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`
-    days.push({ dayNum: i, dateStr: dStr, currentMonth: true })
+    days.push({ dayNum: i, dateStr: `${calYear.value}-${String(calMonth.value + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`, currentMonth: true })
   }
-  // 下個月填補
   const remaining = 42 - days.length
   for (let i = 1; i <= remaining; i++) {
     const m = calMonth.value + 2 > 12 ? 1 : calMonth.value + 2
     const y = calMonth.value + 2 > 12 ? calYear.value + 1 : calYear.value
-    const dStr = `${y}-${String(m).padStart(2, '0')}-${String(i).padStart(2, '0')}`
-    days.push({ dayNum: i, dateStr: dStr, currentMonth: false })
+    days.push({ dayNum: i, dateStr: `${y}-${String(m).padStart(2, '0')}-${String(i).padStart(2, '0')}`, currentMonth: false })
   }
   return days
 })
 
-const selectCalendarDate = (dStr) => {
-  selectedScheduleDate.value = dStr
-}
-
-const getOrderCount = (dStr) => {
-  return allOrdersList.value.filter(o => (o.delivery_date || '').startsWith(dStr)).length
-}
+const selectCalendarDate = (dStr) => { selectedScheduleDate.value = dStr }
+const getOrderCount = (dStr) => allOrdersList.value.filter(o => (o.delivery_date || '').startsWith(dStr)).length
 
 const fetchScheduleOrders = async () => {
   loadingOrders.value = true
   try {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false })
+    const { data, error } = await supabase.from('orders').select('*').order('created_at', { ascending: false })
     if (!error) allOrdersList.value = data || []
   } catch (err) {
-    console.error('訂單讀取失敗:', err)
+    console.error('讀取訂單失敗:', err)
   } finally {
     loadingOrders.value = false
   }
 }
 
-const scheduledOrders = computed(() => {
-  return allOrdersList.value.filter(o => (o.delivery_date || '').startsWith(selectedScheduleDate.value))
-})
-
-const urgentOrders = computed(() => {
-  return allOrdersList.value.filter(o => 
-    (o.delivery_date || '').startsWith(todayStr) &&
-    o.status !== 'completed' &&
-    o.status !== 'delivering'
-  )
-})
+const scheduledOrders = computed(() => allOrdersList.value.filter(o => (o.delivery_date || '').startsWith(selectedScheduleDate.value)))
+const urgentOrders = computed(() => allOrdersList.value.filter(o => (o.delivery_date || '').startsWith(todayStr) && o.status !== 'completed' && o.status !== 'delivering'))
 
 const updateOrderStatus = async (orderNo, status) => {
   try {
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: status, cashier_name: currentStaff.value })
-      .eq('order_no', orderNo)
-    if (!error) {
-      alert(`訂單 ${orderNo} 狀態已更新為：${formatStatus(status)}`)
-      fetchScheduleOrders()
-    }
-  } catch (err) {
-    alert('更新訂單失敗')
-  }
+    const { error } = await supabase.from('orders').update({ status: status, cashier_name: currentStaff.value }).eq('order_no', orderNo)
+    if (!error) { alert(`訂單 ${orderNo} 狀態已更新`); fetchScheduleOrders() }
+  } catch (err) { alert('更新失敗') }
 }
 
 // POS 商品與開單
@@ -678,12 +565,8 @@ const selectedCat = ref('全部')
 const products = ref([])
 
 const fetchProducts = async () => {
-  try {
-    const { data, error } = await supabase.from('products').select('*')
-    if (!error) products.value = data || []
-  } catch (err) {
-    console.error('商品讀取失敗:', err)
-  }
+  const { data } = await supabase.from('products').select('*')
+  if (data) products.value = data
 }
 
 const filteredProducts = computed(() => {
@@ -705,7 +588,6 @@ const updateQty = (idx, delta) => {
 
 const subtotal = computed(() => cart.value.reduce((acc, i) => acc + Number(i.price) * i.qty, 0))
 
-// 訂購人與會員自動帶出邏輯
 const ordererPhone = ref('')
 const ordererName = ref('')
 const ordererEmail = ref('')
@@ -718,28 +600,15 @@ const autoLookupMember = async () => {
   if (!ordererPhone.value.trim()) return
   isCheckingMember.value = true
   try {
-    const { data, error } = await supabase
-      .from('members')
-      .select('*')
-      .eq('phone', ordererPhone.value.trim())
-      .limit(1)
-
-    if (!error && data && data.length > 0) {
+    const { data } = await supabase.from('members').select('*').eq('phone', ordererPhone.value.trim()).limit(1)
+    if (data && data.length > 0) {
       currentMember.value = data[0]
       ordererName.value = data[0].name || ''
       ordererEmail.value = data[0].email || ''
-      registerAsMember.value = false
-    } else {
-      currentMember.value = null
-    }
-  } catch (err) {
-    console.error('查詢會員錯誤:', err)
-  } finally {
-    isCheckingMember.value = false
-  }
+    } else { currentMember.value = null }
+  } finally { isCheckingMember.value = false }
 }
 
-// 配送與收件人邏輯
 const sameAsOrderer = ref(false)
 const recipientName = ref('')
 const recipientPhone = ref('')
@@ -748,10 +617,7 @@ const cardMessage = ref('')
 const deliveryMethod = ref('store_pickup')
 
 const syncRecipient = () => {
-  if (sameAsOrderer.value) {
-    recipientName.value = ordererName.value
-    recipientPhone.value = ordererPhone.value
-  }
+  if (sameAsOrderer.value) { recipientName.value = ordererName.value; recipientPhone.value = ordererPhone.value }
 }
 
 const shippingFee = computed(() => {
@@ -765,13 +631,8 @@ const paymentMethod = ref('cash')
 const isSubmitting = ref(false)
 
 const submitPosOrder = async () => {
-  if (cart.value.length === 0) return
-  if (!ordererName.value || !ordererPhone.value) {
-    alert('請填寫訂購人姓名與聯絡電話')
-    return
-  }
-  if (!recipientName.value || !recipientPhone.value) {
-    alert('請填寫收件人資訊')
+  if (cart.value.length === 0 || !ordererName.value || !recipientName.value) {
+    alert('請完整填寫訂購人與收件人資訊')
     return
   }
 
@@ -779,17 +640,13 @@ const submitPosOrder = async () => {
   const generatedOrderNo = 'POS' + Date.now().toString().slice(-8)
 
   try {
-    // 若勾選現場註冊會員且無會員紀錄
     let memberId = currentMember.value?.id || null
     if (!currentMember.value && registerAsMember.value) {
-      const { data: newMem, error: memErr } = await supabase.from('members').insert([{
-        name: ordererName.value,
-        phone: ordererPhone.value,
-        email: ordererEmail.value,
-        points: 0
-      }]).select()
-      if (!memErr && newMem && newMem.length > 0) memberId = newMem[0].id
+      const { data: newMem } = await supabase.from('members').insert([{ name: ordererName.value, phone: ordererPhone.value, email: ordererEmail.value, points: 0 }]).select()
+      if (newMem?.[0]) memberId = newMem[0].id
     }
+
+    const localNowIso = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().replace('Z', '+08:00')
 
     const orderPayload = {
       order_no: generatedOrderNo,
@@ -809,86 +666,55 @@ const submitPosOrder = async () => {
       payment_method: paymentMethod.value,
       shipping_fee: shippingFee.value,
       member_id: memberId,
-      recipient_info: {
-        ordererName: ordererName.value,
-        ordererPhone: ordererPhone.value,
-        recipientName: recipientName.value,
-        recipientPhone: recipientPhone.value,
-        address: recipientAddress.value
-      }
+      created_at: localNowIso
     }
 
-    const { error: ordErr } = await supabase.from('orders').insert([orderPayload])
-    if (ordErr) throw ordErr
-
-    // 扣除會員紅利
+    await supabase.from('orders').insert([orderPayload])
     if (currentMember.value && pointsToUse.value > 0) {
-      const remain = (currentMember.value.points || 0) - pointsToUse.value
-      await supabase.from('members').update({ points: Math.max(0, remain) }).eq('id', currentMember.value.id)
+      const remain = Math.max(0, (currentMember.value.points || 0) - pointsToUse.value)
+      await supabase.from('members').update({ points: remain }).eq('id', currentMember.value.id)
     }
 
     alert(`🎉 結帳成功！單號：${generatedOrderNo}，實收 NT$ ${finalAmount.value.toLocaleString()}`)
     cart.value = []
-    ordererName.value = ''
-    ordererPhone.value = ''
-    ordererEmail.value = ''
-    recipientName.value = ''
-    recipientPhone.value = ''
-    recipientAddress.value = ''
-    cardMessage.value = ''
-    currentMember.value = null
-    pointsToUse.value = 0
+    ordererName.value = ''; ordererPhone.value = ''; ordererEmail.value = ''
+    recipientName.value = ''; recipientPhone.value = ''; recipientAddress.value = ''; cardMessage.value = ''
+    currentMember.value = null; pointsToUse.value = 0
     fetchScheduleOrders()
-  } catch (err) {
-    alert('POS 開單失敗，請檢查網路')
-  } finally {
-    isSubmitting.value = false
-  }
+  } catch (err) { alert('開單失敗') }
+  finally { isSubmitting.value = false }
 }
 
-// 今日交班對帳邏輯
-const staffTodayOrders = computed(() => {
-  return allOrdersList.value.filter(o => 
-    (o.created_at || '').startsWith(todayStr) && 
-    o.cashier_name === currentStaff.value
-  )
+// 交班對帳與留言
+const handoverMemo = ref('')
+const saveHandoverMemo = () => {
+  localStorage.setItem('moni_handover_memo', handoverMemo.value)
+  alert('✅ 交班留言已成功儲存！後續值班人員切換時可隨時查看。')
+}
+
+onMounted(() => {
+  const savedMemo = localStorage.getItem('moni_handover_memo')
+  if (savedMemo) handoverMemo.value = savedMemo
 })
 
-const staffTodayTotal = computed(() => {
-  return staffTodayOrders.value.reduce((acc, o) => acc + Number(o.final_amount || 0), 0)
-})
-
+const staffTodayOrders = computed(() => allOrdersList.value.filter(o => (o.created_at || '').startsWith(todayStr) && o.cashier_name === currentStaff.value))
+const staffTodayTotal = computed(() => staffTodayOrders.value.reduce((acc, o) => acc + Number(o.final_amount || 0), 0))
 const paymentBreakdown = computed(() => {
   const res = { cash: 0, linepay: 0, credit_card: 0, transfer: 0 }
-  staffTodayOrders.value.forEach(o => {
-    const m = o.payment_method || 'cash'
-    const amt = Number(o.final_amount || 0)
-    if (res[m] !== undefined) res[m] += amt
-  })
+  staffTodayOrders.value.forEach(o => { const m = o.payment_method || 'cash'; if (res[m] !== undefined) res[m] += Number(o.final_amount || 0) })
   return res
 })
+const confirmSettlement = () => alert(`✅ [交班核對完成]\n花藝師：${currentStaff.value}\n今日經手總額：NT$ ${staffTodayTotal.value.toLocaleString()}`)
 
-const confirmSettlement = () => {
-  alert(`✅ [交班核對完成]\n花藝師：${currentStaff.value}\n今日經手總額：NT$ ${staffTodayTotal.value.toLocaleString()}\n已完成對帳記錄！`)
-}
-
-// 業績報表主管驗證
+// 主管報表與老闆專屬統計
 const adminKeyInput = ref('')
 const isReportAuthorized = ref(false)
-
-const verifyAdminKey = () => {
-  if (adminKeyInput.value === 'moni888') {
-    isReportAuthorized.value = true
-  } else {
-    alert('管理密碼錯誤！')
-  }
-}
+const verifyAdminKey = () => { if (adminKeyInput.value === 'moni888') isReportAuthorized.value = true; else alert('密碼錯誤') }
 
 const reportStats = computed(() => {
   const now = new Date()
   const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay())).toISOString().slice(0, 10)
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
-
   let tRev = 0, tCnt = 0, wRev = 0, wCnt = 0, mRev = 0, mCnt = 0
   allOrdersList.value.forEach(o => {
     const d = (o.created_at || '').slice(0, 10)
@@ -900,78 +726,42 @@ const reportStats = computed(() => {
   return { todayRevenue: tRev, todayOrders: tCnt, weekRevenue: wRev, weekOrders: wCnt, monthRevenue: mRev, monthOrders: mCnt }
 })
 
-// 格式輔助
-const formatStatus = (s) => ({
-  PENDING: '待付款', PAID: '已付款', in_production: '製作中', delivering: '配送中', completed: '已完成'
-}[s] || s)
-
-const formatDeliveryMethod = (m) => ({
-  black_cat: '黑貓宅配', express_taipei_1: '專人雙北1', express_taipei_2: '專人雙北2',
-  store_pickup: '門市自取', cvs_familymart: '全家店到店', cvs_711: '7-11店到店'
-}[m] || m || '門市自取')
-
-const formatPaymentMethod = (m) => ({
-  cash: '現金', linepay: 'LINE Pay', credit_card: '刷卡', transfer: '轉帳'
-}[m] || m || '現金')
-
-onMounted(() => {
-  updateClock()
-  timer = setInterval(updateClock, 1000)
-  fetchScheduleOrders()
-  fetchProducts()
-  fetchTodayPunch()
+const bossStaffStats = computed(() => {
+  const stats = { '花藝師-宜萱': { revenue: 0, count: 0 }, '花藝師-子庭': { revenue: 0, count: 0 }, '實習花藝助理': { revenue: 0, count: 0 } }
+  allOrdersList.value.filter(o => (o.created_at || '').startsWith(todayStr)).forEach(o => {
+    const sName = o.cashier_name || '未指派'
+    if (!stats[sName]) stats[sName] = { revenue: 0, count: 0 }
+    stats[sName].revenue += Number(o.final_amount || 0)
+    stats[sName].count += 1
+  })
+  return stats
 })
 
-onUnmounted(() => {
-  if (timer) clearInterval(timer)
-})
+const formatStatus = (s) => ({ PENDING: '待付款', PAID: '已付款', in_production: '製作中', delivering: '配送中', completed: '已完成' }[s] || s)
+const formatDeliveryMethod = (m) => ({ black_cat: '黑貓宅配', express_taipei_1: '雙北1', express_taipei_2: '雙北2', store_pickup: '自取', cvs_familymart: '全家', cvs_711: '7-11' }[m] || m || '自取')
+const formatPaymentMethod = (m) => ({ cash: '現金', linepay: 'LINE Pay', credit_card: '刷卡', transfer: '轉帳' }[m] || m || '現金')
+
+onMounted(() => { updateClock(); timer = setInterval(updateClock, 1000); fetchScheduleOrders(); fetchProducts(); fetchTodayPunch() })
+onUnmounted(() => { if (timer) clearInterval(timer) })
 </script>
 
 <style scoped>
-.pos-app {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background-color: #f7fafc;
-  color: #2d3748;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
-
-.pos-topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 20px;
-  background-color: #2d3748;
-  color: #fff;
-}
+.pos-app { display: flex; flex-direction: column; height: 100vh; background-color: #f7fafc; color: #2d3748; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+.pos-topbar { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background-color: #2d3748; color: #fff; }
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand h2 { font-size: 1.1rem; margin: 0; }
 .sub-text { font-size: 0.75rem; color: #cbd5e0; }
 .clock-badge { font-size: 1.2rem; font-weight: bold; letter-spacing: 1px; }
-.staff-control { display: flex; align-items: center; gap: 8px; }
-.staff-name-tag { background: #4a5568; padding: 4px 10px; border-radius: 4px; font-weight: bold; }
+.staff-control { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+.top-staff-dropdown { padding: 5px 10px; border-radius: 4px; border: 1px solid #718096; background: #fff; font-weight: bold; color: #2d3748; }
 
-.pos-nav {
-  display: flex;
-  background: #fff;
-  border-bottom: 2px solid #e2e8f0;
-}
-.nav-btn {
-  padding: 12px 20px;
-  border: none;
-  background: none;
-  font-size: 0.95rem;
-  font-weight: bold;
-  color: #718096;
-  cursor: pointer;
-  border-bottom: 3px solid transparent;
-}
+.pos-nav { display: flex; background: #fff; border-bottom: 2px solid #e2e8f0; }
+.nav-btn { padding: 12px 18px; border: none; background: none; font-size: 0.9rem; font-weight: bold; color: #718096; cursor: pointer; border-bottom: 3px solid transparent; }
 .nav-btn.active { color: #2d3748; border-bottom-color: #8b5e4c; }
 
 .tab-panel { flex: 1; overflow: hidden; padding: 16px; }
 
-/* 排程月曆視圖 */
+/* 排程月曆 */
 .schedule-container { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
 .urgent-banner { background: #fff5f5; border: 1px solid #feb2b2; border-radius: 8px; padding: 12px; }
 .urgent-title { display: flex; justify-content: space-between; color: #c53030; font-weight: bold; margin-bottom: 8px; }
@@ -983,13 +773,13 @@ onUnmounted(() => {
 .urgent-actions { display: flex; gap: 4px; }
 .urgent-actions button { flex: 1; padding: 4px; font-size: 0.75rem; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; }
 
-.schedule-split { display: flex; gap: 16px; flex: 1; }
+.schedule-split { display: flex; gap: 16px; flex: 1; overflow: hidden; }
 .calendar-view-box { flex: 4; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 14px; display: flex; flex-direction: column; }
 .calendar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .cal-arrow, .btn-today-sm { padding: 4px 10px; border: 1px solid #cbd5e0; background: #fff; border-radius: 4px; cursor: pointer; }
 .calendar-week-labels { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: bold; margin-bottom: 6px; color: #718096; font-size: 0.85rem; }
 .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; flex: 1; }
-.cal-day-cell { border: 1px solid #edf2f7; border-radius: 4px; padding: 4px; min-height: 55px; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; }
+.cal-day-cell { border: 1px solid #edf2f7; border-radius: 4px; padding: 4px; min-height: 50px; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; }
 .cal-day-cell.other-month { opacity: 0.35; background: #fafafa; }
 .cal-day-cell.selected { border-color: #8b5e4c; background: #fdf8f6; }
 .cal-day-cell.today { border: 2px solid #3182ce; }
@@ -1011,7 +801,7 @@ onUnmounted(() => {
 .card-actions { display: flex; gap: 6px; margin-top: 8px; }
 .btn-flow { flex: 1; padding: 4px; font-size: 0.75rem; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; }
 
-/* POS 介面 */
+/* POS 開單 */
 .pos-panel { display: flex; gap: 16px; height: calc(100vh - 120px); }
 .products-section { flex: 5; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
 .category-tabs { display: flex; gap: 6px; }
@@ -1051,21 +841,27 @@ onUnmounted(() => {
 .pay-btn.active { background: #2d3748; color: #fff; }
 .btn-checkout { width: 100%; padding: 10px; background: #8b5e4c; color: #fff; border: none; border-radius: 6px; font-size: 0.95rem; font-weight: bold; cursor: pointer; }
 
-/* 今日交班對帳 */
+/* 交班對帳與留言 */
 .settlement-panel { overflow-y: auto; }
 .settlement-card { max-width: 750px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; }
 .settlement-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #edf2f7; padding-bottom: 10px; margin-bottom: 16px; }
-.staff-badge { background: #edf2f7; padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; }
+.staff-selector-box { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; }
 .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
 .summary-box { background: #f7fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; }
 .summary-box .val { font-size: 1.4rem; font-weight: bold; color: #8b5e4c; }
 .payment-breakdown-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
 .breakdown-item { padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 4px; background: #fafafa; font-size: 0.85rem; }
+
+.handover-memo-box { background: #fffaf0; border: 1px solid #fbd38d; padding: 12px; border-radius: 6px; margin-bottom: 16px; }
+.handover-memo-box h4 { margin: 0 0 6px 0; color: #c05621; font-size: 0.9rem; }
+.handover-memo-box textarea { width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box; font-size: 0.85rem; margin-bottom: 6px; }
+.btn-save-memo { padding: 6px 14px; background: #dd6b20; color: #fff; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; }
+
 .simple-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 0.85rem; }
 .simple-table th, .simple-table td { padding: 8px; border-bottom: 1px solid #edf2f7; text-align: left; }
 .btn-confirm-settle { width: 100%; padding: 12px; background: #2f855a; color: #fff; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; }
 
-/* 考勤打卡分頁 */
+/* 考勤打卡 */
 .punch-panel { display: flex; justify-content: center; align-items: center; }
 .punch-card-box { width: 420px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 24px; text-align: center; }
 .punch-clock-large { font-size: 2.2rem; font-weight: bold; color: #2d3748; letter-spacing: 2px; margin: 10px 0; }
@@ -1078,7 +874,7 @@ onUnmounted(() => {
 .punch-list { list-style: none; padding: 0; margin: 8px 0 0 0; font-size: 0.85rem; }
 .punch-list li { display: flex; justify-content: space-between; padding: 4px 0; }
 
-/* 主管報表 */
+/* 主管報表與老闆專屬統計 */
 .reports-panel { overflow-y: auto; }
 .auth-lock-card { max-width: 400px; margin: 60px auto; background: #fff; padding: 24px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center; }
 .auth-input-group { display: flex; gap: 8px; margin-top: 16px; }
@@ -1088,6 +884,13 @@ onUnmounted(() => {
 .stats-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 16px; }
 .stat-card { background: #fff; padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; }
 .stat-num { font-size: 1.4rem; font-weight: bold; color: #8b5e4c; }
+
+.boss-staff-summary-box { background: #fff; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 16px; }
+.boss-staff-summary-box h4 { margin: 0 0 10px 0; font-size: 0.95rem; color: #2d3748; }
+.boss-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.boss-card { background: #fdf8f6; border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; display: flex; flex-direction: column; gap: 2px; }
+.boss-card .rev { font-size: 1.2rem; font-weight: bold; color: #8b5e4c; }
+
 .report-table-box { background: #fff; padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0; }
 .report-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .report-table th, .report-table td { padding: 8px; border-bottom: 1px solid #edf2f7; text-align: left; }
