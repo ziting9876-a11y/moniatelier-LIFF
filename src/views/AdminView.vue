@@ -64,26 +64,26 @@
       <div v-else class="orders-list">
         <div 
           v-for="order in filteredOrders" 
-          :key="order.merchantOrderNo" 
+          :key="getOrderNo(order)" 
           :class="['order-card', { 'is-completed': order.status === 'completed', 'is-cancelled': order.status === 'cancelled' || order.status === 'refunded' }]"
         >
           <div class="card-header">
-            <input type="checkbox" :value="order.merchantOrderNo" v-model="selectedOrders" />
-            <span class="order-no">單號：{{ order.merchantOrderNo }}</span>
+            <input type="checkbox" :value="getOrderNo(order)" v-model="selectedOrders" />
+            <span class="order-no">單號：{{ getOrderNo(order) }}</span>
           </div>
 
           <div class="card-body">
-            <p><strong>購買人：</strong>{{ order.payer?.name || '未知' }} ({{ order.payer?.phone || '無電話' }})</p>
-            <p><strong>收件人：</strong>{{ order.recipient?.name || order.payer?.name || '未指定' }} ({{ order.recipient?.phone || order.payer?.phone || '無電話' }})</p>
+            <p><strong>購買人：</strong>{{ order.payer?.name || order.recipient_name || '顧客' }} ({{ order.payer?.phone || order.recipient_phone || '無電話' }})</p>
+            <p><strong>收件人：</strong>{{ order.recipient?.name || order.recipient_name || '未指定' }} ({{ order.recipient?.phone || order.recipient_phone || '無電話' }})</p>
             
             <div class="delivery-highlight">
               <strong>📅 送達日期：</strong>
-              <span class="date-tag">{{ order.deliveryDate || '未指定' }}</span>
+              <span class="date-tag">{{ order.deliveryDate || order.delivery_date || '未指定' }}</span>
             </div>
 
-            <p><strong>🚚 取件方式：</strong>{{ formatDeliveryMethod(order.deliveryMethod) }}</p>
-            <p><strong>💰 總金額：</strong><span class="price">NT$ {{ order.totalAmount?.toLocaleString() }}</span> <span v-if="order.usedPoints > 0" class="used-points-tag">(折抵 {{ order.usedPoints }} 點)</span></p>
-            <p class="time-text">下單時間：{{ formatDate(order.createdAt) }}</p>
+            <p><strong>🚚 取件方式：</strong>{{ formatDeliveryMethod(order.deliveryMethod || order.delivery_method) }}</p>
+            <p><strong>💰 總金額：</strong><span class="price">NT$ {{ (order.totalAmount || order.total_amount || order.final_amount || 0).toLocaleString() }}</span> <span v-if="(order.usedPoints || order.discount_amount) > 0" class="used-points-tag">(折抵 {{ order.usedPoints || order.discount_amount }} 點)</span></p>
+            <p class="time-text">下單時間：{{ formatDate(order.createdAt || order.created_at) }}</p>
 
             <button class="btn-detail" @click="selectedOrder = order">
               🔍 查看訂單完整細節與商品明細
@@ -91,12 +91,12 @@
           </div>
 
           <div class="action-buttons">
-            <button :disabled="['completed', 'refunded', 'cancelled'].includes(order.status)" :class="{ active: order.status === 'accepted' }" @click="updateStatus(order.merchantOrderNo, 'accepted')">已接單</button>
-            <button :disabled="['completed', 'refunded', 'cancelled'].includes(order.status)" :class="{ active: order.status === 'in_production' }" @click="updateStatus(order.merchantOrderNo, 'in_production')">製作中</button>
-            <button :disabled="['completed', 'refunded', 'cancelled'].includes(order.status)" :class="{ active: order.status === 'delivering' }" @click="updateStatus(order.merchantOrderNo, 'delivering')">配送中</button>
-            <button :disabled="['completed', 'refunded', 'cancelled'].includes(order.status)" class="btn-complete" :class="{ 'is-current': order.status === 'completed' }" @click="updateStatus(order.merchantOrderNo, 'completed')">✓ 已完成 (發送LINE通知)</button>
-            <button :disabled="['completed', 'refunded', 'cancelled'].includes(order.status)" class="btn-refund" :class="{ 'is-current': order.status === 'refunded' }" @click="updateStatus(order.merchantOrderNo, 'refunded')">↩ 已退款</button>
-            <button :disabled="['completed', 'refunded', 'cancelled'].includes(order.status)" class="btn-cancel-order" :class="{ 'is-current': order.status === 'cancelled' }" @click="updateStatus(order.merchantOrderNo, 'cancelled')">✕ 已取消訂單</button>
+            <button :disabled="['completed', 'refunded', 'cancelled'].includes(order.status)" :class="{ active: order.status === 'accepted' }" @click="updateStatus(getOrderNo(order), 'accepted')">已接單</button>
+            <button :disabled="['completed', 'refunded', 'cancelled'].includes(order.status)" :class="{ active: order.status === 'in_production' }" @click="updateStatus(getOrderNo(order), 'in_production')">製作中</button>
+            <button :disabled="['completed', 'refunded', 'cancelled'].includes(order.status)" :class="{ active: order.status === 'delivering' }" @click="updateStatus(getOrderNo(order), 'delivering')">配送中</button>
+            <button :disabled="['completed', 'refunded', 'cancelled'].includes(order.status)" class="btn-complete" :class="{ 'is-current': order.status === 'completed' }" @click="updateStatus(getOrderNo(order), 'completed')">✓ 已完成 (發送LINE通知)</button>
+            <button :disabled="['completed', 'refunded', 'cancelled'].includes(order.status)" class="btn-refund" :class="{ 'is-current': order.status === 'refunded' }" @click="updateStatus(getOrderNo(order), 'refunded')">↩ 已退款</button>
+            <button :disabled="['completed', 'refunded', 'cancelled'].includes(order.status)" class="btn-cancel-order" :class="{ 'is-current': order.status === 'cancelled' }" @click="updateStatus(getOrderNo(order), 'cancelled')">✕ 已取消訂單</button>
           </div>
         </div>
       </div>
@@ -113,9 +113,9 @@
       <div v-else-if="products.length === 0" class="state-msg">目前尚未建立任何商品，請點選右上角新增。</div>
 
       <div v-else class="products-grid">
-        <div v-for="product in products" :key="product._id" class="product-admin-card">
+        <div v-for="product in products" :key="product._id || product.id" class="product-admin-card">
           <div class="thumb-container">
-            <img :src="product.imageUrl" :alt="product.name" class="product-thumb" />
+            <img :src="product.imageUrl || product.image_url" :alt="product.name || product.title" class="product-thumb" />
             <span 
               v-if="product.badge" 
               class="badge-tag" 
@@ -130,15 +130,15 @@
             >
               {{ product.tag }}
             </span>
-            <span v-if="product.isHidden" class="hidden-badge">🔒 隱藏商品</span>
+            <span v-if="product.isHidden || product.is_active === false" class="hidden-badge">🔒 隱藏商品</span>
           </div>
 
           <div class="product-details">
             <div class="tags-row">
               <span class="cat-tag">{{ product.category }}</span>
-              <span class="lead-tag">⏳ 製作期 {{ Number(product.leadTimeDays) > 0 ? Number(product.leadTimeDays) : 5 }} 天</span>
+              <span class="lead-tag">⏳ 製作期 {{ Number(product.leadTimeDays || product.lead_time_days) > 0 ? Number(product.leadTimeDays || product.lead_time_days) : 5 }} 天</span>
             </div>
-            <h4>{{ product.name }}</h4>
+            <h4>{{ product.name || product.title }}</h4>
             <p class="desc">{{ product.description }}</p>
 
             <div class="price-box" style="display: flex; align-items: baseline; gap: 8px;">
@@ -159,7 +159,7 @@
 
           <div class="product-actions">
             <button class="btn-edit" @click="openProductModal(product)">✏️ 編輯內容</button>
-            <button class="btn-delete" @click="deleteProduct(product._id)">🗑️ 刪除</button>
+            <button class="btn-delete" @click="deleteProduct(product._id || product.id)">🗑️ 刪除</button>
           </div>
         </div>
       </div>
@@ -187,7 +187,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="user in users" :key="user._id">
+            <tr v-for="user in users" :key="user._id || user.id">
               <td>
                 <div class="user-row-flex">
                   <div class="table-avatar-box">
@@ -203,7 +203,7 @@
                 <span class="points-badge-table">🎁 {{ user.points || 0 }} 點</span>
               </td>
               <td>{{ user.birthday || '未填寫' }}</td>
-              <td>{{ formatDate(user.createdAt) }}</td>
+              <td>{{ formatDate(user.createdAt || user.created_at) }}</td>
               <td>
                 <div class="action-cell-btns">
                   <button class="btn-view-member" @click="openMemberDetailModal(user)">
@@ -247,7 +247,7 @@
           <p><strong>目前紅利點數：</strong>🎁 <span class="highlight-pts">{{ selectedMemberDetail.points || 0 }} 點</span></p>
           <p><strong>完整生日日期：</strong>🎂 {{ selectedMemberDetail.birthday || '未登記' }}</p>
           <p><strong>電子信箱：</strong>📧 {{ selectedMemberDetail.email || '未填寫' }}</p>
-          <p><strong>加入時間：</strong>📅 {{ formatDate(selectedMemberDetail.createdAt) }}</p>
+          <p><strong>加入時間：</strong>📅 {{ formatDate(selectedMemberDetail.createdAt || selectedMemberDetail.created_at) }}</p>
           <p><strong>推薦人 (referredBy)：</strong>🔗 {{ selectedMemberDetail.referredBy || '無 (自行加入)' }}</p>
         </div>
 
@@ -257,13 +257,13 @@
             此會員尚無下單紀錄。
           </div>
           <div v-else class="admin-sub-order-list">
-            <div v-for="ord in getMemberOrders(selectedMemberDetail)" :key="ord.merchantOrderNo" class="admin-sub-order-item">
+            <div v-for="ord in getMemberOrders(selectedMemberDetail)" :key="getOrderNo(ord)" class="admin-sub-order-item">
               <div class="sub-order-top">
-                <span><strong>單號：</strong>{{ ord.merchantOrderNo }}</span>
+                <span><strong>單號：</strong>{{ getOrderNo(ord) }}</span>
                 <span class="status-tag-sm" :class="ord.status">{{ formatStatus(ord.status) }}</span>
               </div>
-              <p>📅 送達日：{{ ord.deliveryDate || '未指定' }} | 🚚 {{ formatDeliveryMethod(ord.deliveryMethod) }}</p>
-              <p>💰 金額：<strong>NT$ {{ ord.totalAmount?.toLocaleString() }}</strong> <span v-if="ord.usedPoints > 0">(折抵 {{ ord.usedPoints }} 點)</span></p>
+              <p>📅 送達日：{{ ord.deliveryDate || ord.delivery_date || '未指定' }} | 🚚 {{ formatDeliveryMethod(ord.deliveryMethod || ord.delivery_method) }}</p>
+              <p>💰 金額：<strong>NT$ {{ (ord.totalAmount || ord.total_amount || ord.final_amount || 0).toLocaleString() }}</strong> <span v-if="(ord.usedPoints || ord.discount_amount) > 0">(折抵 {{ ord.usedPoints || ord.discount_amount }} 點)</span></p>
             </div>
           </div>
         </div>
@@ -305,21 +305,23 @@
     <div v-if="selectedOrder" class="modal-overlay" @click.self="selectedOrder = null">
       <div class="modal-content">
         <h3>📋 訂單完整細節</h3>
-        <p class="modal-order-no">單號：{{ selectedOrder.merchantOrderNo }}</p>
+        <p class="modal-order-no">單號：{{ getOrderNo(selectedOrder) }}</p>
         <hr />
         <div class="modal-section">
           <h4>👤 訂購人資訊</h4>
-          <p><strong>姓名：</strong>{{ selectedOrder.payer?.name || '未填寫' }}</p>
-          <p><strong>電話：</strong>{{ selectedOrder.payer?.phone || '未填寫' }}</p>
+          <p><strong>姓名：</strong>{{ selectedOrder.payer?.name || selectedOrder.recipient_name || '未填寫' }}</p>
+          <p><strong>電話：</strong>{{ selectedOrder.payer?.phone || selectedOrder.recipient_phone || '未填寫' }}</p>
           <p><strong>Email：</strong>{{ selectedOrder.payer?.email || selectedOrder.customerEmail || '未填寫' }}</p>
         </div>
         <div class="modal-section">
           <h4>📦 收件與配送資訊</h4>
-          <p><strong>希望送達日期：</strong>{{ selectedOrder.deliveryDate || '未指定' }}</p>
-          <p><strong>取件方式：</strong>{{ formatDeliveryMethod(selectedOrder.deliveryMethod) }}</p>
-          <p><strong>收件人姓名：</strong>{{ selectedOrder.recipient?.name || selectedOrder.payer?.name }}</p>
-          <p><strong>收件人電話：</strong>{{ selectedOrder.recipient?.phone || selectedOrder.payer?.phone }}</p>
+          <p><strong>希望送達日期：</strong>{{ selectedOrder.deliveryDate || selectedOrder.delivery_date || '未指定' }}</p>
+          <p><strong>送達時段：</strong>{{ selectedOrder.deliveryTimeSlot || selectedOrder.delivery_time_slot || '不指定' }}</p>
+          <p><strong>取件方式：</strong>{{ formatDeliveryMethod(selectedOrder.deliveryMethod || selectedOrder.delivery_method) }}</p>
+          <p><strong>收件人姓名：</strong>{{ selectedOrder.recipient?.name || selectedOrder.recipient_name || selectedOrder.payer?.name }}</p>
+          <p><strong>收件人電話：</strong>{{ selectedOrder.recipient?.phone || selectedOrder.recipient_phone || selectedOrder.payer?.phone }}</p>
           <p><strong>完整地址/門市：</strong>{{ getFullAddress(selectedOrder) }}</p>
+          <p v-if="selectedOrder.card_message || selectedOrder.cardMessage"><strong>卡片心意留言：</strong>{{ selectedOrder.card_message || selectedOrder.cardMessage }}</p>
         </div>
         <button class="btn-close" @click="selectedOrder = null">關閉彈窗</button>
       </div>
@@ -359,7 +361,6 @@
           </div>
         </div>
 
-        <!-- 🌸 1. 分類選擇（支援保留「永生花 |」前綴） -->
         <div class="form-group">
           <label>商品分類：</label>
           <select v-model="categorySelect" class="form-select" @change="onCategorySelectChange">
@@ -434,6 +435,8 @@ const filterStatus = ref('all')
 const selectedOrders = ref([])
 const batchAction = ref('')
 
+const getOrderNo = (order) => order?.orderNo || order?.order_no || order?.merchantOrderNo || ''
+
 const filteredOrders = computed(() => {
   if (!orders.value) return []
   if (filterStatus.value === 'all') return orders.value
@@ -441,7 +444,7 @@ const filteredOrders = computed(() => {
 })
 
 const toggleSelectAll = (e) => {
-  selectedOrders.value = e.target.checked ? filteredOrders.value.map(o => o.merchantOrderNo) : []
+  selectedOrders.value = e.target.checked ? filteredOrders.value.map(o => getOrderNo(o)) : []
 }
 
 const batchUpdateStatus = async () => {
@@ -574,7 +577,7 @@ const openMemberDetailModal = (user) => {
 const getMemberOrders = (user) => {
   if (!user || !orders.value.length) return []
   return orders.value.filter(o => 
-    o.lineUserId === user.lineUserId || 
+    (o.lineUserId || o.line_user_id) === user.lineUserId || 
     (o.payer?.email && o.payer.email === user.email)
   )
 }
@@ -617,17 +620,9 @@ const submitAdjustPoints = async () => {
 const fetchOrders = async () => {
   loadingOrders.value = true
   try {
-    // 確保有抓到當前使用者的 LINE ID
-    if (!lineProfile.value?.userId) {
-      console.warn('⚠️ 尚未取得 LINE 使用者資訊，無法查詢訂單')
-      return
-    }
-
-    // 改為呼叫我們剛建立的安全代理 API，並帶上 lineUserId 參數
-    const res = await fetch(`${API_BASE_URL}/api/my-orders?lineUserId=${lineProfile.value.userId}`)
+    const res = await fetch(`${API_BASE_URL}/api/orders`)
     const data = await res.json()
 
-    // 對應後端回傳的 success 與 data 格式
     if (data.success) { 
       orders.value = data.data || [] 
     } else {
@@ -651,6 +646,7 @@ const fetchProducts = async () => {
 }
 
 const updateStatus = async (orderNo, status) => {
+  if (!orderNo) return
   try {
     const res = await fetch(`${API_BASE_URL}/api/orders/update-status`, {
       method: 'POST',
@@ -667,10 +663,9 @@ const updateStatus = async (orderNo, status) => {
 
 const openProductModal = (product = null) => {
   if (product) {
-    editingProductId.value = product._id
+    editingProductId.value = product._id || product.id
     const currentCat = product.category || '永生花 | 旗艦系列花束'
     
-    // 比對目前分類是否符合四大系列之一（模糊或完整匹配）
     const matchedStd = standardCategories.find(c => currentCat.includes(c.replace('永生花 | ', '')) || currentCat === c)
     if (matchedStd) {
       categorySelect.value = matchedStd
@@ -680,15 +675,19 @@ const openProductModal = (product = null) => {
       productForm.value.category = currentCat
     }
 
-    const rawLead = product.leadTimeDays !== undefined && product.leadTimeDays !== null ? Number(product.leadTimeDays) : 5
+    const rawLead = (product.leadTimeDays !== undefined && product.leadTimeDays !== null) 
+      ? Number(product.leadTimeDays) 
+      : (product.lead_time_days !== undefined && product.lead_time_days !== null ? Number(product.lead_time_days) : 5)
 
     productForm.value = { 
       ...defaultProductForm,
       ...product, 
+      name: product.name || product.title || '',
+      imageUrl: product.imageUrl || product.image_url || '',
       category: productForm.value.category,
       leadTimeDays: Number.isNaN(rawLead) || rawLead <= 0 ? 5 : rawLead,
       shortUrl: product.shortUrl || '', 
-      isHidden: product.isHidden || false,
+      isHidden: product.isHidden || (product.is_active === false),
       badgeTextColor: product.badgeTextColor || '#34444E',
       tagTextColor: product.tagTextColor || '#34444E',
       badgeBgColor: product.badgeBgColor || '#ffffff',
@@ -708,18 +707,15 @@ const saveProduct = async () => {
     return 
   }
 
-  // 1. 處理分類與預設天數（保留您原本的設計）
   const finalCategory = categorySelect.value === 'custom' ? productForm.value.category : categorySelect.value
   if (!finalCategory) {
     alert('請選擇或填寫商品分類！')
     return
   }
 
-  // 2. 彈出輸入框請您輸入後台管理密碼（安全性驗證）
   const secretKey = prompt('請輸入後台管理員密碼：')
-  if (!secretKey) return // 如果按取消就中斷
+  if (!secretKey) return
 
-  // 3. 整理要送出的完整商品資料
   const productPayload = {
     ...(editingProductId.value && { id: editingProductId.value }),
     title: productForm.value.name,
@@ -733,7 +729,6 @@ const saveProduct = async () => {
   }
 
   try {
-    // 4. 發送請求給您的 Render 後端安全 API
     const response = await fetch(`${API_BASE_URL}/api/admin/products`, {
       method: 'POST',
       headers: {
@@ -749,8 +744,7 @@ const saveProduct = async () => {
 
     if (result.success) {
       alert('🎉 商品成功同步至 Supabase 資料庫！')
-      showProductModal.value = false // 關閉彈窗
-      // fetchProducts() // 重新整理後台商品列表（如果有這個函式的話）
+      showProductModal.value = false
     } else {
       alert('❌ 同步失敗：' + (result.error || '密碼錯誤或授權失敗'))
     }
@@ -768,11 +762,10 @@ const deleteProduct = async (id) => {
   } catch (err) {}
 }
 
-
-const formatStatus = (s) => ({ PENDING: '待付款', PAID: '已付款', accepted: '已接單', in_production: '製作中', delivering: '配送中', completed: '✓ 已完成', refunded: '↩ 已退款', cancelled: '✕ 已取消' }[s] || s)
+const formatStatus = (s) => ({ PENDING: '待付款', PENDING_PAYMENT: '待付款', PAID: '已付款', accepted: '已接單', in_production: '製作中', delivering: '配送中', completed: '✓ 已完成', refunded: '↩ 已退款', cancelled: '✕ 已取消' }[s] || s)
 const formatDeliveryMethod = (m) => ({ black_cat: '黑貓宅配', express_taipei_1: '專人雙北配送1', express_taipei_2: '專人雙北配送2', cvs: '超商取貨', seven_eleven: '7-11店到店', familymart: '全家店到店' }[m] || m || '未指定')
 const formatDate = (d) => d ? new Date(d).toLocaleString('zh-TW') : ''
-const getFullAddress = (o) => o.selectedStore ? `${o.selectedStore.name} (${o.selectedStore.address})` : (o.recipient?.address || '無地址')
+const getFullAddress = (o) => o.selectedStore ? `${o.selectedStore.name} (${o.selectedStore.address})` : (o.recipient?.address || o.recipientAddress || o.recipient_address || '無地址')
 
 onMounted(() => {
   fetchOrders()
@@ -832,7 +825,7 @@ onMounted(() => {
 .status-tag-sm { padding: 1px 6px; border-radius: 8px; font-size: 0.7rem; }
 .status-tag-sm.completed { background: #c6f6d5; color: #22543d; }
 .status-tag-sm.PAID { background: #ebf8ff; color: #2b6cb0; }
-.status-tag-sm.PENDING { background: #feebc8; color: #744210; }
+.status-tag-sm.PENDING, .status-tag-sm.PENDING_PAYMENT { background: #feebc8; color: #744210; }
 
 .select-input, .form-select { width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px; margin-top: 4px; background: #fff; box-sizing: border-box; }
 .used-points-tag { color: #d97706; font-weight: bold; font-size: 0.85rem; }
