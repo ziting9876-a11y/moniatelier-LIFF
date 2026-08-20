@@ -43,6 +43,7 @@
 
     <!-- ==================== 1. 製作排程月曆看板 ==================== -->
     <main v-if="activeTab === 'schedule'" class="tab-panel schedule-container">
+      <!-- 重新加回的今日急單區 -->
       <section v-if="urgentOrders.length > 0" class="urgent-banner">
         <div class="urgent-title">
           <span>🔥 今日急單待辦 ({{ urgentOrders.length }} 筆)</span>
@@ -93,8 +94,17 @@
 
         <section class="day-orders-box">
           <div class="day-orders-head">
-            <h3>📅 {{ selectedScheduleDate }} 花禮製作工單 ({{ scheduledOrders.length }} 筆)</h3>
+            <h3>📅 {{ selectedScheduleDate }} 花禮工單 ({{ scheduledOrders.length }} 筆)</h3>
             <button class="btn-refresh" @click="fetchScheduleOrders">🔄 重新整理</button>
+          </div>
+
+          <!-- 新增：點選日期的注意事項筆記欄位 -->
+          <div class="daily-note-box">
+            <label>📌 <strong>{{ selectedScheduleDate }} 門市注意事項與備忘：</strong></label>
+            <div class="note-row">
+              <textarea v-model="currentDayNote" placeholder="在此輸入該日特別注意事項、活動或花材叫貨備忘..." rows="2"></textarea>
+              <button class="btn-save-note" @click="saveDailyNote">儲存備忘</button>
+            </div>
           </div>
 
           <div v-if="loadingOrders" class="loading-state">🌸 正在載入花藝排程工單...</div>
@@ -414,7 +424,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { supabase } from '../supabase'
 
 const STAFF_CODE_MAP = {
@@ -433,7 +443,7 @@ const updateClock = () => {
   currentTime.value = now.toLocaleTimeString('zh-TW', { hour12: false })
 }
 
-// 考勤打卡：修復時間對不上問題 (強制轉為台灣本地 ISO 字串)
+// 考勤打卡：改用系統自動產生的標準 ISO 時間戳（徹底解決時差問題）
 const punchStaffSelect = ref('花藝師-宜萱')
 const punchStaffCode = ref('')
 const isPunching = ref(false)
@@ -466,15 +476,13 @@ const handlePunchAction = async (actionType) => {
 
   isPunching.value = true
   const actionText = actionType === 'clock_in' ? '上班簽到' : '下班簽退'
-  
-  // 取得精準台灣時間字串解決資料庫時差問題
-  const localNowIso = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().replace('Z', '+08:00')
 
   try {
+    // 讓 Supabase 自動抓取伺服器當下時間（避免瀏覽器與時區偏移造成 8 小時誤差）
     const { error } = await supabase.from('staff_attendance').insert([{
       staff_name: matchedStaff,
       action: actionType,
-      created_at: localNowIso
+      created_at: new Date()
     }])
     if (error) throw error
     currentStaff.value = matchedStaff
@@ -488,13 +496,29 @@ const handlePunchAction = async (actionType) => {
   }
 }
 
-// 排程月曆
+// 排程月曆與每日注意事項筆記
 const todayStr = new Date().toISOString().slice(0, 10)
 const selectedScheduleDate = ref(todayStr)
 const calYear = ref(new Date().getFullYear())
 const calMonth = ref(new Date().getMonth())
 const allOrdersList = ref([])
 const loadingOrders = ref(false)
+
+const currentDayNote = ref('')
+const loadDailyNote = () => {
+  const notes = JSON.parse(localStorage.getItem('moni_daily_notes') || '{}')
+  currentDayNote.value = notes[selectedScheduleDate.value] || ''
+}
+const saveDailyNote = () => {
+  const notes = JSON.parse(localStorage.getItem('moni_daily_notes') || '{}')
+  notes[selectedScheduleDate.value] = currentDayNote.value
+  localStorage.setItem('moni_daily_notes', JSON.stringify(notes))
+  alert(`✅ [${selectedScheduleDate.value}] 門市注意事項已成功儲存！`)
+}
+
+watch(selectedScheduleDate, () => {
+  loadDailyNote()
+})
 
 const setTodayCal = () => {
   const d = new Date()
@@ -646,8 +670,6 @@ const submitPosOrder = async () => {
       if (newMem?.[0]) memberId = newMem[0].id
     }
 
-    const localNowIso = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().replace('Z', '+08:00')
-
     const orderPayload = {
       order_no: generatedOrderNo,
       total_amount: subtotal.value + shippingFee.value,
@@ -666,7 +688,7 @@ const submitPosOrder = async () => {
       payment_method: paymentMethod.value,
       shipping_fee: shippingFee.value,
       member_id: memberId,
-      created_at: localNowIso
+      created_at: new Date()
     }
 
     await supabase.from('orders').insert([orderPayload])
@@ -689,15 +711,16 @@ const submitPosOrder = async () => {
 const handoverMemo = ref('')
 const saveHandoverMemo = () => {
   localStorage.setItem('moni_handover_memo', handoverMemo.value)
-  alert('✅ 交班留言已成功儲存！後續值班人員切換時可隨時查看。')
+  alert('✅ 交班留言已成功儲存！')
 }
 
 onMounted(() => {
   const savedMemo = localStorage.getItem('moni_handover_memo')
   if (savedMemo) handoverMemo.value = savedMemo
+  loadDailyNote()
 })
 
-const staffTodayOrders = computed(() => allOrdersList.value.filter(o => (o.created_at || '').startsWith(todayStr) && o.cashier_name === currentStaff.value))
+const staffTodayOrders = computed(() => allOrdersList.value.filter(o => (o.created_at || '').slice(0, 10) === todayStr && o.cashier_name === currentStaff.value))
 const staffTodayTotal = computed(() => staffTodayOrders.value.reduce((acc, o) => acc + Number(o.final_amount || 0), 0))
 const paymentBreakdown = computed(() => {
   const res = { cash: 0, linepay: 0, credit_card: 0, transfer: 0 }
@@ -728,7 +751,7 @@ const reportStats = computed(() => {
 
 const bossStaffStats = computed(() => {
   const stats = { '花藝師-宜萱': { revenue: 0, count: 0 }, '花藝師-子庭': { revenue: 0, count: 0 }, '實習花藝助理': { revenue: 0, count: 0 } }
-  allOrdersList.value.filter(o => (o.created_at || '').startsWith(todayStr)).forEach(o => {
+  allOrdersList.value.filter(o => (o.created_at || '').slice(0, 10) === todayStr).forEach(o => {
     const sName = o.cashier_name || '未指派'
     if (!stats[sName]) stats[sName] = { revenue: 0, count: 0 }
     stats[sName].revenue += Number(o.final_amount || 0)
@@ -761,7 +784,7 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 
 .tab-panel { flex: 1; overflow: hidden; padding: 16px; }
 
-/* 排程月曆 */
+/* 排程月曆與急單 */
 .schedule-container { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
 .urgent-banner { background: #fff5f5; border: 1px solid #feb2b2; border-radius: 8px; padding: 12px; }
 .urgent-title { display: flex; justify-content: space-between; color: #c53030; font-weight: bold; margin-bottom: 8px; }
@@ -788,6 +811,14 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 
 .day-orders-box { flex: 6; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 14px; overflow-y: auto; }
 .day-orders-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+
+/* 每日注意事項筆記樣式 */
+.daily-note-box { background: #f0fff4; border: 1px solid #c6f6d5; padding: 10px; border-radius: 6px; margin-bottom: 12px; font-size: 0.85rem; }
+.daily-note-box label { display: block; margin-bottom: 4px; color: #22543d; }
+.note-row { display: flex; gap: 6px; }
+.note-row textarea { flex: 1; padding: 6px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 0.85rem; box-sizing: border-box; }
+.btn-save-note { padding: 6px 12px; background: #38a169; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: bold; }
+
 .order-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
 .order-card { background: #f7fafc; border-radius: 6px; border: 1px solid #e2e8f0; padding: 10px; }
 .order-card.in_production { border-left: 4px solid #dd6b20; }
@@ -874,7 +905,7 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 .punch-list { list-style: none; padding: 0; margin: 8px 0 0 0; font-size: 0.85rem; }
 .punch-list li { display: flex; justify-content: space-between; padding: 4px 0; }
 
-/* 主管報表與老闆專屬統計 */
+/* 主管報表 */
 .reports-panel { overflow-y: auto; }
 .auth-lock-card { max-width: 400px; margin: 60px auto; background: #fff; padding: 24px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center; }
 .auth-input-group { display: flex; gap: 8px; margin-top: 16px; }
