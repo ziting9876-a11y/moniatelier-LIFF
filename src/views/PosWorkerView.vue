@@ -477,12 +477,17 @@ const handlePunchAction = async (actionType) => {
   isPunching.value = true
   const actionText = actionType === 'clock_in' ? '上班簽到' : '下班簽退'
 
+  // ★ 關鍵修正：手動計算台灣當前時間並加上 +08:00 時區字串，避免 Supabase 自動轉成 UTC
+  const now = new Date()
+  const utcOffset = now.getTime() + (now.getTimezoneOffset() * 60000)
+  const twTime = new Date(utcOffset + (3600000 * 8))
+  const localIsoString = twTime.toISOString().replace('Z', '+08:00')
+
   try {
-    // 讓 Supabase 自動抓取伺服器當下時間（避免瀏覽器與時區偏移造成 8 小時誤差）
     const { error } = await supabase.from('staff_attendance').insert([{
       staff_name: matchedStaff,
       action: actionType,
-      created_at: new Date()
+      created_at: localIsoString
     }])
     if (error) throw error
     currentStaff.value = matchedStaff
@@ -670,6 +675,12 @@ const submitPosOrder = async () => {
       if (newMem?.[0]) memberId = newMem[0].id
     }
 
+    // ★ 1. 在這裡計算精準的台灣時間字串 (UTC+8)
+    const now = new Date()
+    const utcOffset = now.getTime() + (now.getTimezoneOffset() * 60000)
+    const twTime = new Date(utcOffset + (3600000 * 8))
+    const localIsoString = twTime.toISOString().replace('Z', '+08:00')
+
     const orderPayload = {
       order_no: generatedOrderNo,
       total_amount: subtotal.value + shippingFee.value,
@@ -688,7 +699,8 @@ const submitPosOrder = async () => {
       payment_method: paymentMethod.value,
       shipping_fee: shippingFee.value,
       member_id: memberId,
-      created_at: new Date()
+      // ★ 2. 將原本的 new Date() 換成帶有 +08:00 的台灣時間字串
+      created_at: localIsoString 
     }
 
     await supabase.from('orders').insert([orderPayload])
