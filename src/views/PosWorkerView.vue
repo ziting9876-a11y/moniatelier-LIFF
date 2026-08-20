@@ -477,11 +477,19 @@ const handlePunchAction = async (actionType) => {
   isPunching.value = true
   const actionText = actionType === 'clock_in' ? '上班簽到' : '下班簽退'
 
-  // ★ 關鍵修正：手動計算台灣當前時間並加上 +08:00 時區字串，避免 Supabase 自動轉成 UTC
-  const now = new Date()
-  const utcOffset = now.getTime() + (now.getTimezoneOffset() * 60000)
-  const twTime = new Date(utcOffset + (3600000 * 8))
-  const localIsoString = twTime.toISOString().replace('Z', '+08:00')
+  // ✅ 直接透過格式化工具抓取台灣當下的完整字串 (YYYY-MM-DDTHH:mm:ss.sss+08:00)
+const d = new Date()
+const twString = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Taipei',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  fractionalSecondDigits: 3,
+  hour12: false
+}).format(d).replace(', ', 'T') + '+08:00'
 
   try {
     const { error } = await supabase.from('staff_attendance').insert([{
@@ -676,10 +684,19 @@ const submitPosOrder = async () => {
     }
 
     // ★ 1. 在這裡計算精準的台灣時間字串 (UTC+8)
-    const now = new Date()
-    const utcOffset = now.getTime() + (now.getTimezoneOffset() * 60000)
-    const twTime = new Date(utcOffset + (3600000 * 8))
-    const localIsoString = twTime.toISOString().replace('Z', '+08:00')
+    // ✅ 直接透過格式化工具抓取台灣當下的完整字串 (YYYY-MM-DDTHH:mm:ss.sss+08:00)
+const d = new Date()
+const twString = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Taipei',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  fractionalSecondDigits: 3,
+  hour12: false
+}).format(d).replace(', ', 'T') + '+08:00'
 
     const orderPayload = {
       order_no: generatedOrderNo,
