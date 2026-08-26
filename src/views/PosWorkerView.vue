@@ -22,10 +22,10 @@
       </div>
     </header>
 
-    <!-- 導航分頁：已依照您的需求調整順序 -->
+    <!-- 導航分頁：已移除主管報表，保留前四個現場核心分頁 -->
     <nav class="pos-nav">
       <button :class="['nav-btn', { active: activeTab === 'punch' }]" @click="activeTab = 'punch'">
-        ⏰ 員工考勤打卡與靈感
+        ⏰ 員工考勤打卡與美學靈感
       </button>
       <button :class="['nav-btn', { active: activeTab === 'schedule' }]" @click="activeTab = 'schedule'">
         📅 製作排程月曆
@@ -36,12 +36,9 @@
       <button :class="['nav-btn', { active: activeTab === 'settlement' }]" @click="activeTab = 'settlement'">
         🧾 今日交班對帳
       </button>
-      <button :class="['nav-btn', { active: activeTab === 'reports' }]" @click="activeTab = 'reports'">
-        📊 主管業績報表
-      </button>
     </nav>
 
-    <!-- ==================== 1. 員工考勤打卡與每日花藝靈感 (排在第一位) ==================== -->
+    <!-- ==================== 1. 員工考勤打卡與高質感花藝美學靈感 (參考圖58d55d, 58dc84, 58dca5) ==================== -->
     <main v-if="activeTab === 'punch'" class="tab-panel punch-layout-grid">
       <!-- 左側：打卡區 -->
       <div class="punch-card-box">
@@ -81,46 +78,38 @@
         </div>
       </div>
 
-      <!-- 右側：每日一頁·花藝靈感日曆 (參考圖4) -->
+      <!-- 右側：高質感花藝美學與配色靈感 (結合完整花禮實體圖與 HEX 色票) -->
       <div class="flower-inspiration-card">
         <div class="inspire-header">
-          <span>📖 一頁一花，收藏今天的溫柔</span>
-          <button class="btn-flip" @click="isFlowerCardFlipped = !isFlowerCardFlipped">
-            {{ isFlowerCardFlipped ? '🔄 翻回正面 (花語)' : '🔄 翻到背面 (花期/產地)' }}
-          </button>
+          <span>🎨 每日高級自然色彩與花藝靈感搭配 (ADVANCED NATURAL COLOR MATCHING)</span>
+          <button class="btn-switch-style" @click="nextInspiration">🔄 切換今日靈感</button>
         </div>
 
-        <div class="inspire-content-box" :class="{ flipped: isFlowerCardFlipped }">
-          <!-- 正面：花語與暖心語錄 -->
-          <div class="inspire-front" v-if="!isFlowerCardFlipped">
-            <div class="date-badge-box">
-              <span class="month-txt">{{ currentDayFlower.month }}</span>
-              <span class="day-num-txt">{{ currentDayFlower.day }}</span>
-              <span class="week-txt">{{ currentDayFlower.weekday }}</span>
-            </div>
-            <div class="flower-visual-circle">
-              <span class="flower-emoji">{{ currentDayFlower.emoji }}</span>
-              <span class="flower-name-cn">{{ currentDayFlower.nameCn }}</span>
-            </div>
-            <div class="flower-story-section">
-              <h4>🌸 療癒花語：{{ currentDayFlower.languageTitle }}</h4>
-              <p class="quote-text">「{{ currentDayFlower.quote }}」</p>
-              <small class="warm-note">✨ 暖心語錄：{{ currentDayFlower.warmNote }}</small>
-            </div>
+        <div class="inspire-display-box">
+          <!-- 左側：實體花禮大圖展示 -->
+          <div class="inspiration-image-container">
+            <img :src="currentInspire.imageUrl" :alt="currentInspire.title" class="inspire-real-img" />
+            <div class="image-caption-tag">🌸 {{ currentInspire.title }}</div>
           </div>
 
-          <!-- 背面：花期、產地與故事短文 -->
-          <div class="inspire-back" v-else>
-            <h4>📖 讀一朵花的故事</h4>
-            <div class="back-info-grid">
-              <p><strong>中文花名：</strong>{{ currentDayFlower.nameCn }}</p>
-              <p><strong>英文/拉丁學名：</strong>{{ currentDayFlower.latinName }}</p>
-              <p><strong>花期與產地：</strong>{{ currentDayFlower.originAndPeriod }}</p>
-              <p><strong>色彩搭配靈感：</strong>{{ currentDayFlower.colorPalette }}</p>
+          <!-- 右側：專業色票與配色解析 -->
+          <div class="inspiration-palette-details">
+            <div class="palette-title-badge">✨ 三種色彩調和搭配 (3-Color Harmony)</div>
+            
+            <div class="color-swatches-grid">
+              <div v-for="(col, idx) in currentInspire.colors" :key="idx" class="swatch-item">
+                <div class="color-block" :style="{ backgroundColor: col.hex }"></div>
+                <div class="color-meta">
+                  <span class="hex-code">HEX: {{ col.hex }}</span>
+                  <span class="color-name">{{ col.name }}</span>
+                </div>
+              </div>
             </div>
-            <div class="flower-history-box">
-              <strong>🌿 花卉簡史與故事短文：</strong>
-              <p>{{ currentDayFlower.story }}</p>
+
+            <div class="floral-guide-box">
+              <p><strong>🌷 主花/花材：</strong>{{ currentInspire.flowers }}</p>
+              <p><strong>🌿 色彩密碼解析：</strong>{{ currentInspire.description }}</p>
+              <p class="designer-tip">💡 <strong>花藝師應用建議：</strong>{{ currentInspire.tip }}</p>
             </div>
           </div>
         </div>
@@ -343,7 +332,7 @@
       </aside>
     </main>
 
-    <!-- ==================== 4. 今日交班對帳與留言 ==================== -->
+    <!-- ==================== 4. 今日交班對帳 ==================== -->
     <main v-else-if="activeTab === 'settlement'" class="tab-panel settlement-panel">
       <div class="settlement-card">
         <div class="settlement-header">
@@ -404,64 +393,6 @@
         </div>
       </div>
     </main>
-
-    <!-- ==================== 5. 主管業績報表 ==================== -->
-    <main v-else-if="activeTab === 'reports'" class="tab-panel reports-panel">
-      <div v-if="!isReportAuthorized" class="auth-lock-card">
-        <h3>🔒 主管業績報表驗證</h3>
-        <p>此區塊包含門市營業歷史數據，請輸入管理密碼解鎖：</p>
-        <div class="auth-input-group">
-          <input type="password" v-model="adminKeyInput" placeholder="預設密碼: moni888" @keyup.enter="verifyAdminKey" />
-          <button class="btn-auth" @click="verifyAdminKey">解鎖查看</button>
-        </div>
-      </div>
-
-      <div v-else class="report-content">
-        <div class="report-topbar">
-          <h3>📊 門市營收分析與員工績效報表</h3>
-          <button class="btn-refresh" @click="fetchScheduleOrders">🔄 更新數據</button>
-        </div>
-
-        <div class="stats-cards-grid">
-          <div class="stat-card"><span class="stat-label">今日營業額</span><span class="stat-num">NT$ {{ reportStats.todayRevenue.toLocaleString() }}</span><small>{{ reportStats.todayOrders }} 筆訂單</small></div>
-          <div class="stat-card"><span class="stat-label">本週累計營業額</span><span class="stat-num">NT$ {{ reportStats.weekRevenue.toLocaleString() }}</span><small>{{ reportStats.weekOrders }} 筆訂單</small></div>
-          <div class="stat-card"><span class="stat-label">本月累計營業額</span><span class="stat-num">NT$ {{ reportStats.monthRevenue.toLocaleString() }}</span><small>{{ reportStats.monthOrders }} 筆訂單</small></div>
-        </div>
-
-        <div class="boss-staff-summary-box">
-          <h4>👩‍🎨 各值班花藝師今日業績與筆數統計 (老闆專用)</h4>
-          <div class="boss-grid">
-            <div class="boss-card" v-for="(stat, name) in bossStaffStats" :key="name">
-              <strong>{{ name }}</strong>
-              <p class="rev">NT$ {{ stat.revenue.toLocaleString() }}</p>
-              <small>經手開單：{{ stat.count }} 筆</small>
-            </div>
-          </div>
-        </div>
-
-        <div class="report-table-box">
-          <h4>最新 30 筆營收訂單紀錄</h4>
-          <table class="report-table">
-            <thead>
-              <tr><th>訂單號</th><th>下單時間</th><th>訂購人</th><th>收件人</th><th>配送方式</th><th>付款方式</th><th>經手人</th><th>金額</th><th>狀態</th></tr>
-            </thead>
-            <tbody>
-              <tr v-for="order in allOrdersList.slice(0, 30)" :key="order.order_no || order.id">
-                <td>{{ order.order_no }}</td>
-                <td>{{ new Date(order.created_at).toLocaleDateString() }}</td>
-                <td>{{ order.orderer_name || '-' }}</td>
-                <td>{{ order.recipient_name }}</td>
-                <td>{{ formatDeliveryMethod(order.delivery_method) }}</td>
-                <td>{{ formatPaymentMethod(order.payment_method) }}</td>
-                <td>{{ order.cashier_name || '-' }}</td>
-                <td>NT$ {{ Number(order.final_amount || 0).toLocaleString() }}</td>
-                <td><span class="status-chip" :class="order.status">{{ formatStatus(order.status) }}</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </main>
   </div>
 </template>
 
@@ -476,7 +407,7 @@ const STAFF_CODE_MAP = {
 }
 
 const currentStaff = ref('花藝師-宜萱')
-const activeTab = ref('punch') // 預設打開第一個分頁：考勤打卡
+const activeTab = ref('punch')
 const currentTime = ref('')
 let timer = null
 
@@ -485,20 +416,39 @@ const updateClock = () => {
   currentTime.value = now.toLocaleTimeString('zh-TW', { hour12: false })
 }
 
-// 每日花藝靈感日曆動態資料 (依據當日日期自動切換展示)
-const isFlowerCardFlipped = ref(false)
-const currentDayFlower = computed(() => {
-  const now = new Date()
-  const mNames = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']
-  const wNames = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY']
-  
-  // 模擬每日靈感清單
-  const flowers = [
-    { month: mNames[now.getMonth()], day: now.getDate(), weekday: wNames[now.getDay()], emoji: '🌷', nameCn: '鬱金香 (Tulipa gesneriana)', latinName: 'Tulipa gesneriana L.', originAndPeriod: '花期：3~5月；產地：荷蘭、土耳其', colorPalette: '搭配色：柔霧粉、奶油白、草木綠', languageTitle: '永恆的祝福與愛的表白', quote: '生命沒有固定，卻總能開出花。就像你從未來的方向裡，走進我生命裡。', warmNote: '適合搭配尤加利葉與淺色包裝紙。', story: '鬱金香在文藝復興時期被引進歐洲，曾引發著名的「鬱金香狂熱」。其花語象徵著高貴、博愛與祝福。' },
-    { month: mNames[now.getMonth()], day: now.getDate(), weekday: wNames[now.getDay()], emoji: '🌹', nameCn: '經典紅玫瑰 (Rose)', latinName: 'Rosa chinensis Jacq.', originAndPeriod: '花期：全年；產地：厄瓜多、台灣在地', colorPalette: '搭配色：酒紅、古銅金、墨綠', languageTitle: '熱烈、真摯與時光淬煉的愛', quote: '芳芳四溢的福氣，像微風中的花期，溫柔而堅定。', warmNote: '修剪枝條時建議斜剪 45 度以增加吸水面積。', story: '玫瑰自古以來便是愛與美的象徵，希臘神話中更是愛神阿芙蘿黛蒂的化身。' }
-  ]
-  return flowers[now.getDate() % flowers.length]
-})
+// 每日高質感花藝美學靈感資料庫 (結合實體花禮圖片、配色卡與 HEX 色票)
+const inspirationList = [
+  {
+    title: '日落夕陽微醺感玫瑰花束',
+    imageUrl: 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?auto=format&fit=crop&w=800&q=80',
+    colors: [
+      { hex: '#CD442C', name: '磚紅 Terracotta' },
+      { hex: '#E1A541', name: '琥珀金 Amber' },
+      { hex: '#F4E8C1', name: '奶油白 Cream' }
+    ],
+    flowers: '落日玫瑰、焦糖洋桔梗、黃波斯菊、尤加利葉',
+    description: '運用高對比的暖色調混搭，帶出17世紀荷蘭靜物畫般的油畫復古高級感。',
+    tip: '適合搭配深色牛皮紙或古銅金緞帶，展現沉穩奢華質感。'
+  },
+  {
+    title: '南法普羅旺斯薰衣草紫調盆花',
+    imageUrl: 'https://images.unsplash.com/photo-1508615039623-a25605d2b022?auto=format&fit=crop&w=800&q=80',
+    colors: [
+      { hex: '#A164D9', name: '薰衣草紫 Lavender' },
+      { hex: '#ACAE3F', name: '橄欖綠 Olive' },
+      { hex: '#F2F1F8', name: '霧面白 Pearl White' }
+    ],
+    flowers: '紫羅蘭、小飛燕、紫翠玉、銀葉菊',
+    description: '以優雅的紫色為主調，搭配低彩度的橄欖綠做自然過渡，營造仙氣與浪漫氛圍。',
+    tip: '器皿建議挑選白瓷或復古刷舊陶盆，更能凸顯法式優雅。'
+  }
+]
+
+const inspireIndex = ref(0)
+const currentInspire = computed(() => inspirationList[inspireIndex.value])
+const nextInspiration = () => {
+  inspireIndex.value = (inspireIndex.value + 1) % inspirationList.length
+}
 
 const punchStaffSelect = ref('花藝師-宜萱')
 const punchStaffCode = ref('')
@@ -787,36 +737,6 @@ const paymentBreakdown = computed(() => {
 })
 const confirmSettlement = () => alert(`✅ [交班核對完成]\n花藝師：${currentStaff.value}\n今日經手總額：NT$ ${staffTodayTotal.value.toLocaleString()}`)
 
-const adminKeyInput = ref('')
-const isReportAuthorized = ref(false)
-const verifyAdminKey = () => { if (adminKeyInput.value === 'moni888') isReportAuthorized.value = true; else alert('密碼錯誤') }
-
-const reportStats = computed(() => {
-  const now = new Date()
-  const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay())).toISOString().slice(0, 10)
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
-  let tRev = 0, tCnt = 0, wRev = 0, wCnt = 0, mRev = 0, mCnt = 0
-  allOrdersList.value.forEach(o => {
-    const d = (o.created_at || '').slice(0, 10)
-    const amt = Number(o.final_amount || 0)
-    if (d === todayStr) { tRev += amt; tCnt += 1 }
-    if (d >= startOfWeek) { wRev += amt; wCnt += 1 }
-    if (d >= startOfMonth) { mRev += amt; mCnt += 1 }
-  })
-  return { todayRevenue: tRev, todayOrders: tCnt, weekRevenue: wRev, weekOrders: wCnt, monthRevenue: mRev, monthOrders: mCnt }
-})
-
-const bossStaffStats = computed(() => {
-  const stats = { '花藝師-宜萱': { revenue: 0, count: 0 }, '花藝師-子庭': { revenue: 0, count: 0 }, '實習花藝助理': { revenue: 0, count: 0 } }
-  allOrdersList.value.filter(o => (o.created_at || '').slice(0, 10) === todayStr).forEach(o => {
-    const sName = o.cashier_name || '未指派'
-    if (!stats[sName]) stats[sName] = { revenue: 0, count: 0 }
-    stats[sName].revenue += Number(o.final_amount || 0)
-    stats[sName].count += 1
-  })
-  return stats
-})
-
 const formatStatus = (s) => ({ PENDING: '待付款', PAID: '已付款', in_production: '製作中', delivering: '配送中', completed: '已完成' }[s] || s)
 const formatDeliveryMethod = (m) => ({ black_cat: '黑貓宅配', express_taipei_1: '雙北1', express_taipei_2: '雙北2', store_pickup: '自取', cvs_familymart: '全家', cvs_711: '7-11' }[m] || m || '自取')
 const formatPaymentMethod = (m) => ({ cash: '現金', linepay: 'LINE Pay', credit_card: '刷卡', transfer: '轉帳' }[m] || m || '現金')
@@ -841,7 +761,7 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 
 .tab-panel { flex: 1; overflow: hidden; padding: 16px; }
 
-/* 考勤打卡與靈感左右分頁排版 */
+/* 考勤打卡與高質感美學靈感左右排版 */
 .punch-layout-grid { display: flex; gap: 16px; overflow-y: auto; }
 .punch-card-box { flex: 4; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; text-align: center; }
 .punch-clock-large { font-size: 2rem; font-weight: bold; color: #2d3748; letter-spacing: 2px; margin: 8px 0; }
@@ -854,29 +774,28 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 .punch-list { list-style: none; padding: 0; margin: 6px 0 0 0; font-size: 0.85rem; }
 .punch-list li { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #edf2f7; }
 
-/* 每日花藝靈感日曆卡片樣式 (參考圖4) */
-.flower-inspiration-card { flex: 6; background: #fdfaf6; border: 1px solid #e2d9d2; border-radius: 8px; padding: 20px; display: flex; flex-direction: column; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
-.inspire-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; font-size: 0.95rem; font-weight: bold; color: #744210; }
-.btn-flip { padding: 4px 10px; background: #8b5e4c; color: #fff; border: none; border-radius: 4px; font-size: 0.8rem; cursor: pointer; }
-.inspire-content-box { flex: 1; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #eee; border-radius: 6px; padding: 16px; }
-.inspire-front { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; }
-.date-badge-box { display: flex; flex-direction: column; align-items: center; background: #f7fafc; padding: 6px 16px; border-radius: 6px; border: 1px solid #e2e8f0; }
-.month-txt { font-size: 0.8rem; font-weight: bold; letter-spacing: 1px; color: #718096; }
-.day-num-txt { font-size: 1.8rem; font-weight: bold; color: #8b5e4c; line-height: 1; }
-.week-txt { font-size: 0.75rem; color: #a0aec0; }
-.flower-visual-circle { width: 110px; height: 110px; background: #fefcbf; border-radius: 50%; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 2px dashed #ecc94b; }
-.flower-emoji { font-size: 2.2rem; }
-.flower-name-cn { font-size: 0.8rem; font-weight: bold; color: #744210; margin-top: 2px; }
-.flower-story-section h4 { color: #8b5e4c; margin: 0 0 6px 0; font-size: 1rem; }
-.quote-text { font-style: italic; color: #4a5568; font-size: 0.9rem; line-height: 1.4; margin: 0 0 8px 0; }
-.warm-note { display: block; color: #3182ce; font-size: 0.8rem; background: #ebf8ff; padding: 4px 8px; border-radius: 4px; }
+/* 結合實體圖片與 HEX 色票的高質感靈感卡片 (參考圖58d55d, 58dc84) */
+.flower-inspiration-card { flex: 6; background: #fdfaf6; border: 1px solid #e2d9d2; border-radius: 8px; padding: 20px; display: flex; flex-direction: column; box-shadow: 0 4px 12px rgba(0,0,0,0.03); overflow-y: auto; }
+.inspire-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; font-size: 0.85rem; font-weight: bold; color: #744210; }
+.btn-switch-style { padding: 4px 10px; background: #8b5e4c; color: #fff; border: none; border-radius: 4px; font-size: 0.8rem; cursor: pointer; }
 
-.inspire-back { display: flex; flex-direction: column; gap: 10px; font-size: 0.85rem; text-align: left; }
-.inspire-back h4 { color: #8b5e4c; margin: 0 0 4px 0; }
-.back-info-grid { display: flex; flex-direction: column; gap: 4px; background: #f7fafc; padding: 10px; border-radius: 4px; border: 1px solid #edf2f7; }
-.back-info-grid p { margin: 2px 0; }
-.flower-history-box { background: #fffaf0; border: 1px solid #fbd38d; padding: 10px; border-radius: 4px; }
-.flower-history-box p { margin: 4px 0 0 0; line-height: 1.4; color: #744210; }
+.inspire-display-box { display: flex; gap: 16px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; align-items: center; }
+.inspiration-image-container { flex: 5; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.inspire-real-img { width: 100%; height: 220px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e0; }
+.image-caption-tag { font-size: 0.85rem; font-weight: bold; color: #8b5e4c; text-align: center; }
+
+.inspiration-palette-details { flex: 5; display: flex; flex-direction: column; gap: 10px; font-size: 0.85rem; }
+.palette-title-badge { font-weight: bold; color: #744210; background: #fefcbf; padding: 4px 8px; border-radius: 4px; border: 1px solid #ecc94b; text-align: center; font-size: 0.8rem; }
+.color-swatches-grid { display: flex; flex-direction: column; gap: 6px; }
+.swatch-item { display: flex; align-items: center; gap: 10px; background: #f7fafc; padding: 4px 8px; border-radius: 4px; border: 1px solid #edf2f7; }
+.color-block { width: 28px; height: 28px; border-radius: 4px; border: 1px solid #cbd5e0; }
+.color-meta { display: flex; flex-direction: column; font-size: 0.75rem; }
+.hex-code { font-weight: bold; color: #2d3748; }
+.color-name { color: #718096; }
+
+.floral-guide-box { background: #fffaf0; border: 1px solid #fbd38d; padding: 10px; border-radius: 4px; font-size: 0.8rem; display: flex; flex-direction: column; gap: 4px; }
+.floral-guide-box p { margin: 2px 0; }
+.designer-tip { color: #c05621; }
 
 /* 排程月曆與急單 */
 .schedule-container { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
@@ -985,25 +904,4 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 .simple-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 0.85rem; }
 .simple-table th, .simple-table td { padding: 8px; border-bottom: 1px solid #edf2f7; text-align: left; }
 .btn-confirm-settle { width: 100%; padding: 12px; background: #2f855a; color: #fff; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; }
-
-/* 主管報表 */
-.reports-panel { overflow-y: auto; }
-.auth-lock-card { max-width: 400px; margin: 60px auto; background: #fff; padding: 24px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center; }
-.auth-input-group { display: flex; gap: 8px; margin-top: 16px; }
-.auth-input-group input { flex: 1; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px; }
-.btn-auth { padding: 8px 16px; background: #8b5e4c; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
-.report-topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.stats-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 16px; }
-.stat-card { background: #fff; padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; }
-.stat-num { font-size: 1.4rem; font-weight: bold; color: #8b5e4c; }
-
-.boss-staff-summary-box { background: #fff; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 16px; }
-.boss-staff-summary-box h4 { margin: 0 0 10px 0; font-size: 0.95rem; color: #2d3748; }
-.boss-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
-.boss-card { background: #fdf8f6; border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; display: flex; flex-direction: column; gap: 2px; }
-.boss-card .rev { font-size: 1.2rem; font-weight: bold; color: #8b5e4c; }
-
-.report-table-box { background: #fff; padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0; }
-.report-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-.report-table th, .report-table td { padding: 8px; border-bottom: 1px solid #edf2f7; text-align: left; }
 </style>
