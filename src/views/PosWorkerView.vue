@@ -1,6 +1,6 @@
 <template>
   <div class="pos-app">
-    <!-- 頂部狀態列：可自由切換當前值班人員 -->
+    <!-- 頂部狀態列 -->
     <header class="pos-topbar">
       <div class="brand">
         <span class="logo-icon">🌸</span>
@@ -10,39 +10,125 @@
         </div>
       </div>
 
-      <div class="clock-badge">{{ currentTime }}</div>
+      <div class="clock-badge">✨ {{ currentTime }} ✨</div>
 
       <div class="staff-control">
-        <label for="top-staff-select">當前值班人員：</label>
+        <label for="top-staff-select">當前值班：</label>
         <select id="top-staff-select" v-model="currentStaff" class="top-staff-dropdown">
-          <option value="花藝師-宜萱">花藝師 - 宜萱</option>
-          <option value="花藝師-子庭">花藝師 - 子庭</option>
-          <option value="實習花藝助理">實習花藝助理</option>
+          <option value="花藝師-宜萱">🌷 花藝師 - 宜萱</option>
+          <option value="花藝師-子庭">🌷 花藝師 - 子庭</option>
+          <option value="實習花藝助理">🌿 實習花藝助理</option>
         </select>
       </div>
     </header>
 
-    <!-- 導航分頁 -->
+    <!-- 導航分頁：已依照您的需求調整順序 -->
     <nav class="pos-nav">
+      <button :class="['nav-btn', { active: activeTab === 'punch' }]" @click="activeTab = 'punch'">
+        ⏰ 員工考勤打卡與靈感
+      </button>
       <button :class="['nav-btn', { active: activeTab === 'schedule' }]" @click="activeTab = 'schedule'">
         📅 製作排程月曆
       </button>
       <button :class="['nav-btn', { active: activeTab === 'pos' }]" @click="activeTab = 'pos'">
-        💐 門市 POS 收銀開單
+        💐 門市 POS 收銀
       </button>
       <button :class="['nav-btn', { active: activeTab === 'settlement' }]" @click="activeTab = 'settlement'">
-        🧾 今日交班對帳與留言
-      </button>
-      <button :class="['nav-btn', { active: activeTab === 'punch' }]" @click="activeTab = 'punch'">
-        ⏰ 員工考勤打卡
+        🧾 今日交班對帳
       </button>
       <button :class="['nav-btn', { active: activeTab === 'reports' }]" @click="activeTab = 'reports'">
-        📊 業績營收報表 (主管)
+        📊 主管業績報表
       </button>
     </nav>
 
-    <!-- ==================== 1. 製作排程月曆看板 ==================== -->
-    <main v-if="activeTab === 'schedule'" class="tab-panel schedule-container">
+    <!-- ==================== 1. 員工考勤打卡與每日花藝靈感 (排在第一位) ==================== -->
+    <main v-if="activeTab === 'punch'" class="tab-panel punch-layout-grid">
+      <!-- 左側：打卡區 -->
+      <div class="punch-card-box">
+        <h3>⏰ 墨凝花室 員工考勤簽到打卡</h3>
+        <div class="punch-clock-large">{{ currentTime }}</div>
+        <p class="punch-date">🌿 {{ new Date().toLocaleDateString('zh-TW', { dateStyle: 'full' }) }}</p>
+
+        <div class="punch-form">
+          <div class="form-row">
+            <label>請選擇打卡花藝師：</label>
+            <select v-model="punchStaffSelect">
+              <option value="花藝師-宜萱">🌷 花藝師 - 宜萱 (編號: 101)</option>
+              <option value="花藝師-子庭">🌷 花藝師 - 子庭 (編號: 102)</option>
+              <option value="實習花藝助理">🌿 實習花藝助理 (編號: 103)</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>請輸入員工工號：</label>
+            <input type="password" v-model="punchStaffCode" placeholder="請輸入工號 (101, 102, 103)" @keyup.enter="handlePunchAction('clock_in')" />
+          </div>
+          <div class="punch-btn-group">
+            <button class="btn-clock-in" :disabled="isPunching" @click="handlePunchAction('clock_in')">🟢 上班簽到</button>
+            <button class="btn-clock-out" :disabled="isPunching" @click="handlePunchAction('clock_out')">🔴 下班簽退</button>
+          </div>
+        </div>
+
+        <div class="recent-punch-records">
+          <h4>📋 本日打卡紀錄</h4>
+          <div v-if="todayPunchRecords.length === 0" class="no-records">今日尚無打卡紀錄</div>
+          <ul v-else class="punch-list">
+            <li v-for="rec in todayPunchRecords" :key="rec.id">
+              <span>👤 {{ rec.staff_name }}</span>
+              <span :class="rec.action">{{ rec.action === 'clock_in' ? '🟢 上班' : '🔴 下班' }}</span>
+              <span class="time">{{ new Date(rec.created_at).toLocaleTimeString() }}</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 右側：每日一頁·花藝靈感日曆 (參考圖4) -->
+      <div class="flower-inspiration-card">
+        <div class="inspire-header">
+          <span>📖 一頁一花，收藏今天的溫柔</span>
+          <button class="btn-flip" @click="isFlowerCardFlipped = !isFlowerCardFlipped">
+            {{ isFlowerCardFlipped ? '🔄 翻回正面 (花語)' : '🔄 翻到背面 (花期/產地)' }}
+          </button>
+        </div>
+
+        <div class="inspire-content-box" :class="{ flipped: isFlowerCardFlipped }">
+          <!-- 正面：花語與暖心語錄 -->
+          <div class="inspire-front" v-if="!isFlowerCardFlipped">
+            <div class="date-badge-box">
+              <span class="month-txt">{{ currentDayFlower.month }}</span>
+              <span class="day-num-txt">{{ currentDayFlower.day }}</span>
+              <span class="week-txt">{{ currentDayFlower.weekday }}</span>
+            </div>
+            <div class="flower-visual-circle">
+              <span class="flower-emoji">{{ currentDayFlower.emoji }}</span>
+              <span class="flower-name-cn">{{ currentDayFlower.nameCn }}</span>
+            </div>
+            <div class="flower-story-section">
+              <h4>🌸 療癒花語：{{ currentDayFlower.languageTitle }}</h4>
+              <p class="quote-text">「{{ currentDayFlower.quote }}」</p>
+              <small class="warm-note">✨ 暖心語錄：{{ currentDayFlower.warmNote }}</small>
+            </div>
+          </div>
+
+          <!-- 背面：花期、產地與故事短文 -->
+          <div class="inspire-back" v-else>
+            <h4>📖 讀一朵花的故事</h4>
+            <div class="back-info-grid">
+              <p><strong>中文花名：</strong>{{ currentDayFlower.nameCn }}</p>
+              <p><strong>英文/拉丁學名：</strong>{{ currentDayFlower.latinName }}</p>
+              <p><strong>花期與產地：</strong>{{ currentDayFlower.originAndPeriod }}</p>
+              <p><strong>色彩搭配靈感：</strong>{{ currentDayFlower.colorPalette }}</p>
+            </div>
+            <div class="flower-history-box">
+              <strong>🌿 花卉簡史與故事短文：</strong>
+              <p>{{ currentDayFlower.story }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ==================== 2. 製作排程月曆看板 ==================== -->
+    <main v-else-if="activeTab === 'schedule'" class="tab-panel schedule-container">
       <section v-if="urgentOrders.length > 0" class="urgent-banner">
         <div class="urgent-title">
           <span>🔥 今日急單待辦 ({{ urgentOrders.length }} 筆)</span>
@@ -67,7 +153,7 @@
         <aside class="calendar-view-box">
           <div class="calendar-header">
             <button class="cal-arrow" @click="changeMonth(-1)">◀</button>
-            <h4>{{ calYear }} 年 {{ calMonth + 1 }} 月</h4>
+            <h4>✨ {{ calYear }} 年 {{ calMonth + 1 }} 月 🌸</h4>
             <button class="cal-arrow" @click="changeMonth(1)">▶</button>
             <button class="btn-today-sm" @click="setTodayCal">今日</button>
           </div>
@@ -85,7 +171,7 @@
             >
               <span class="day-num">{{ day.dayNum }}</span>
               <span v-if="getOrderCount(day.dateStr) > 0" class="badge-order-count">
-                {{ getOrderCount(day.dateStr) }} 單
+                🌸 {{ getOrderCount(day.dateStr) }} 單
               </span>
             </div>
           </div>
@@ -101,7 +187,7 @@
             <label>📌 <strong>{{ selectedScheduleDate }} 門市注意事項與備忘：</strong></label>
             <div class="note-row">
               <textarea v-model="currentDayNote" placeholder="在此輸入該日特別注意事項、活動或花材叫貨備忘..." rows="2"></textarea>
-              <button class="btn-save-note" @click="saveDailyNote">儲存備忘</button>
+              <button class="btn-save-note" @click="saveDailyNote">💾 儲存備忘</button>
             </div>
           </div>
 
@@ -139,7 +225,7 @@
       </div>
     </main>
 
-    <!-- ==================== 2. 門市 POS 收銀開單 ==================== -->
+    <!-- ==================== 3. 門市 POS 收銀 ==================== -->
     <main v-else-if="activeTab === 'pos'" class="tab-panel pos-panel">
       <section class="products-section">
         <div class="category-tabs">
@@ -257,7 +343,7 @@
       </aside>
     </main>
 
-    <!-- ==================== 3. 今日交班對帳與留言 ==================== -->
+    <!-- ==================== 4. 今日交班對帳與留言 ==================== -->
     <main v-else-if="activeTab === 'settlement'" class="tab-panel settlement-panel">
       <div class="settlement-card">
         <div class="settlement-header">
@@ -265,9 +351,9 @@
           <div class="staff-selector-box">
             <label>檢視對帳人員：</label>
             <select v-model="currentStaff" class="top-staff-dropdown">
-              <option value="花藝師-宜萱">花藝師 - 宜萱</option>
-              <option value="花藝師-子庭">花藝師 - 子庭</option>
-              <option value="實習花藝助理">實習花藝助理</option>
+              <option value="花藝師-宜萱">🌷 花藝師 - 宜萱</option>
+              <option value="花藝師-子庭">🌷 花藝師 - 子庭</option>
+              <option value="實習花藝助理">🌿 實習花藝助理</option>
             </select>
           </div>
         </div>
@@ -294,7 +380,7 @@
         <div class="handover-memo-box">
           <h4>📝 給下一位值班人員的交班備忘留言</h4>
           <textarea v-model="handoverMemo" placeholder="例如：冰箱鮮花已補水、預留玫瑰花束在工作台下方..." rows="3"></textarea>
-          <button class="btn-save-memo" @click="saveHandoverMemo">儲存交班留言</button>
+          <button class="btn-save-memo" @click="saveHandoverMemo">💾 儲存交班留言</button>
         </div>
 
         <h4 class="sub-title">今日經手明細表</h4>
@@ -319,47 +405,7 @@
       </div>
     </main>
 
-    <!-- ==================== 4. 員工打卡簽到分頁 ==================== -->
-    <main v-else-if="activeTab === 'punch'" class="tab-panel punch-panel">
-      <div class="punch-card-box">
-        <h3>⏰ 墨凝花室 員工考勤簽到打卡</h3>
-        <div class="punch-clock-large">{{ currentTime }}</div>
-        <p class="punch-date">{{ new Date().toLocaleDateString('zh-TW', { dateStyle: 'full' }) }}</p>
-
-        <div class="punch-form">
-          <div class="form-row">
-            <label>請選擇打卡花藝師：</label>
-            <select v-model="punchStaffSelect">
-              <option value="花藝師-宜萱">花藝師 - 宜萱 (編號: 101)</option>
-              <option value="花藝師-子庭">花藝師 - 子庭 (編號: 102)</option>
-              <option value="實習花藝助理">實習花藝助理 (編號: 103)</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>請輸入員工工號：</label>
-            <input type="password" v-model="punchStaffCode" placeholder="請輸入工號 (101, 102, 103)" @keyup.enter="handlePunchAction('clock_in')" />
-          </div>
-          <div class="punch-btn-group">
-            <button class="btn-clock-in" :disabled="isPunching" @click="handlePunchAction('clock_in')">🟢 上班簽到</button>
-            <button class="btn-clock-out" :disabled="isPunching" @click="handlePunchAction('clock_out')">🔴 下班簽退</button>
-          </div>
-        </div>
-
-        <div class="recent-punch-records">
-          <h4>📋 本日打卡紀錄</h4>
-          <div v-if="todayPunchRecords.length === 0" class="no-records">今日尚無打卡紀錄</div>
-          <ul v-else class="punch-list">
-            <li v-for="rec in todayPunchRecords" :key="rec.id">
-              <span>{{ rec.staff_name }}</span>
-              <span :class="rec.action">{{ rec.action === 'clock_in' ? '上班簽到' : '下班簽退' }}</span>
-              <span class="time">{{ new Date(rec.created_at).toLocaleTimeString() }}</span>
-            </li>
-          </ul>
-        </div>
-      </div>
-    </main>
-
-    <!-- ==================== 5. 業績營收報表 (主管專用) ==================== -->
+    <!-- ==================== 5. 主管業績報表 ==================== -->
     <main v-else-if="activeTab === 'reports'" class="tab-panel reports-panel">
       <div v-if="!isReportAuthorized" class="auth-lock-card">
         <h3>🔒 主管業績報表驗證</h3>
@@ -430,7 +476,7 @@ const STAFF_CODE_MAP = {
 }
 
 const currentStaff = ref('花藝師-宜萱')
-const activeTab = ref('schedule')
+const activeTab = ref('punch') // 預設打開第一個分頁：考勤打卡
 const currentTime = ref('')
 let timer = null
 
@@ -438,6 +484,21 @@ const updateClock = () => {
   const now = new Date()
   currentTime.value = now.toLocaleTimeString('zh-TW', { hour12: false })
 }
+
+// 每日花藝靈感日曆動態資料 (依據當日日期自動切換展示)
+const isFlowerCardFlipped = ref(false)
+const currentDayFlower = computed(() => {
+  const now = new Date()
+  const mNames = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']
+  const wNames = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY']
+  
+  // 模擬每日靈感清單
+  const flowers = [
+    { month: mNames[now.getMonth()], day: now.getDate(), weekday: wNames[now.getDay()], emoji: '🌷', nameCn: '鬱金香 (Tulipa gesneriana)', latinName: 'Tulipa gesneriana L.', originAndPeriod: '花期：3~5月；產地：荷蘭、土耳其', colorPalette: '搭配色：柔霧粉、奶油白、草木綠', languageTitle: '永恆的祝福與愛的表白', quote: '生命沒有固定，卻總能開出花。就像你從未來的方向裡，走進我生命裡。', warmNote: '適合搭配尤加利葉與淺色包裝紙。', story: '鬱金香在文藝復興時期被引進歐洲，曾引發著名的「鬱金香狂熱」。其花語象徵著高貴、博愛與祝福。' },
+    { month: mNames[now.getMonth()], day: now.getDate(), weekday: wNames[now.getDay()], emoji: '🌹', nameCn: '經典紅玫瑰 (Rose)', latinName: 'Rosa chinensis Jacq.', originAndPeriod: '花期：全年；產地：厄瓜多、台灣在地', colorPalette: '搭配色：酒紅、古銅金、墨綠', languageTitle: '熱烈、真摯與時光淬煉的愛', quote: '芳芳四溢的福氣，像微風中的花期，溫柔而堅定。', warmNote: '修剪枝條時建議斜剪 45 度以增加吸水面積。', story: '玫瑰自古以來便是愛與美的象徵，希臘神話中更是愛神阿芙蘿黛蒂的化身。' }
+  ]
+  return flowers[now.getDate() % flowers.length]
+})
 
 const punchStaffSelect = ref('花藝師-宜萱')
 const punchStaffCode = ref('')
@@ -458,7 +519,6 @@ const fetchTodayPunch = async () => {
   }
 }
 
-// 考勤打卡：改用最穩健的標準 ISO 格式（加上 8 小時偏移量）
 const handlePunchAction = async (actionType) => {
   if (!punchStaffCode.value) {
     alert('請輸入員工工號！')
@@ -473,7 +533,6 @@ const handlePunchAction = async (actionType) => {
   isPunching.value = true
   const actionText = actionType === 'clock_in' ? '上班簽到' : '下班簽退'
 
-  // 標準安全的時間字串 (UTC+8)
   const now = new Date()
   const twTime = new Date(now.getTime() + (8 * 60 * 60 * 1000))
   const safeIsoString = twTime.toISOString().replace('Z', '+08:00')
@@ -496,7 +555,6 @@ const handlePunchAction = async (actionType) => {
   }
 }
 
-// 排程月曆與每日注意事項筆記
 const todayStr = new Date().toISOString().slice(0, 10)
 const selectedScheduleDate = ref(todayStr)
 const calYear = ref(new Date().getFullYear())
@@ -516,9 +574,7 @@ const saveDailyNote = () => {
   alert(`✅ [${selectedScheduleDate.value}] 門市注意事項已成功儲存！`)
 }
 
-watch(selectedScheduleDate, () => {
-  loadDailyNote()
-})
+watch(selectedScheduleDate, () => { loadDailyNote() })
 
 const setTodayCal = () => {
   const d = new Date()
@@ -653,7 +709,6 @@ const finalAmount = computed(() => Math.max(0, subtotal.value + shippingFee.valu
 const paymentMethod = ref('cash')
 const isSubmitting = ref(false)
 
-// POS 開單：採用標準安全的 ISO 時間字串
 const submitPosOrder = async () => {
   if (cart.value.length === 0 || !ordererName.value || !recipientName.value) {
     alert('請完整填寫訂購人與收件人資訊')
@@ -776,7 +831,7 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand h2 { font-size: 1.1rem; margin: 0; }
 .sub-text { font-size: 0.75rem; color: #cbd5e0; }
-.clock-badge { font-size: 1.2rem; font-weight: bold; letter-spacing: 1px; }
+.clock-badge { font-size: 1.1rem; font-weight: bold; letter-spacing: 1px; color: #f6ad55; }
 .staff-control { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
 .top-staff-dropdown { padding: 5px 10px; border-radius: 4px; border: 1px solid #718096; background: #fff; font-weight: bold; color: #2d3748; }
 
@@ -785,6 +840,43 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 .nav-btn.active { color: #2d3748; border-bottom-color: #8b5e4c; }
 
 .tab-panel { flex: 1; overflow: hidden; padding: 16px; }
+
+/* 考勤打卡與靈感左右分頁排版 */
+.punch-layout-grid { display: flex; gap: 16px; overflow-y: auto; }
+.punch-card-box { flex: 4; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; text-align: center; }
+.punch-clock-large { font-size: 2rem; font-weight: bold; color: #2d3748; letter-spacing: 2px; margin: 8px 0; }
+.punch-date { color: #718096; font-size: 0.9rem; margin-bottom: 16px; }
+.punch-form { text-align: left; margin-bottom: 16px; }
+.punch-btn-group { display: flex; gap: 10px; margin-top: 14px; }
+.btn-clock-in { flex: 1; padding: 10px; background: #2f855a; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+.btn-clock-out { flex: 1; padding: 10px; background: #c53030; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+.recent-punch-records { text-align: left; border-top: 1px solid #edf2f7; padding-top: 10px; }
+.punch-list { list-style: none; padding: 0; margin: 6px 0 0 0; font-size: 0.85rem; }
+.punch-list li { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #edf2f7; }
+
+/* 每日花藝靈感日曆卡片樣式 (參考圖4) */
+.flower-inspiration-card { flex: 6; background: #fdfaf6; border: 1px solid #e2d9d2; border-radius: 8px; padding: 20px; display: flex; flex-direction: column; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+.inspire-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; font-size: 0.95rem; font-weight: bold; color: #744210; }
+.btn-flip { padding: 4px 10px; background: #8b5e4c; color: #fff; border: none; border-radius: 4px; font-size: 0.8rem; cursor: pointer; }
+.inspire-content-box { flex: 1; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #eee; border-radius: 6px; padding: 16px; }
+.inspire-front { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; }
+.date-badge-box { display: flex; flex-direction: column; align-items: center; background: #f7fafc; padding: 6px 16px; border-radius: 6px; border: 1px solid #e2e8f0; }
+.month-txt { font-size: 0.8rem; font-weight: bold; letter-spacing: 1px; color: #718096; }
+.day-num-txt { font-size: 1.8rem; font-weight: bold; color: #8b5e4c; line-height: 1; }
+.week-txt { font-size: 0.75rem; color: #a0aec0; }
+.flower-visual-circle { width: 110px; height: 110px; background: #fefcbf; border-radius: 50%; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 2px dashed #ecc94b; }
+.flower-emoji { font-size: 2.2rem; }
+.flower-name-cn { font-size: 0.8rem; font-weight: bold; color: #744210; margin-top: 2px; }
+.flower-story-section h4 { color: #8b5e4c; margin: 0 0 6px 0; font-size: 1rem; }
+.quote-text { font-style: italic; color: #4a5568; font-size: 0.9rem; line-height: 1.4; margin: 0 0 8px 0; }
+.warm-note { display: block; color: #3182ce; font-size: 0.8rem; background: #ebf8ff; padding: 4px 8px; border-radius: 4px; }
+
+.inspire-back { display: flex; flex-direction: column; gap: 10px; font-size: 0.85rem; text-align: left; }
+.inspire-back h4 { color: #8b5e4c; margin: 0 0 4px 0; }
+.back-info-grid { display: flex; flex-direction: column; gap: 4px; background: #f7fafc; padding: 10px; border-radius: 4px; border: 1px solid #edf2f7; }
+.back-info-grid p { margin: 2px 0; }
+.flower-history-box { background: #fffaf0; border: 1px solid #fbd38d; padding: 10px; border-radius: 4px; }
+.flower-history-box p { margin: 4px 0 0 0; line-height: 1.4; color: #744210; }
 
 /* 排程月曆與急單 */
 .schedule-container { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
@@ -800,7 +892,7 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 
 .schedule-split { display: flex; gap: 16px; flex: 1; overflow: hidden; }
 .calendar-view-box { flex: 4; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 14px; display: flex; flex-direction: column; }
-.calendar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.calendar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-weight: bold; color: #8b5e4c; }
 .cal-arrow, .btn-today-sm { padding: 4px 10px; border: 1px solid #cbd5e0; background: #fff; border-radius: 4px; cursor: pointer; }
 .calendar-week-labels { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: bold; margin-bottom: 6px; color: #718096; font-size: 0.85rem; }
 .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; flex: 1; }
@@ -814,7 +906,7 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 .day-orders-box { flex: 6; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 14px; overflow-y: auto; }
 .day-orders-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 
-/* 每日注意事項筆記樣式 */
+/* 每日注意事項筆記 */
 .daily-note-box { background: #f0fff4; border: 1px solid #c6f6d5; padding: 10px; border-radius: 6px; margin-bottom: 12px; font-size: 0.85rem; }
 .daily-note-box label { display: block; margin-bottom: 4px; color: #22543d; }
 .note-row { display: flex; gap: 6px; }
@@ -874,7 +966,7 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 .pay-btn.active { background: #2d3748; color: #fff; }
 .btn-checkout { width: 100%; padding: 10px; background: #8b5e4c; color: #fff; border: none; border-radius: 6px; font-size: 0.95rem; font-weight: bold; cursor: pointer; }
 
-/* 交班對帳與留言 */
+/* 交班對帳 */
 .settlement-panel { overflow-y: auto; }
 .settlement-card { max-width: 750px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; }
 .settlement-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #edf2f7; padding-bottom: 10px; margin-bottom: 16px; }
@@ -893,19 +985,6 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 .simple-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 0.85rem; }
 .simple-table th, .simple-table td { padding: 8px; border-bottom: 1px solid #edf2f7; text-align: left; }
 .btn-confirm-settle { width: 100%; padding: 12px; background: #2f855a; color: #fff; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; }
-
-/* 考勤打卡 */
-.punch-panel { display: flex; justify-content: center; align-items: center; }
-.punch-card-box { width: 420px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 24px; text-align: center; }
-.punch-clock-large { font-size: 2.2rem; font-weight: bold; color: #2d3748; letter-spacing: 2px; margin: 10px 0; }
-.punch-date { color: #718096; font-size: 0.9rem; margin-bottom: 20px; }
-.punch-form { text-align: left; margin-bottom: 20px; }
-.punch-btn-group { display: flex; gap: 10px; margin-top: 16px; }
-.btn-clock-in { flex: 1; padding: 12px; background: #2f855a; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
-.btn-clock-out { flex: 1; padding: 12px; background: #c53030; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
-.recent-punch-records { text-align: left; border-top: 1px solid #edf2f7; padding-top: 12px; }
-.punch-list { list-style: none; padding: 0; margin: 8px 0 0 0; font-size: 0.85rem; }
-.punch-list li { display: flex; justify-content: space-between; padding: 4px 0; }
 
 /* 主管報表 */
 .reports-panel { overflow-y: auto; }
