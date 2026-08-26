@@ -20,9 +20,8 @@
       </div>
     </div>
 
-    <!-- ==================== 2. 老闆主控台 (驗證成功後呈現) ==================== -->
+    <!-- ==================== 2. 老闆主控台 ==================== -->
     <div v-else class="boss-dashboard">
-      <!-- 頂部導航列 -->
       <header class="boss-topbar">
         <div class="boss-brand">
           <span class="logo-emoji">👑</span>
@@ -43,7 +42,7 @@
             👥 員工資料維護
           </button>
           <button :class="['tab-btn', { active: currentTab === 'flowers' }]" @click="currentTab = 'flowers'">
-            🌸 花材進貨與檔期備忘
+            🌸 花材包材庫存與檔期
           </button>
         </div>
 
@@ -53,9 +52,8 @@
         </div>
       </header>
 
-      <!-- 主要內容區 -->
       <main class="boss-main-content">
-        <!-- ==================== TAB 1: 營收財務報表 (日 / 月 / 年) ==================== -->
+        <!-- ==================== TAB 1: 營收財務報表 ==================== -->
         <section v-if="currentTab === 'revenue'" class="tab-panel">
           <div class="kpi-grid">
             <div class="kpi-card today">
@@ -80,7 +78,6 @@
             </div>
           </div>
 
-          <!-- 花藝師個人業績貢獻與支付方式佔比 -->
           <div class="dual-box-grid">
             <div class="white-card">
               <h4>👩‍🎨 本月花藝師業績貢獻排行</h4>
@@ -121,7 +118,6 @@
             </div>
           </div>
 
-          <!-- 訂單搜尋與明細 -->
           <div class="white-card full-table">
             <div class="table-header-flex">
               <h4>📋 門市營收訂單歷史明細 (共 {{ filteredOrders.length }} 筆)</h4>
@@ -163,7 +159,7 @@
           </div>
         </section>
 
-        <!-- ==================== TAB 2: 員工出缺勤與排班月曆 ==================== -->
+        <!-- ==================== TAB 2: 員工出缺勤排班 ==================== -->
         <section v-else-if="currentTab === 'schedule'" class="tab-panel">
           <div class="attendance-control-bar">
             <div class="month-selector">
@@ -180,7 +176,6 @@
           </div>
 
           <div class="schedule-dashboard-layout">
-            <!-- 左側：月曆排班格 -->
             <div class="white-card att-calendar-card">
               <div class="att-week-labels">
                 <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
@@ -211,7 +206,6 @@
               </div>
             </div>
 
-            <!-- 右側：當月統計匯總與快速設置 -->
             <div class="white-card att-summary-card">
               <h4>📋 {{ attYear }} 年 {{ attMonth + 1 }} 月 各員工出勤統計</h4>
               <div class="staff-att-summary-list">
@@ -285,55 +279,100 @@
           </div>
         </section>
 
-        <!-- ==================== TAB 4: 花材進貨與檔期備忘 ==================== -->
+        <!-- ==================== TAB 4: 花材/包材/卡片分類庫存與檔期 (大幅升級) ==================== -->
         <section v-else-if="currentTab === 'flowers'" class="tab-panel">
           <div class="dual-box-grid">
-            <!-- 花材叫貨與安全庫存備忘 -->
+            <!-- 左側：多分類物料與安全庫存管理 -->
             <div class="white-card">
               <div class="card-head-row">
-                <h4>🌿 每週鮮花與耗材進貨安全庫存</h4>
-                <button class="btn-add-item-sm" @click="addFlowerItem">➕ 新增花材</button>
+                <div>
+                  <h4>🌿 花材、包材與周邊安全庫存管理</h4>
+                  <p class="sub-tip">分類管理鮮花、永生花、包裝紙、花器與卡片耗材</p>
+                </div>
+                <div class="head-btn-group">
+                  <button class="btn-export-sm" @click="exportOrderList">📋 複製叫貨單</button>
+                  <button class="btn-primary-sm" @click="openInvModal(null)">➕ 新增品項</button>
+                </div>
               </div>
-              <table class="mini-table">
-                <thead>
-                  <tr><th>花材名稱</th><th>目前庫存</th><th>安全庫存</th><th>狀態</th><th>操作</th></tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(fl, idx) in flowerInventory" :key="idx">
-                    <td>{{ fl.name }}</td>
-                    <td><input type="number" v-model.number="fl.current" class="num-input" /> 支</td>
-                    <td>{{ fl.safe }} 支</td>
-                    <td>
-                      <span v-if="fl.current <= fl.safe" class="alert-tag">⚠️ 需補貨</span>
-                      <span v-else class="ok-tag">充足</span>
-                    </td>
-                    <td><button class="btn-del-mini" @click="flowerInventory.splice(idx, 1)">✕</button></td>
-                  </tr>
-                </tbody>
-              </table>
+
+              <!-- 分類切換按鈕 -->
+              <div class="inv-category-tabs">
+                <button 
+                  v-for="cat in invCategories" 
+                  :key="cat.key" 
+                  :class="['inv-tab-btn', { active: currentInvCat === cat.key }]" 
+                  @click="currentInvCat = cat.key"
+                >
+                  {{ cat.label }} ({{ getCatItemCount(cat.key) }})
+                </button>
+              </div>
+
+              <div class="table-wrap">
+                <table class="mini-table">
+                  <thead>
+                    <tr>
+                      <th>品項名稱</th>
+                      <th>目前庫存</th>
+                      <th>安全庫存</th>
+                      <th>狀態</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-if="filteredInventory.length === 0">
+                      <td colspan="5" class="empty-cell">此分類尚無品項，請點選上方「新增品項」</td>
+                    </tr>
+                    <tr v-for="item in filteredInventory" :key="item.id">
+                      <td>
+                        <strong>{{ item.name }}</strong>
+                        <small v-if="item.note" class="item-note">{{ item.note }}</small>
+                      </td>
+                      <td>
+                        <div class="stock-input-row">
+                          <input type="number" v-model.number="item.current" class="num-input" @change="saveInventory" />
+                          <span class="unit-txt">{{ item.unit || '支' }}</span>
+                        </div>
+                      </td>
+                      <td>{{ item.safe }} {{ item.unit || '支' }}</td>
+                      <td>
+                        <span v-if="item.current <= item.safe" class="alert-tag">⚠️ 需補貨</span>
+                        <span v-else class="ok-tag">充足</span>
+                      </td>
+                      <td>
+                        <button class="btn-edit-mini" @click="openInvModal(item)">✏️</button>
+                        <button class="btn-del-mini" @click="deleteInvItem(item.id)">✕</button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            <!-- 節慶大檔與行銷推播提醒 -->
+            <!-- 右側：可自訂新增/編輯的節慶檔期備忘清單 -->
             <div class="white-card">
-              <h4>💌 節慶花禮檔期與行銷備忘清單</h4>
-              <ul class="festival-list">
-                <li class="fest-item">
-                  <span class="fest-date">2月</span>
-                  <div class="fest-content"><strong>西洋情人節 🌹</strong><p>提前一個月確認進口厄瓜多玫瑰與紅絲絨包裝紙庫存。</p></div>
-                </li>
-                <li class="fest-item">
-                  <span class="fest-date">5月</span>
-                  <div class="fest-content"><strong>母親節檔期 🌸</strong><p>康乃馨、永生花小夜燈盆花主打，開啟 LINE 官方推播早鳥優惠。</p></div>
-                </li>
-                <li class="fest-item">
-                  <span class="fest-date">6月</span>
-                  <div class="fest-content"><strong>畢業季花束 🌻</strong><p>向日葵、小香風提籃花禮早鳥預購。</p></div>
-                </li>
-                <li class="fest-item">
-                  <span class="fest-date">8月</span>
-                  <div class="fest-content"><strong>七夕情人節 💖</strong><p>主打夢幻粉藍色、落日夕陽微醺感玫瑰花束。</p></div>
-                </li>
-              </ul>
+              <div class="card-head-row">
+                <div>
+                  <h4>💌 節慶花禮檔期與行銷備忘清單</h4>
+                  <p class="sub-tip">規劃大節日花禮主打、提早叫貨與 LINE 推播策略</p>
+                </div>
+                <button class="btn-primary-sm" @click="openFestModal(null)">➕ 新增檔期</button>
+              </div>
+
+              <div class="festival-scroll-list">
+                <div v-for="fest in festivalList" :key="fest.id" class="fest-item-card">
+                  <div class="fest-month-badge">{{ fest.month }}</div>
+                  <div class="fest-content-body">
+                    <div class="fest-title-row">
+                      <strong>{{ fest.title }}</strong>
+                      <div class="fest-actions">
+                        <button class="btn-edit-mini" @click="openFestModal(fest)">✏️</button>
+                        <button class="btn-del-mini" @click="deleteFestival(fest.id)">✕</button>
+                      </div>
+                    </div>
+                    <p class="fest-desc">{{ fest.content }}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -375,7 +414,7 @@
           <label>職位/角色：</label>
           <select v-model="staffForm.role">
             <option value="資深花藝師">資深花藝師</option>
-            <option value="花藝師">花藝師</option>
+            <option value="花藝設計師">花藝設計師</option>
             <option value="實習花藝助理">實習花藝助理</option>
             <option value="門市店長">門市店長</option>
           </select>
@@ -387,6 +426,72 @@
         <div class="modal-actions">
           <button class="btn-cancel" @click="showStaffModal = false">取消</button>
           <button class="btn-confirm" @click="saveStaff">儲存員工</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 彈窗 3: 新增/編輯庫存品項 (升級版) ==================== -->
+    <div v-if="showInvModal" class="modal-overlay">
+      <div class="modal-box">
+        <h3>{{ editingInvId ? '✏️ 編輯物料庫存' : '➕ 新增花材/包材/耗材品項' }}</h3>
+        <div class="form-group">
+          <label>物料類別 *：</label>
+          <select v-model="invForm.category">
+            <option value="fresh">鮮花花材 🌹</option>
+            <option value="preserved">永生/乾燥花 🌸</option>
+            <option value="wrap">包裝紙/緞帶 🎀</option>
+            <option value="vase">花器/盆器 🪴</option>
+            <option value="cards">卡片/周邊耗材 💌</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>品項名稱 *：</label>
+          <input type="text" v-model="invForm.name" placeholder="例如: 厄瓜多進口紅玫瑰、霧光灰包裝紙" />
+        </div>
+        <div class="form-row-2col">
+          <div class="form-group">
+            <label>目前庫存量：</label>
+            <input type="number" v-model.number="invForm.current" />
+          </div>
+          <div class="form-group">
+            <label>安全庫存警示量：</label>
+            <input type="number" v-model.number="invForm.safe" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>計量單位：</label>
+          <input type="text" v-model="invForm.unit" placeholder="例如: 支、卷、個、張、把" />
+        </div>
+        <div class="form-group">
+          <label>備註/色號 (選填)：</label>
+          <input type="text" v-model="invForm.note" placeholder="例如: 雙色粉色、寬度 2.5cm" />
+        </div>
+        <div class="modal-actions">
+          <button class="btn-cancel" @click="showInvModal = false">取消</button>
+          <button class="btn-confirm" @click="saveInvItem">儲存品項</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 彈窗 4: 新增/編輯節慶檔期 ==================== -->
+    <div v-if="showFestModal" class="modal-overlay">
+      <div class="modal-box">
+        <h3>{{ editingFestId ? '✏️ 編輯節慶檔期' : '➕ 新增節慶檔期備忘' }}</h3>
+        <div class="form-group">
+          <label>月份標籤 *：</label>
+          <input type="text" v-model="festForm.month" placeholder="例如: 2月、5月、8月中旬" />
+        </div>
+        <div class="form-group">
+          <label>節慶檔期名稱 *：</label>
+          <input type="text" v-model="festForm.title" placeholder="例如: 西洋情人節 🌹、畢業季早鳥 🌻" />
+        </div>
+        <div class="form-group">
+          <label>檔期備忘與叫貨提醒：</label>
+          <textarea v-model="festForm.content" rows="3" placeholder="例如: 提前一個月確認厄瓜多玫瑰訂購量，並於 LINE 推播早鳥折扣..."></textarea>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-cancel" @click="showFestModal = false">取消</button>
+          <button class="btn-confirm" @click="saveFestItem">儲存檔期</button>
         </div>
       </div>
     </div>
@@ -437,7 +542,7 @@ const saveNewPassword = () => {
   pwdForm.value = { old: '', newPwd: '' }
 }
 
-// ==================== 2. 導航與營收報表 ====================
+// ==================== 2. 營收報表 ====================
 const currentTab = ref('revenue')
 const allOrders = ref([])
 const searchOrderKey = ref('')
@@ -508,11 +613,11 @@ const paymentBreakdown = computed(() => {
   return res
 })
 
-// ==================== 3. 員工出缺勤排班月曆 ====================
+// ==================== 3. 員工出缺勤排班 ====================
 const attYear = ref(new Date().getFullYear())
 const attMonth = ref(new Date().getMonth())
 const selectedAttDate = ref(todayStr)
-const attendanceRecords = ref({}) // { '2026-08-26': { '花藝師-宜萱': 'work' } }
+const attendanceRecords = ref({})
 
 const loadAttendance = () => {
   const saved = localStorage.getItem('moni_attendance_roster')
@@ -546,12 +651,14 @@ const attCalendarDays = computed(() => {
   }
   const remaining = 42 - days.length
   for (let i = 1; i <= remaining; i++) {
-    const m = attMonth.value + 2 > 12 ? 1 : attMonth.value + 2
+    const m = calMonthSafe(attMonth.value + 2)
     const y = attMonth.value + 2 > 12 ? attYear.value + 1 : attYear.value
     days.push({ dayNum: i, dateStr: `${y}-${String(m).padStart(2, '0')}-${String(i).padStart(2, '0')}`, currentMonth: false })
   }
   return days
 })
+
+const calMonthSafe = (m) => m > 12 ? 1 : m
 
 const getStaffStatus = (dateStr, staffName) => attendanceRecords.value[dateStr]?.[staffName] || 'work'
 const getStaffStatusShort = (dateStr, staffName) => ({ work: '班', off: '休', special: '特', sick: '假' }[getStaffStatus(dateStr, staffName)] || '班')
@@ -635,20 +742,165 @@ const deleteStaff = (id) => {
   }
 }
 
-// ==================== 5. 花材庫存管理 ====================
-const flowerInventory = ref([
-  { name: '厄瓜多進口紅玫瑰', current: 15, safe: 30 },
-  { name: '荷蘭重瓣粉鬱金香', current: 25, safe: 20 },
-  { name: '日本進口焦糖桔梗', current: 10, safe: 25 },
-  { name: '銀葉尤加利葉 (把)', current: 8, safe: 10 }
+// ==================== 5. 花材/包材/卡片分類庫存管理 (全面升級) ====================
+const invCategories = [
+  { key: 'all', label: '全部品項' },
+  { key: 'fresh', label: '鮮花花材 🌹' },
+  { key: 'preserved', label: '永生/乾燥 🌸' },
+  { key: 'wrap', label: '包裝/緞帶 🎀' },
+  { key: 'vase', label: '花器/盆器 🪴' },
+  { key: 'cards', label: '卡片/耗材 💌' }
+]
+const currentInvCat = ref('all')
+
+const inventoryList = ref([
+  { id: '1', category: 'fresh', name: '厄瓜多進口紅玫瑰', current: 15, safe: 30, unit: '支', note: '長度 60cm' },
+  { id: '2', category: 'fresh', name: '荷蘭重瓣粉鬱金香', current: 25, safe: 20, unit: '支', note: '冷藏保存' },
+  { id: '3', category: 'fresh', name: '日本進口焦糖桔梗', current: 10, safe: 25, unit: '支', note: '熱門搭配花' },
+  { id: '4', category: 'fresh', name: '銀葉尤加利葉', current: 8, safe: 10, unit: '把', note: '常備葉材' },
+  { id: '5', category: 'preserved', name: '日本大地農園不凋玫瑰 (奶茶色)', current: 12, safe: 15, unit: '朵', note: 'M號花頭' },
+  { id: '6', category: 'wrap', name: '韓風霧面果凍防水包裝紙 (白)', current: 18, safe: 20, unit: '卷', note: '每卷 10米' },
+  { id: '7', category: 'wrap', name: '法式雙面絲絨緞帶 (酒紅 2.5cm)', current: 4, safe: 5, unit: '卷', note: '情人節大檔專用' },
+  { id: '8', category: 'vase', name: '復古刷舊陶盆 (小)', current: 6, safe: 10, unit: '個', note: '開幕盆花常用' },
+  { id: '9', category: 'cards', name: '燙金手寫風對折祝福卡片', current: 35, safe: 50, unit: '張', note: '附牛皮信封' }
 ])
 
-const addFlowerItem = () => {
-  const name = prompt('請輸入新花材名稱：')
-  if (name) flowerInventory.value.push({ name, current: 20, safe: 20 })
+const showInvModal = ref(false)
+const editingInvId = ref(null)
+const invForm = ref({ category: 'fresh', name: '', current: 20, safe: 20, unit: '支', note: '' })
+
+const loadInventory = () => {
+  const saved = localStorage.getItem('moni_inventory_list')
+  if (saved) inventoryList.value = JSON.parse(saved)
 }
 
-// 格式轉換器
+const saveInventory = () => {
+  localStorage.setItem('moni_inventory_list', JSON.stringify(inventoryList.value))
+}
+
+const filteredInventory = computed(() => {
+  if (currentInvCat.value === 'all') return inventoryList.value
+  return inventoryList.value.filter(i => i.category === currentInvCat.value)
+})
+
+const getCatItemCount = (catKey) => {
+  if (catKey === 'all') return inventoryList.value.length
+  return inventoryList.value.filter(i => i.category === catKey).length
+}
+
+const openInvModal = (item) => {
+  if (item) {
+    editingInvId.value = item.id
+    invForm.value = { ...item }
+  } else {
+    editingInvId.value = null
+    invForm.value = { 
+      category: currentInvCat.value === 'all' ? 'fresh' : currentInvCat.value, 
+      name: '', 
+      current: 20, 
+      safe: 20, 
+      unit: '支', 
+      note: '' 
+    }
+  }
+  showInvModal.value = true
+}
+
+const saveInvItem = () => {
+  if (!invForm.value.name.trim()) {
+    alert('請輸入品項名稱！')
+    return
+  }
+  if (editingInvId.value) {
+    const idx = inventoryList.value.findIndex(i => i.id === editingInvId.value)
+    if (idx !== -1) inventoryList.value[idx] = { ...invForm.value, id: editingInvId.value }
+  } else {
+    inventoryList.value.push({ ...invForm.value, id: String(Date.now()) })
+  }
+  saveInventory()
+  showInvModal.value = false
+  alert('✅ 品項庫存已成功儲存！')
+}
+
+const deleteInvItem = (id) => {
+  if (confirm('確定要刪除此品項嗎？')) {
+    inventoryList.value = inventoryList.value.filter(i => i.id !== id)
+    saveInventory()
+  }
+}
+
+// 快速匯出採購單
+const exportOrderList = () => {
+  const lowStock = inventoryList.value.filter(i => i.current <= i.safe)
+  if (lowStock.length === 0) {
+    alert('✨ 太棒了！目前所有花材與耗材庫存都在安全範圍內，無需補貨。')
+    return
+  }
+  let text = `🌸【墨凝花室 補貨採購清單】(${todayStr})\n------------------------\n`
+  lowStock.forEach((i, idx) => {
+    const need = Math.max(0, i.safe * 2 - i.current)
+    text += `${idx + 1}. ${i.name}：現有 ${i.current} ${i.unit} (建議補進: ${need} ${i.unit})\n`
+  })
+  navigator.clipboard.writeText(text)
+  alert(`📋 已將以下叫貨清單複製至剪貼簿：\n\n${text}`)
+}
+
+// ==================== 6. 節慶檔期備忘清單 ====================
+const festivalList = ref([
+  { id: '1', month: '2月', title: '西洋情人節 🌹', content: '提前一個月確認進口厄瓜多玫瑰與紅絲絨包裝紙庫存，規劃早鳥優惠組合。' },
+  { id: '2', month: '5月', title: '母親節檔期 🌸', content: '康乃馨、永生花小夜燈盆花主打，開啟 LINE 官方推播早鳥預約。' },
+  { id: '3', month: '6月', title: '畢業季花束 🌻', content: '向日葵、小香風提籃花禮早鳥預購，加強單支花束備料。' },
+  { id: '4', month: '8月', title: '七夕情人節 💖', content: '主打夢幻粉藍色、落日夕陽微醺感玫瑰花束與永生花球。' }
+])
+
+const showFestModal = ref(false)
+const editingFestId = ref(null)
+const festForm = ref({ month: '', title: '', content: '' })
+
+const loadFestivals = () => {
+  const saved = localStorage.getItem('moni_festival_list')
+  if (saved) festivalList.value = JSON.parse(saved)
+}
+
+const saveFestivals = () => {
+  localStorage.setItem('moni_festival_list', JSON.stringify(festivalList.value))
+}
+
+const openFestModal = (fest) => {
+  if (fest) {
+    editingFestId.value = fest.id
+    festForm.value = { ...fest }
+  } else {
+    editingFestId.value = null
+    festForm.value = { month: '', title: '', content: '' }
+  }
+  showFestModal.value = true
+}
+
+const saveFestItem = () => {
+  if (!festForm.value.month || !festForm.value.title) {
+    alert('請填寫月份與檔期名稱！')
+    return
+  }
+  if (editingFestId.value) {
+    const idx = festivalList.value.findIndex(f => f.id === editingFestId.value)
+    if (idx !== -1) festivalList.value[idx] = { ...festForm.value, id: editingFestId.value }
+  } else {
+    festivalList.value.push({ ...festForm.value, id: String(Date.now()) })
+  }
+  saveFestivals()
+  showFestModal.value = false
+  alert('✅ 節慶檔期備忘已更新！')
+}
+
+const deleteFestival = (id) => {
+  if (confirm('確定要刪除此檔期備忘嗎？')) {
+    festivalList.value = festivalList.value.filter(f => f.id !== id)
+    saveFestivals()
+  }
+}
+
+// 格式轉換
 const formatStatus = (s) => ({ PENDING: '待付款', PAID: '已付款', in_production: '製作中', delivering: '配送中', completed: '已完成' }[s] || s)
 const formatDeliveryMethod = (m) => ({ black_cat: '黑貓宅配', express_taipei_1: '雙北1', express_taipei_2: '雙北2', store_pickup: '自取', cvs_familymart: '全家', cvs_711: '7-11' }[m] || m || '自取')
 const formatPaymentMethod = (m) => ({ cash: '現金', linepay: 'LINE Pay', credit_card: '刷卡', transfer: '轉帳' }[m] || m || '現金')
@@ -656,6 +908,8 @@ const formatPaymentMethod = (m) => ({ cash: '現金', linepay: 'LINE Pay', credi
 onMounted(() => {
   loadAttendance()
   loadStaffList()
+  loadInventory()
+  loadFestivals()
 })
 </script>
 
@@ -691,7 +945,7 @@ onMounted(() => {
 .boss-main-content { flex: 1; overflow-y: auto; padding: 20px; }
 .tab-panel { display: flex; flex-direction: column; gap: 16px; max-width: 1400px; margin: 0 auto; }
 
-/* KPI 總覽卡片 */
+/* KPI 卡片 */
 .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 .kpi-card { background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 16px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
 .kpi-card.today { border-left: 4px solid #3182ce; }
@@ -702,10 +956,10 @@ onMounted(() => {
 .kpi-val { font-size: 1.6rem; font-weight: bold; color: #2d3748; }
 .kpi-foot { font-size: 0.75rem; color: #a0aec0; }
 
-/* 卡片與網格 */
 .dual-box-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .white-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-.white-card h4 { margin: 0 0 12px 0; font-size: 1rem; color: #2d3748; }
+.white-card h4 { margin: 0 0 4px 0; font-size: 1rem; color: #2d3748; }
+.sub-tip { margin: 0 0 12px 0; font-size: 0.8rem; color: #718096; }
 
 /* 業績進度條 */
 .staff-perf-list { display: flex; flex-direction: column; gap: 12px; }
@@ -786,27 +1040,46 @@ onMounted(() => {
 .btn-edit-sm { background: #ebf8ff; color: #3182ce; border: 1px solid #bee3f8; }
 .btn-del-sm { background: #fff5f5; color: #e53e3e; border: 1px solid #fed7d7; }
 
-/* 花材庫存與節慶 */
-.card-head-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-.btn-add-item-sm { padding: 4px 10px; background: #38a169; color: #fff; border: none; border-radius: 4px; font-size: 0.75rem; cursor: pointer; }
+/* 分類庫存標籤與操作 (升級) */
+.card-head-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.head-btn-group { display: flex; gap: 8px; }
+.btn-primary-sm { padding: 6px 12px; background: #8b5e4c; color: #fff; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: pointer; }
+.btn-export-sm { padding: 6px 12px; background: #3182ce; color: #fff; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: pointer; }
+
+.inv-category-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.inv-tab-btn { padding: 5px 10px; border: 1px solid #cbd5e0; background: #f7fafc; border-radius: 16px; font-size: 0.78rem; cursor: pointer; color: #4a5568; }
+.inv-tab-btn.active { background: #8b5e4c; color: #fff; border-color: #8b5e4c; font-weight: bold; }
+
 .mini-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-.mini-table th, .mini-table td { padding: 8px; border-bottom: 1px solid #edf2f7; }
-.num-input { width: 50px; padding: 4px; text-align: center; border: 1px solid #cbd5e0; border-radius: 4px; }
+.mini-table th, .mini-table td { padding: 8px; border-bottom: 1px solid #edf2f7; text-align: left; }
+.mini-table th { background: #f7fafc; color: #718096; }
+.empty-cell { text-align: center; color: #a0aec0; padding: 20px 0; }
+.item-note { display: block; font-size: 0.7rem; color: #a0aec0; }
+.stock-input-row { display: flex; align-items: center; gap: 4px; }
+.num-input { width: 50px; padding: 4px; text-align: center; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 0.85rem; font-weight: bold; }
+.unit-txt { font-size: 0.8rem; color: #718096; }
 .alert-tag { background: #fed7d7; color: #c53030; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
 .ok-tag { background: #c6f6d5; color: #22543d; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; }
-.btn-del-mini { background: none; border: none; color: #e53e3e; cursor: pointer; font-weight: bold; }
-.festival-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
-.fest-item { display: flex; gap: 14px; background: #fffaf0; border: 1px solid #feebc8; border-radius: 6px; padding: 10px; }
-.fest-date { width: 44px; height: 44px; background: #8b5e4c; color: #fff; border-radius: 6px; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 0.85rem; }
-.fest-content strong { color: #8b5e4c; font-size: 0.9rem; }
-.fest-content p { margin: 2px 0 0 0; font-size: 0.8rem; color: #744210; }
+.btn-edit-mini { background: #ebf8ff; border: 1px solid #bee3f8; color: #3182ce; border-radius: 4px; cursor: pointer; font-size: 0.75rem; padding: 2px 6px; margin-right: 4px; }
+.btn-del-mini { background: #fff5f5; border: 1px solid #fed7d7; color: #e53e3e; border-radius: 4px; cursor: pointer; font-size: 0.75rem; padding: 2px 6px; }
+
+/* 節慶檔期備忘清單 */
+.festival-scroll-list { display: flex; flex-direction: column; gap: 10px; max-height: 480px; overflow-y: auto; }
+.fest-item-card { display: flex; gap: 14px; background: #fffaf0; border: 1px solid #feebc8; border-radius: 6px; padding: 12px; }
+.fest-month-badge { width: 50px; height: 50px; background: #8b5e4c; color: #fff; border-radius: 8px; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 0.9rem; flex-shrink: 0; }
+.fest-content-body { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.fest-title-row { display: flex; justify-content: space-between; align-items: center; }
+.fest-title-row strong { color: #8b5e4c; font-size: 0.95rem; }
+.fest-desc { margin: 0; font-size: 0.82rem; color: #744210; line-height: 1.4; }
 
 /* 彈窗樣式 */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 999; }
-.modal-box { background: #fff; border-radius: 8px; width: 400px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
+.modal-box { background: #fff; border-radius: 8px; width: 440px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
 .modal-box h3 { margin: 0 0 16px 0; font-size: 1.1rem; color: #2d3748; }
 .form-group { margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; }
-.form-group input, .form-group select { padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 0.85rem; }
+.form-group input, .form-group select, .form-group textarea { padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 0.85rem; box-sizing: border-box; }
+.form-row-2col { display: flex; gap: 10px; }
+.form-row-2col .form-group { flex: 1; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .btn-cancel { padding: 6px 14px; background: #edf2f7; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; }
 .btn-confirm { padding: 6px 16px; background: #8b5e4c; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
