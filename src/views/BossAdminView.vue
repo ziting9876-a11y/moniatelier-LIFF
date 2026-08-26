@@ -516,6 +516,7 @@ const handleLogin = () => {
     isAuthenticated.value = true
     currentAdminPassword.value = saved
     fetchOrders()
+    fetchAllData()
   } else {
     alert('❌ 密碼錯誤，請重新輸入！')
   }
@@ -542,7 +543,7 @@ const saveNewPassword = () => {
   pwdForm.value = { old: '', newPwd: '' }
 }
 
-// ==================== 2. 營收報表 ====================
+// ==================== 2. 營收報表 (Supabase) ====================
 const currentTab = ref('revenue')
 const allOrders = ref([])
 const searchOrderKey = ref('')
@@ -613,25 +614,39 @@ const paymentBreakdown = computed(() => {
   return res
 })
 
-// ==================== 3. 員工出缺勤排班 ====================
+// ==================== 3. 員工排班出缺勤 (Supabase: staff_roster) ====================
 const attYear = ref(new Date().getFullYear())
 const attMonth = ref(new Date().getMonth())
 const selectedAttDate = ref(todayStr)
-const attendanceRecords = ref({})
+const attendanceRecords = ref({}) // { '2026-08-26': { '花藝師-宜萱': 'work' } }
 
-const loadAttendance = () => {
-  const saved = localStorage.getItem('moni_attendance_roster')
-  if (saved) attendanceRecords.value = JSON.parse(saved)
-}
-
-const saveAttendance = () => {
-  localStorage.setItem('moni_attendance_roster', JSON.stringify(attendanceRecords.value))
+const fetchAttendance = async () => {
+  const start = `${attYear.value}-${String(attMonth.value + 1).padStart(2, '0')}-01`
+  const end = `${attYear.value}-${String(attMonth.value + 1).padStart(2, '0')}-31`
+  try {
+    const { data, error } = await supabase
+      .from('staff_roster')
+      .select('*')
+      .gte('roster_date', start)
+      .lte('roster_date', end)
+    if (!error && data) {
+      const map = {}
+      data.forEach(r => {
+        if (!map[r.roster_date]) map[r.roster_date] = {}
+        map[r.roster_date][r.staff_name] = r.status
+      })
+      attendanceRecords.value = map
+    }
+  } catch (err) {
+    console.error('載入排班失敗:', err)
+  }
 }
 
 const changeAttMonth = (delta) => {
   attMonth.value += delta
   if (attMonth.value < 0) { attMonth.value = 11; attYear.value -= 1 }
   else if (attMonth.value > 11) { attMonth.value = 0; attYear.value += 1 }
+  fetchAttendance()
 }
 
 const attCalendarDays = computed(() => {
@@ -651,23 +666,30 @@ const attCalendarDays = computed(() => {
   }
   const remaining = 42 - days.length
   for (let i = 1; i <= remaining; i++) {
-    const m = calMonthSafe(attMonth.value + 2)
+    const m = attMonth.value + 2 > 12 ? 1 : attMonth.value + 2
     const y = attMonth.value + 2 > 12 ? attYear.value + 1 : attYear.value
     days.push({ dayNum: i, dateStr: `${y}-${String(m).padStart(2, '0')}-${String(i).padStart(2, '0')}`, currentMonth: false })
   }
   return days
 })
 
-const calMonthSafe = (m) => m > 12 ? 1 : m
-
 const getStaffStatus = (dateStr, staffName) => attendanceRecords.value[dateStr]?.[staffName] || 'work'
 const getStaffStatusShort = (dateStr, staffName) => ({ work: '班', off: '休', special: '特', sick: '假' }[getStaffStatus(dateStr, staffName)] || '班')
 const getStaffStatusClass = (dateStr, staffName) => getStaffStatus(dateStr, staffName)
 
-const setStaffStatus = (dateStr, staffName, status) => {
+const setStaffStatus = async (dateStr, staffName, status) => {
   if (!attendanceRecords.value[dateStr]) attendanceRecords.value[dateStr] = {}
   attendanceRecords.value[dateStr][staffName] = status
-  saveAttendance()
+
+  try {
+    await supabase.from('staff_roster').upsert({
+      roster_date: dateStr,
+      staff_name: staffName,
+      status: status
+    }, { onConflict: 'roster_date,staff_name' })
+  } catch (err) {
+    console.error('更新排班失敗:', err)
+  }
 }
 
 const toggleStaffStatus = (dateStr, staffName) => {
@@ -688,30 +710,25 @@ const getMonthlyCount = (staffName, status) => {
   return cnt
 }
 
-// ==================== 4. 員工資料管理 ====================
-const staffList = ref([
-  { id: '1', code: '101', name: '花藝師-宜萱', role: '資深花藝師', phone: '0912-345-678', startDate: '2023-03-01' },
-  { id: '2', code: '102', name: '花藝師-子庭', role: '花藝設計師', phone: '0988-765-432', startDate: '2023-08-15' },
-  { id: '3', code: '103', name: '實習花藝助理', role: '實習助理', phone: '0955-112-233', startDate: '2024-02-01' }
-])
-
+// ==================== 4. 員工資料管理 (Supabase: staff_members) ====================
+const staffList = ref([])
 const showStaffModal = ref(false)
 const editingStaffId = ref(null)
 const staffForm = ref({ code: '', name: '', role: '花藝師', phone: '' })
 
-const loadStaffList = () => {
-  const saved = localStorage.getItem('moni_staff_list')
-  if (saved) staffList.value = JSON.parse(saved)
-}
-
-const saveStaffList = () => {
-  localStorage.setItem('moni_staff_list', JSON.stringify(staffList.value))
+const fetchStaffList = async () => {
+  try {
+    const { data, error } = await supabase.from('staff_members').select('*').order('code', { ascending: true })
+    if (!error && data) staffList.value = data
+  } catch (err) {
+    console.error('讀取員工資料失敗:', err)
+  }
 }
 
 const openStaffModal = (st) => {
   if (st) {
     editingStaffId.value = st.id
-    staffForm.value = { ...st }
+    staffForm.value = { code: st.code, name: st.name, role: st.role, phone: st.phone || '' }
   } else {
     editingStaffId.value = null
     staffForm.value = { code: '', name: '', role: '花藝師', phone: '' }
@@ -719,30 +736,47 @@ const openStaffModal = (st) => {
   showStaffModal.value = true
 }
 
-const saveStaff = () => {
+const saveStaff = async () => {
   if (!staffForm.value.code || !staffForm.value.name) {
     alert('請輸入工號與姓名！')
     return
   }
-  if (editingStaffId.value) {
-    const idx = staffList.value.findIndex(s => s.id === editingStaffId.value)
-    if (idx !== -1) staffList.value[idx] = { ...staffForm.value, id: editingStaffId.value }
-  } else {
-    staffList.value.push({ ...staffForm.value, id: String(Date.now()) })
+  try {
+    if (editingStaffId.value) {
+      await supabase.from('staff_members').update({
+        code: staffForm.value.code,
+        name: staffForm.value.name,
+        role: staffForm.value.role,
+        phone: staffForm.value.phone
+      }).eq('id', editingStaffId.value)
+    } else {
+      await supabase.from('staff_members').insert([{
+        code: staffForm.value.code,
+        name: staffForm.value.name,
+        role: staffForm.value.role,
+        phone: staffForm.value.phone
+      }])
+    }
+    await fetchStaffList()
+    showStaffModal.value = false
+    alert('✅ 員工資料已成功儲存至資料庫！')
+  } catch (err) {
+    alert('儲存失敗，工號可能重複或網路異常')
   }
-  saveStaffList()
-  showStaffModal.value = false
-  alert('✅ 員工資料已成功更新！')
 }
 
-const deleteStaff = (id) => {
+const deleteStaff = async (id) => {
   if (confirm('確定要刪除此位員工資料嗎？')) {
-    staffList.value = staffList.value.filter(s => s.id !== id)
-    saveStaffList()
+    try {
+      await supabase.from('staff_members').delete().eq('id', id)
+      await fetchStaffList()
+    } catch (err) {
+      alert('刪除失敗')
+    }
   }
 }
 
-// ==================== 5. 花材/包材/卡片分類庫存管理 (全面升級) ====================
+// ==================== 5. 物料庫存管理 (Supabase: store_inventory) ====================
 const invCategories = [
   { key: 'all', label: '全部品項' },
   { key: 'fresh', label: '鮮花花材 🌹' },
@@ -752,30 +786,29 @@ const invCategories = [
   { key: 'cards', label: '卡片/耗材 💌' }
 ]
 const currentInvCat = ref('all')
-
-const inventoryList = ref([
-  { id: '1', category: 'fresh', name: '厄瓜多進口紅玫瑰', current: 15, safe: 30, unit: '支', note: '長度 60cm' },
-  { id: '2', category: 'fresh', name: '荷蘭重瓣粉鬱金香', current: 25, safe: 20, unit: '支', note: '冷藏保存' },
-  { id: '3', category: 'fresh', name: '日本進口焦糖桔梗', current: 10, safe: 25, unit: '支', note: '熱門搭配花' },
-  { id: '4', category: 'fresh', name: '銀葉尤加利葉', current: 8, safe: 10, unit: '把', note: '常備葉材' },
-  { id: '5', category: 'preserved', name: '日本大地農園不凋玫瑰 (奶茶色)', current: 12, safe: 15, unit: '朵', note: 'M號花頭' },
-  { id: '6', category: 'wrap', name: '韓風霧面果凍防水包裝紙 (白)', current: 18, safe: 20, unit: '卷', note: '每卷 10米' },
-  { id: '7', category: 'wrap', name: '法式雙面絲絨緞帶 (酒紅 2.5cm)', current: 4, safe: 5, unit: '卷', note: '情人節大檔專用' },
-  { id: '8', category: 'vase', name: '復古刷舊陶盆 (小)', current: 6, safe: 10, unit: '個', note: '開幕盆花常用' },
-  { id: '9', category: 'cards', name: '燙金手寫風對折祝福卡片', current: 35, safe: 50, unit: '張', note: '附牛皮信封' }
-])
+const inventoryList = ref([])
 
 const showInvModal = ref(false)
 const editingInvId = ref(null)
-const invForm = ref({ category: 'fresh', name: '', current: 20, safe: 20, unit: '支', note: '' })
+const invForm = ref({ category: 'fresh', name: '', current_stock: 20, safe_stock: 20, unit: '支', note: '' })
 
-const loadInventory = () => {
-  const saved = localStorage.getItem('moni_inventory_list')
-  if (saved) inventoryList.value = JSON.parse(saved)
-}
-
-const saveInventory = () => {
-  localStorage.setItem('moni_inventory_list', JSON.stringify(inventoryList.value))
+const fetchInventory = async () => {
+  try {
+    const { data, error } = await supabase.from('store_inventory').select('*').order('created_at', { ascending: false })
+    if (!error && data) {
+      inventoryList.value = data.map(item => ({
+        id: item.id,
+        category: item.category,
+        name: item.name,
+        current: item.current_stock,
+        safe: item.safe_stock,
+        unit: item.unit,
+        note: item.note
+      }))
+    }
+  } catch (err) {
+    console.error('讀取庫存失敗:', err)
+  }
 }
 
 const filteredInventory = computed(() => {
@@ -791,45 +824,83 @@ const getCatItemCount = (catKey) => {
 const openInvModal = (item) => {
   if (item) {
     editingInvId.value = item.id
-    invForm.value = { ...item }
+    invForm.value = {
+      category: item.category,
+      name: item.name,
+      current_stock: item.current,
+      safe_stock: item.safe,
+      unit: item.unit,
+      note: item.note || ''
+    }
   } else {
     editingInvId.value = null
-    invForm.value = { 
-      category: currentInvCat.value === 'all' ? 'fresh' : currentInvCat.value, 
-      name: '', 
-      current: 20, 
-      safe: 20, 
-      unit: '支', 
-      note: '' 
+    invForm.value = {
+      category: currentInvCat.value === 'all' ? 'fresh' : currentInvCat.value,
+      name: '',
+      current_stock: 20,
+      safe_stock: 20,
+      unit: '支',
+      note: ''
     }
   }
   showInvModal.value = true
 }
 
-const saveInvItem = () => {
+const saveInvItem = async () => {
   if (!invForm.value.name.trim()) {
     alert('請輸入品項名稱！')
     return
   }
-  if (editingInvId.value) {
-    const idx = inventoryList.value.findIndex(i => i.id === editingInvId.value)
-    if (idx !== -1) inventoryList.value[idx] = { ...invForm.value, id: editingInvId.value }
-  } else {
-    inventoryList.value.push({ ...invForm.value, id: String(Date.now()) })
+  try {
+    if (editingInvId.value) {
+      await supabase.from('store_inventory').update({
+        category: invForm.value.category,
+        name: invForm.value.name,
+        current_stock: invForm.value.current_stock,
+        safe_stock: invForm.value.safe_stock,
+        unit: invForm.value.unit,
+        note: invForm.value.note,
+        updated_at: new Date()
+      }).eq('id', editingInvId.value)
+    } else {
+      await supabase.from('store_inventory').insert([{
+        category: invForm.value.category,
+        name: invForm.value.name,
+        current_stock: invForm.value.current_stock,
+        safe_stock: invForm.value.safe_stock,
+        unit: invForm.value.unit,
+        note: invForm.value.note
+      }])
+    }
+    await fetchInventory()
+    showInvModal.value = false
+    alert('✅ 物料庫存已成功儲存至資料庫！')
+  } catch (err) {
+    alert('儲存失敗')
   }
-  saveInventory()
-  showInvModal.value = false
-  alert('✅ 品項庫存已成功儲存！')
 }
 
-const deleteInvItem = (id) => {
+const saveInventory = async () => {
+  // 當直接在輸入框修改數量時觸發批次/單筆更新
+  for (const item of inventoryList.value) {
+    await supabase.from('store_inventory').update({
+      current_stock: item.current,
+      updated_at: new Date()
+    }).eq('id', item.id)
+  }
+}
+
+const deleteInvItem = async (id) => {
   if (confirm('確定要刪除此品項嗎？')) {
-    inventoryList.value = inventoryList.value.filter(i => i.id !== id)
-    saveInventory()
+    try {
+      await supabase.from('store_inventory').delete().eq('id', id)
+      await fetchInventory()
+    } catch (err) {
+      alert('刪除失敗')
+    }
   }
 }
 
-// 快速匯出採購單
 const exportOrderList = () => {
   const lowStock = inventoryList.value.filter(i => i.current <= i.safe)
   if (lowStock.length === 0) {
@@ -845,31 +916,25 @@ const exportOrderList = () => {
   alert(`📋 已將以下叫貨清單複製至剪貼簿：\n\n${text}`)
 }
 
-// ==================== 6. 節慶檔期備忘清單 ====================
-const festivalList = ref([
-  { id: '1', month: '2月', title: '西洋情人節 🌹', content: '提前一個月確認進口厄瓜多玫瑰與紅絲絨包裝紙庫存，規劃早鳥優惠組合。' },
-  { id: '2', month: '5月', title: '母親節檔期 🌸', content: '康乃馨、永生花小夜燈盆花主打，開啟 LINE 官方推播早鳥預約。' },
-  { id: '3', month: '6月', title: '畢業季花束 🌻', content: '向日葵、小香風提籃花禮早鳥預購，加強單支花束備料。' },
-  { id: '4', month: '8月', title: '七夕情人節 💖', content: '主打夢幻粉藍色、落日夕陽微醺感玫瑰花束與永生花球。' }
-])
-
+// ==================== 6. 節慶檔期備忘 (Supabase: store_festivals) ====================
+const festivalList = ref([])
 const showFestModal = ref(false)
 const editingFestId = ref(null)
 const festForm = ref({ month: '', title: '', content: '' })
 
-const loadFestivals = () => {
-  const saved = localStorage.getItem('moni_festival_list')
-  if (saved) festivalList.value = JSON.parse(saved)
-}
-
-const saveFestivals = () => {
-  localStorage.setItem('moni_festival_list', JSON.stringify(festivalList.value))
+const fetchFestivals = async () => {
+  try {
+    const { data, error } = await supabase.from('store_festivals').select('*').order('created_at', { ascending: true })
+    if (!error && data) festivalList.value = data
+  } catch (err) {
+    console.error('讀取節慶檔期失敗:', err)
+  }
 }
 
 const openFestModal = (fest) => {
   if (fest) {
     editingFestId.value = fest.id
-    festForm.value = { ...fest }
+    festForm.value = { month: fest.month, title: fest.title, content: fest.content || '' }
   } else {
     editingFestId.value = null
     festForm.value = { month: '', title: '', content: '' }
@@ -877,27 +942,50 @@ const openFestModal = (fest) => {
   showFestModal.value = true
 }
 
-const saveFestItem = () => {
+const saveFestItem = async () => {
   if (!festForm.value.month || !festForm.value.title) {
     alert('請填寫月份與檔期名稱！')
     return
   }
-  if (editingFestId.value) {
-    const idx = festivalList.value.findIndex(f => f.id === editingFestId.value)
-    if (idx !== -1) festivalList.value[idx] = { ...festForm.value, id: editingFestId.value }
-  } else {
-    festivalList.value.push({ ...festForm.value, id: String(Date.now()) })
+  try {
+    if (editingFestId.value) {
+      await supabase.from('store_festivals').update({
+        month: festForm.value.month,
+        title: festForm.value.title,
+        content: festForm.value.content
+      }).eq('id', editingFestId.value)
+    } else {
+      await supabase.from('store_festivals').insert([{
+        month: festForm.value.month,
+        title: festForm.value.title,
+        content: festForm.value.content
+      }])
+    }
+    await fetchFestivals()
+    showFestModal.value = false
+    alert('✅ 節慶檔期已成功儲存至資料庫！')
+  } catch (err) {
+    alert('儲存失敗')
   }
-  saveFestivals()
-  showFestModal.value = false
-  alert('✅ 節慶檔期備忘已更新！')
 }
 
-const deleteFestival = (id) => {
+const deleteFestival = async (id) => {
   if (confirm('確定要刪除此檔期備忘嗎？')) {
-    festivalList.value = festivalList.value.filter(f => f.id !== id)
-    saveFestivals()
+    try {
+      await supabase.from('store_festivals').delete().eq('id', id)
+      await fetchFestivals()
+    } catch (err) {
+      alert('刪除失敗')
+    }
   }
+}
+
+// 統一初始化載入
+const fetchAllData = () => {
+  fetchStaffList()
+  fetchAttendance()
+  fetchInventory()
+  fetchFestivals()
 }
 
 // 格式轉換
@@ -906,10 +994,7 @@ const formatDeliveryMethod = (m) => ({ black_cat: '黑貓宅配', express_taipei
 const formatPaymentMethod = (m) => ({ cash: '現金', linepay: 'LINE Pay', credit_card: '刷卡', transfer: '轉帳' }[m] || m || '現金')
 
 onMounted(() => {
-  loadAttendance()
-  loadStaffList()
-  loadInventory()
-  loadFestivals()
+  fetchAllData()
 })
 </script>
 
