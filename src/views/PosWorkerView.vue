@@ -22,7 +22,7 @@
       </div>
     </header>
 
-    <!-- 導航分頁：已移除主管報表，保留前四個現場核心分頁 -->
+    <!-- 導航分頁 -->
     <nav class="pos-nav">
       <button :class="['nav-btn', { active: activeTab === 'punch' }]" @click="activeTab = 'punch'">
         ⏰ 員工考勤打卡與美學靈感
@@ -38,7 +38,7 @@
       </button>
     </nav>
 
-    <!-- ==================== 1. 員工考勤打卡與高質感花藝美學靈感 (參考圖58d55d, 58dc84, 58dca5) ==================== -->
+    <!-- ==================== 1. 員工考勤打卡與高質感花藝美學靈感 ==================== -->
     <main v-if="activeTab === 'punch'" class="tab-panel punch-layout-grid">
       <!-- 左側：打卡區 -->
       <div class="punch-card-box">
@@ -78,23 +78,23 @@
         </div>
       </div>
 
-      <!-- 右側：高質感花藝美學與配色靈感 (結合完整花禮實體圖與 HEX 色票) -->
+      <!-- 右側：高質感花藝美學、色彩配色卡與療癒花語靈感 -->
       <div class="flower-inspiration-card">
         <div class="inspire-header">
-          <span>🎨 每日高級自然色彩與花藝靈感搭配 (ADVANCED NATURAL COLOR MATCHING)</span>
+          <span>🎨 每日高級自然色彩與療癒花語靈感 (ADVANCED FLOWER INSPIRATION)</span>
           <button class="btn-switch-style" @click="nextInspiration">🔄 切換今日靈感</button>
         </div>
 
         <div class="inspire-display-box">
-          <!-- 左側：實體花禮大圖展示 -->
+          <!-- 左側：實體花禮大圖 -->
           <div class="inspiration-image-container">
             <img :src="currentInspire.imageUrl" :alt="currentInspire.title" class="inspire-real-img" />
             <div class="image-caption-tag">🌸 {{ currentInspire.title }}</div>
           </div>
 
-          <!-- 右側：專業色票與配色解析 -->
+          <!-- 右側：HEX 色票、花材與療癒花語 -->
           <div class="inspiration-palette-details">
-            <div class="palette-title-badge">✨ 三種色彩調和搭配 (3-Color Harmony)</div>
+            <div class="palette-title-badge">✨ 色彩調和搭配與療癒花語</div>
             
             <div class="color-swatches-grid">
               <div v-for="(col, idx) in currentInspire.colors" :key="idx" class="swatch-item">
@@ -108,7 +108,8 @@
 
             <div class="floral-guide-box">
               <p><strong>🌷 主花/花材：</strong>{{ currentInspire.flowers }}</p>
-              <p><strong>🌿 色彩密碼解析：</strong>{{ currentInspire.description }}</p>
+              <p class="language-highlight"><strong>🌸 療癒花語：</strong>{{ currentInspire.languageTitle }}</p>
+              <p class="quote-italic">「{{ currentInspire.quote }}」</p>
               <p class="designer-tip">💡 <strong>花藝師應用建議：</strong>{{ currentInspire.tip }}</p>
             </div>
           </div>
@@ -416,7 +417,7 @@ const updateClock = () => {
   currentTime.value = now.toLocaleTimeString('zh-TW', { hour12: false })
 }
 
-// 每日高質感花藝美學靈感資料庫 (結合實體花禮圖片、配色卡與 HEX 色票)
+// 結合實體花禮大圖、HEX 色票與療癒花語的靈感清單
 const inspirationList = [
   {
     title: '日落夕陽微醺感玫瑰花束',
@@ -427,7 +428,8 @@ const inspirationList = [
       { hex: '#F4E8C1', name: '奶油白 Cream' }
     ],
     flowers: '落日玫瑰、焦糖洋桔梗、黃波斯菊、尤加利葉',
-    description: '運用高對比的暖色調混搭，帶出17世紀荷蘭靜物畫般的油畫復古高級感。',
+    languageTitle: '熱烈、真摯與時光淬煉的溫柔',
+    quote: '生命沒有固定，卻總能開出花。就像你從未來的方向裡，走進我生命裡。',
     tip: '適合搭配深色牛皮紙或古銅金緞帶，展現沉穩奢華質感。'
   },
   {
@@ -439,7 +441,8 @@ const inspirationList = [
       { hex: '#F2F1F8', name: '霧面白 Pearl White' }
     ],
     flowers: '紫羅蘭、小飛燕、紫翠玉、銀葉菊',
-    description: '以優雅的紫色為主調，搭配低彩度的橄欖綠做自然過渡，營造仙氣與浪漫氛圍。',
+    languageTitle: '永恆的祝福與優雅的守候',
+    quote: '芳芳四溢的福氣，像微風中的花期，溫柔而堅定。',
     tip: '器皿建議挑選白瓷或復古刷舊陶盆，更能凸顯法式優雅。'
   }
 ]
@@ -774,27 +777,29 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 .punch-list { list-style: none; padding: 0; margin: 6px 0 0 0; font-size: 0.85rem; }
 .punch-list li { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #edf2f7; }
 
-/* 結合實體圖片與 HEX 色票的高質感靈感卡片 (參考圖58d55d, 58dc84) */
+/* 結合實體花禮圖片、HEX 色票與療癒花語的高質感靈感卡片 */
 .flower-inspiration-card { flex: 6; background: #fdfaf6; border: 1px solid #e2d9d2; border-radius: 8px; padding: 20px; display: flex; flex-direction: column; box-shadow: 0 4px 12px rgba(0,0,0,0.03); overflow-y: auto; }
 .inspire-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; font-size: 0.85rem; font-weight: bold; color: #744210; }
 .btn-switch-style { padding: 4px 10px; background: #8b5e4c; color: #fff; border: none; border-radius: 4px; font-size: 0.8rem; cursor: pointer; }
 
 .inspire-display-box { display: flex; gap: 16px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; align-items: center; }
 .inspiration-image-container { flex: 5; display: flex; flex-direction: column; gap: 6px; align-items: center; }
-.inspire-real-img { width: 100%; height: 220px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e0; }
+.inspire-real-img { width: 100%; height: 210px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e0; }
 .image-caption-tag { font-size: 0.85rem; font-weight: bold; color: #8b5e4c; text-align: center; }
 
-.inspiration-palette-details { flex: 5; display: flex; flex-direction: column; gap: 10px; font-size: 0.85rem; }
-.palette-title-badge { font-weight: bold; color: #744210; background: #fefcbf; padding: 4px 8px; border-radius: 4px; border: 1px solid #ecc94b; text-align: center; font-size: 0.8rem; }
-.color-swatches-grid { display: flex; flex-direction: column; gap: 6px; }
-.swatch-item { display: flex; align-items: center; gap: 10px; background: #f7fafc; padding: 4px 8px; border-radius: 4px; border: 1px solid #edf2f7; }
-.color-block { width: 28px; height: 28px; border-radius: 4px; border: 1px solid #cbd5e0; }
-.color-meta { display: flex; flex-direction: column; font-size: 0.75rem; }
+.inspiration-palette-details { flex: 5; display: flex; flex-direction: column; gap: 8px; font-size: 0.82rem; }
+.palette-title-badge { font-weight: bold; color: #744210; background: #fefcbf; padding: 4px 8px; border-radius: 4px; border: 1px solid #ecc94b; text-align: center; font-size: 0.78rem; }
+.color-swatches-grid { display: flex; flex-direction: column; gap: 5px; }
+.swatch-item { display: flex; align-items: center; gap: 8px; background: #f7fafc; padding: 3px 6px; border-radius: 4px; border: 1px solid #edf2f7; }
+.color-block { width: 24px; height: 24px; border-radius: 4px; border: 1px solid #cbd5e0; }
+.color-meta { display: flex; flex-direction: column; font-size: 0.7rem; }
 .hex-code { font-weight: bold; color: #2d3748; }
 .color-name { color: #718096; }
 
-.floral-guide-box { background: #fffaf0; border: 1px solid #fbd38d; padding: 10px; border-radius: 4px; font-size: 0.8rem; display: flex; flex-direction: column; gap: 4px; }
-.floral-guide-box p { margin: 2px 0; }
+.floral-guide-box { background: #fffaf0; border: 1px solid #fbd38d; padding: 8px; border-radius: 4px; font-size: 0.78rem; display: flex; flex-direction: column; gap: 3px; }
+.floral-guide-box p { margin: 1px 0; }
+.language-highlight { color: #8b5e4c; }
+.quote-italic { font-style: italic; color: #4a5568; }
 .designer-tip { color: #c05621; }
 
 /* 排程月曆與急單 */
