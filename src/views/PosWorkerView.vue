@@ -43,7 +43,6 @@
 
     <!-- ==================== 1. 製作排程月曆看板 ==================== -->
     <main v-if="activeTab === 'schedule'" class="tab-panel schedule-container">
-      <!-- 重新加回的今日急單區 -->
       <section v-if="urgentOrders.length > 0" class="urgent-banner">
         <div class="urgent-title">
           <span>🔥 今日急單待辦 ({{ urgentOrders.length }} 筆)</span>
@@ -98,7 +97,6 @@
             <button class="btn-refresh" @click="fetchScheduleOrders">🔄 重新整理</button>
           </div>
 
-          <!-- 新增：點選日期的注意事項筆記欄位 -->
           <div class="daily-note-box">
             <label>📌 <strong>{{ selectedScheduleDate }} 門市注意事項與備忘：</strong></label>
             <div class="note-row">
@@ -293,7 +291,6 @@
           <div class="breakdown-item"><span>🏦 銀行轉帳</span><strong>NT$ {{ paymentBreakdown.transfer.toLocaleString() }}</strong></div>
         </div>
 
-        <!-- 交班留言區 -->
         <div class="handover-memo-box">
           <h4>📝 給下一位值班人員的交班備忘留言</h4>
           <textarea v-model="handoverMemo" placeholder="例如：冰箱鮮花已補水、預留玫瑰花束在工作台下方..." rows="3"></textarea>
@@ -385,7 +382,6 @@
           <div class="stat-card"><span class="stat-label">本月累計營業額</span><span class="stat-num">NT$ {{ reportStats.monthRevenue.toLocaleString() }}</span><small>{{ reportStats.monthOrders }} 筆訂單</small></div>
         </div>
 
-        <!-- 老闆專屬：各花藝師今日業績統計區塊 -->
         <div class="boss-staff-summary-box">
           <h4>👩‍🎨 各值班花藝師今日業績與筆數統計 (老闆專用)</h4>
           <div class="boss-grid">
@@ -443,7 +439,6 @@ const updateClock = () => {
   currentTime.value = now.toLocaleTimeString('zh-TW', { hour12: false })
 }
 
-// 考勤打卡：改用系統自動產生的標準 ISO 時間戳（徹底解決時差問題）
 const punchStaffSelect = ref('花藝師-宜萱')
 const punchStaffCode = ref('')
 const isPunching = ref(false)
@@ -463,6 +458,7 @@ const fetchTodayPunch = async () => {
   }
 }
 
+// 考勤打卡：改用最穩健的標準 ISO 格式（加上 8 小時偏移量）
 const handlePunchAction = async (actionType) => {
   if (!punchStaffCode.value) {
     alert('請輸入員工工號！')
@@ -477,25 +473,16 @@ const handlePunchAction = async (actionType) => {
   isPunching.value = true
   const actionText = actionType === 'clock_in' ? '上班簽到' : '下班簽退'
 
-  // ✅ 直接透過格式化工具抓取台灣當下的完整字串 (YYYY-MM-DDTHH:mm:ss.sss+08:00)
-const d = new Date()
-const twString = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'Asia/Taipei',
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  fractionalSecondDigits: 3,
-  hour12: false
-}).format(d).replace(', ', 'T') + '+08:00'
+  // 標準安全的時間字串 (UTC+8)
+  const now = new Date()
+  const twTime = new Date(now.getTime() + (8 * 60 * 60 * 1000))
+  const safeIsoString = twTime.toISOString().replace('Z', '+08:00')
 
   try {
     const { error } = await supabase.from('staff_attendance').insert([{
       staff_name: matchedStaff,
       action: actionType,
-      created_at: localIsoString
+      created_at: safeIsoString
     }])
     if (error) throw error
     currentStaff.value = matchedStaff
@@ -596,7 +583,6 @@ const updateOrderStatus = async (orderNo, status) => {
   } catch (err) { alert('更新失敗') }
 }
 
-// POS 商品與開單
 const categories = ['全部', '永生花', '鮮花', '加購']
 const selectedCat = ref('全部')
 const products = ref([])
@@ -667,6 +653,7 @@ const finalAmount = computed(() => Math.max(0, subtotal.value + shippingFee.valu
 const paymentMethod = ref('cash')
 const isSubmitting = ref(false)
 
+// POS 開單：採用標準安全的 ISO 時間字串
 const submitPosOrder = async () => {
   if (cart.value.length === 0 || !ordererName.value || !recipientName.value) {
     alert('請完整填寫訂購人與收件人資訊')
@@ -683,20 +670,9 @@ const submitPosOrder = async () => {
       if (newMem?.[0]) memberId = newMem[0].id
     }
 
-    // ★ 1. 在這裡計算精準的台灣時間字串 (UTC+8)
-    // ✅ 直接透過格式化工具抓取台灣當下的完整字串 (YYYY-MM-DDTHH:mm:ss.sss+08:00)
-const d = new Date()
-const twString = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'Asia/Taipei',
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  fractionalSecondDigits: 3,
-  hour12: false
-}).format(d).replace(', ', 'T') + '+08:00'
+    const now = new Date()
+    const twTime = new Date(now.getTime() + (8 * 60 * 60 * 1000))
+    const safeIsoString = twTime.toISOString().replace('Z', '+08:00')
 
     const orderPayload = {
       order_no: generatedOrderNo,
@@ -716,8 +692,7 @@ const twString = new Intl.DateTimeFormat('en-CA', {
       payment_method: paymentMethod.value,
       shipping_fee: shippingFee.value,
       member_id: memberId,
-      // ★ 2. 將原本的 new Date() 換成帶有 +08:00 的台灣時間字串
-      created_at: localIsoString 
+      created_at: safeIsoString
     }
 
     await supabase.from('orders').insert([orderPayload])
@@ -736,7 +711,6 @@ const twString = new Intl.DateTimeFormat('en-CA', {
   finally { isSubmitting.value = false }
 }
 
-// 交班對帳與留言
 const handoverMemo = ref('')
 const saveHandoverMemo = () => {
   localStorage.setItem('moni_handover_memo', handoverMemo.value)
@@ -758,7 +732,6 @@ const paymentBreakdown = computed(() => {
 })
 const confirmSettlement = () => alert(`✅ [交班核對完成]\n花藝師：${currentStaff.value}\n今日經手總額：NT$ ${staffTodayTotal.value.toLocaleString()}`)
 
-// 主管報表與老闆專屬統計
 const adminKeyInput = ref('')
 const isReportAuthorized = ref(false)
 const verifyAdminKey = () => { if (adminKeyInput.value === 'moni888') isReportAuthorized.value = true; else alert('密碼錯誤') }
